@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.3.20
+ * Version: 0.3.21
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -14,7 +14,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.3.20';
+const ADAPTER_VERSION = '0.3.21';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -73,6 +73,7 @@ class KostalPikoAdapter extends utils.Adapter {
         this._nodes           = {};
         this._pikoEpoch       = null;  // Unix-Sekunden (Geräteinbetriebnahme)
         this._lastImportedTs  = 0;     // ms - zuletzt importierter Timestamp
+        this._lastImportIso   = null;  // ISO-Zeitpunkt des letzten History-Imports
         this._lastHistoryFetch= 0;
 
         this.on('ready',       this._onReady.bind(this));
@@ -157,6 +158,8 @@ class KostalPikoAdapter extends utils.Adapter {
                 this._lastImportedTs = parseInt(st.val) || 0;
                 this._log('INFO', `History-Cursor: ${new Date(this._lastImportedTs).toISOString()}`);
             }
+            const stLi = await this.getStateAsync('history.lastImport');
+            if (stLi && stLi.val) this._lastImportIso = stLi.val;
         } catch (_) {}
 
         this._startWebServer();
@@ -352,6 +355,7 @@ class KostalPikoAdapter extends utils.Adapter {
 
         if (rows.length === 0) {
             this._log('WARN', 'LogDaten.dat: keine verwertbaren Zeilen gefunden');
+            this._historyLoading = false;
             return;
         }
 
@@ -371,7 +375,10 @@ class KostalPikoAdapter extends utils.Adapter {
         this._log('INFO', `${newRows.length} Datenpunkte ${syncAll ? '(alle)' : '(neu)'} → InfluxDB`);
 
         if (newRows.length === 0) {
-            await this.setStateAsync('history.lastImport', { val: new Date().toISOString(), ack: true });
+            this._lastImportIso = new Date().toISOString();
+            await this.setStateAsync('history.lastImport',  { val: this._lastImportIso, ack: true });
+            await this.setStateAsync('history.recordCount', { val: rows.length,            ack: true });
+            this._historyLoading = false;
             return;
         }
 
@@ -392,7 +399,8 @@ class KostalPikoAdapter extends utils.Adapter {
         // Cursor speichern
         this._lastImportedTs = maxTs;
         await this.setStateAsync('history.lastImportedTs', { val: maxTs,                         ack: true });
-        await this.setStateAsync('history.lastImport',     { val: new Date().toISOString(),       ack: true });
+        this._lastImportIso = new Date().toISOString();
+        await this.setStateAsync('history.lastImport',     { val: this._lastImportIso,          ack: true });
         await this.setStateAsync('history.recordCount',    { val: rows.length,                    ack: true });
         await this.setStateAsync('history.newRecords',     { val: newRows.length,                 ack: true });
         await this.setStateAsync('history.oldestRecord',   { val: rows[0].date,                   ack: true });
@@ -670,6 +678,29 @@ class KostalPikoAdapter extends utils.Adapter {
         const sm = html.match(/Anzahl\s+der\s+Energiepulse[^:]*:\s*<b>(\d+)<\/b>/i);
         if (sm) r['info.s0Pulses'] = parseInt(sm[1]);
         return r;
+    }
+
+    _getStringAnalysisConfig() {
+        const { moduleWp, moduleVoc, string1Modules, string2Modules, string3Modules } = this._cfg;
+        if (!moduleVoc || !moduleWp) return { enabled: false, strings: [] };
+        const strings = [];
+        for (const s of [
+            { id: 1, count: string1Modules },
+            { id: 2, count: string2Modules },
+            { id: 3, count: string3Modules },
+        ]) {
+            if (!s.count) continue;
+            const voc = moduleVoc * s.count;
+            strings.push({
+                id              : s.id,
+                modules         : s.count,
+                expectedVoltage : Math.round(voc * 10) / 10,
+                expectedPower   : moduleWp * s.count,
+                mppMin          : Math.round(voc * 0.70 * 10) / 10,
+                mppMax          : Math.round(voc * 0.88 * 10) / 10,
+            });
+        }
+        return { enabled: strings.length > 0, strings };
     }
 
     // ─── Modul-Analyse: Soll-Werte berechnen ────────────────────────────────────────
@@ -1215,10 +1246,11 @@ class KostalPikoAdapter extends utils.Adapter {
                 const rows = [...this._lastHistoryRows].reverse();
                 return this._json(res, {
                     rows,
-                    pikoEpoch   : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
-                    recordCount : this._lastHistoryRows.length,
-                    lastImported: this._lastImportedTs ? new Date(this._lastImportedTs).toISOString() : null,
-                    loading     : this._historyLoading || false,
+                    pikoEpoch      : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
+                    recordCount    : this._lastHistoryRows.length,
+                    lastImported   : this._lastImportIso,
+                    loading        : this._historyLoading || false,
+                    stringAnalysis : this._getStringAnalysisConfig(),
                 });
             }
             if (p === '/api/logs')   return this._json(res, { logs: this._logBuffer });
@@ -1234,7 +1266,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 influxEnable   : this._cfg.influxEnable,
                 influxInst     : this._cfg.influxInstance,
                 pikoEpoch      : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
-                lastImported   : this._lastImportedTs ? new Date(this._lastImportedTs).toISOString() : null,
+                lastImported   : this._lastImportIso,
             });
             if (p === '/api/trigger-history') {
                 this._lastHistoryFetch = 0;
@@ -1444,11 +1476,26 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div><div class="muted" style="font-size:10px">Zeitraum</div><div style="font-size:13px;font-weight:600" id="h-rng">--</div></div>
       <div><div class="muted" style="font-size:10px">PIKO in Betrieb seit</div><div style="font-size:13px;font-weight:600" id="h-ep">--</div></div>
       <div><div class="muted" style="font-size:10px">Letzter Import</div><div style="font-size:13px;font-weight:600" id="h-li">--</div></div>
-      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn" onclick="loadHistory()">&#8635; Neu laden</button>
-        <button class="btn" onclick="triggerSync()">&#8635; Neue Punkte sync</button>
-        <button class="btn a" onclick="confirmSyncAll()">&#9733; Sync-All</button>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn" onclick="loadHistory(true)" title="Anzeige aus Server-Speicher neu laden (kein PIKO-Abruf)">&#8635; Anzeige aktualisieren</button>
+        <button class="btn" onclick="triggerSync()" title="LogDaten.dat vom Wechselrichter holen und neue Punkte importieren">&#8595; Vom PIKO laden</button>
+        <button class="btn a" onclick="confirmSyncAll()" title="Gesamte Historie an InfluxDB senden (Cursor zur&uuml;cksetzen)">&#9733; Sync-All</button>
       </div>
+    </div>
+    <div id="histSyncMsg" style="margin-top:8px;font-size:11px;color:var(--mut)"></div>
+    <div style="margin-top:6px;font-size:10px;color:var(--mut);line-height:1.5">
+      <strong>Anzeige aktualisieren</strong> = nur Darstellung neu laden &middot;
+      <strong>Vom PIKO laden</strong> = LogDaten.dat vom Wechselrichter abrufen &middot;
+      <strong>Sync-All</strong> = alle Punkte an InfluxDB (nur wenn aktiviert)
+    </div>
+  </div>
+
+  <!-- String-Analyse für gewählten Zeitraum -->
+  <div class="card" id="hsa-card" style="display:none">
+    <div class="ct"><span class="dot"></span>String-Analyse (gew&auml;hlter Zeitraum)</div>
+    <div class="grid g3" id="hsa-grid"></div>
+    <div style="font-size:10px;color:var(--mut);margin-top:8px">
+      Spannungs-Korridor: 70&ndash;88&thinsp;% von Voc (MPP-Bereich). Gr&uuml;n = im Korridor, Orange = grenzwertig, Rot = au&szlig;erhalb.
     </div>
   </div>
 
@@ -1473,6 +1520,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="grid g2" style="margin-bottom:12px">
     <div class="hc"><div class="hct">String 1 Leistung [W]</div><canvas class="sp" id="sp1"></canvas></div>
     <div class="hc"><div class="hct">String 2 Leistung [W]</div><canvas class="sp" id="sp2"></canvas></div>
+    <div class="hc" id="hc-s3p" style="display:none"><div class="hct">String 3 Leistung [W]</div><canvas class="sp" id="sp2b"></canvas></div>
+    <div class="hc" id="hc-s1u" style="display:none"><div class="hct" id="sp5-title">String 1 Spannung [V]</div><canvas class="sp" id="sp5"></canvas></div>
+    <div class="hc" id="hc-s2u" style="display:none"><div class="hct" id="sp6-title">String 2 Spannung [V]</div><canvas class="sp" id="sp6"></canvas></div>
+    <div class="hc" id="hc-s3u" style="display:none"><div class="hct" id="sp7-title">String 3 Spannung [V]</div><canvas class="sp" id="sp7"></canvas></div>
     <div class="hc"><div class="hct">L1 Spannung [V]</div><canvas class="sp" id="sp3"></canvas></div>
     <div class="hc"><div class="hct">AC Frequenz [Hz]</div><canvas class="sp" id="sp4"></canvas></div>
   </div>
