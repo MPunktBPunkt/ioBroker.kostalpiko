@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.3.20-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko)
+[![Version](https://img.shields.io/badge/version-0.3.21-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
@@ -260,6 +260,12 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 ---
 
 ## Changelog
+
+### 0.3.21 (2026-06-24)
+- **Bugfix:** Historie-Tab springt nicht mehr alle 15 s zum heutigen Tag zurück (Navigation bleibt erhalten)
+- **VERBESSERT:** Klare Button-Beschriftungen – „Anzeige aktualisieren“ vs. „Vom PIKO laden“ vs. „Sync-All“
+- **NEU:** String-Analyse im Historie-Tab – MPP-Korridor (70–88 % Voc) in Charts, Tabelle und Tagesübersicht
+- **Bugfix:** „Letzter Import“ zeigt jetzt den echten Import-Zeitpunkt (nicht den Deduplication-Cursor)
 
 ### 0.3.20 (2026-06-24)
 - **NEU:** Admin-UI mit drei separaten Instanz-Feldern (E-Mail, Telegram, Pushover) und Hinweistext zu SMTP/Historiendaten
