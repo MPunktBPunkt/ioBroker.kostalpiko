@@ -271,6 +271,12 @@
       "text": "Benachrichtigungen",
       "size": 4
     },
+    "_info_notify": {
+      "type": "staticText",
+      "text": "Berichte basieren auf LogDaten.dat – „Historiendaten laden“ muss aktiviert sein. SMTP-Zugangsdaten (Server, Benutzer, Passwort) werden im ioBroker E-Mail-Adapter konfiguriert, nicht hier. Telegram/Pushover-Token ebenfalls im jeweiligen Adapter.",
+      "sm": 12,
+      "hidden": "!data.notifyEnabled"
+    },
     "notifyEnabled": {
       "type": "checkbox",
       "label": "Benachrichtigungen aktivieren",
@@ -282,33 +288,50 @@
       "label": "Benachrichtigungs-Adapter",
       "options": [
         {
-          "value": "telegram",
-          "label": "Telegram"
-        },
-        {
           "value": "email",
           "label": "E-Mail"
+        },
+        {
+          "value": "telegram",
+          "label": "Telegram"
         },
         {
           "value": "pushover",
           "label": "Pushover"
         }
       ],
-      "default": "telegram",
+      "default": "email",
       "sm": 4,
       "hidden": "!data.notifyEnabled"
     },
-    "notifyInstance": {
+    "notifyInstanceEmail": {
       "type": "text",
-      "label": "Instanz (z. B. telegram.0)",
+      "label": "E-Mail-Instanz",
+      "help": "Name der ioBroker E-Mail-Adapter-Instanz, z. B. email.0",
+      "default": "email.0",
+      "sm": 4,
+      "hidden": "!data.notifyEnabled"
+    },
+    "notifyInstanceTelegram": {
+      "type": "text",
+      "label": "Telegram-Instanz",
+      "help": "Name der ioBroker Telegram-Adapter-Instanz, z. B. telegram.0",
       "default": "telegram.0",
+      "sm": 4,
+      "hidden": "!data.notifyEnabled"
+    },
+    "notifyInstancePushover": {
+      "type": "text",
+      "label": "Pushover-Instanz",
+      "help": "Name der ioBroker Pushover-Adapter-Instanz, z. B. pushover.0",
+      "default": "pushover.0",
       "sm": 4,
       "hidden": "!data.notifyEnabled"
     },
     "notifyRecipient": {
       "type": "text",
-      "label": "Empfänger (Telegram: Chat-ID, E-Mail: Adresse)",
-      "placeholder": "z. B. 123456789 oder user@example.com",
+      "label": "Empfänger (E-Mail: Adresse, Telegram: Chat-ID)",
+      "placeholder": "z. B. user@example.com oder 123456789",
       "default": "",
       "sm": 4,
       "hidden": "!data.notifyEnabled"

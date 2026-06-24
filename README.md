@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.3.19-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko)
+[![Version](https://img.shields.io/badge/version-0.3.20-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
@@ -20,6 +20,7 @@ Liest Echtzeit- und Historiendaten vom **Kostal PIKO Solarwechselrichter** direk
 - 🔄 **Sync-All** – überträgt die gesamte gespeicherte Historie auf Knopfdruck
 - 🌐 **Web-UI** – eingebautes Dashboard mit 5 Tabs: Daten, Historie, Nodes, Logs, System
 - 🔢 **Multi-String** – automatische Erkennung von 2 oder 3 PV-Strings (PIKO 8.3 / PIKO 5.5)
+- 📬 **Benachrichtigungen** – Tages-, Wochen- und Monatsberichte per E-Mail, Telegram oder Pushover
 
 ---
 
@@ -121,6 +122,68 @@ Im ioBroker Admin unter **Adapter → Kostal PIKO → Instanz konfigurieren**:
 
 Die Verbindungsdaten für InfluxDB (Host, Port, Datenbank, Token) werden **nicht** in diesem Adapter eingetragen, sondern im **ioBroker Admin → Adapter → InfluxDB → Instanz konfigurieren**. Dieser Adapter kennt nur den Instanz-Namen und leitet die Daten über den ioBroker-internen `sendTo()`-Mechanismus weiter.
 
+### Benachrichtigungen (E-Mail / Telegram / Pushover)
+
+Berichte basieren auf **LogDaten.dat** – dafür muss **„Historiendaten laden“** aktiviert sein (InfluxDB ist dafür nicht nötig).
+
+| Einstellung | Standard | Beschreibung |
+|---|---|---|
+| Benachrichtigungen aktivieren | `false` | Schaltet alle Berichte und Alarme ein |
+| Benachrichtigungs-Adapter | `E-Mail` | `E-Mail`, `Telegram` oder `Pushover` |
+| E-Mail-Instanz | `email.0` | Name der ioBroker E-Mail-Adapter-Instanz |
+| Telegram-Instanz | `telegram.0` | Name der ioBroker Telegram-Adapter-Instanz |
+| Pushover-Instanz | `pushover.0` | Name der ioBroker Pushover-Adapter-Instanz |
+| Empfänger | *(leer)* | E-Mail-Adresse oder Telegram Chat-ID |
+| Tagesbericht | `false` | Täglich um konfigurierte Uhrzeit (Vortag) |
+| Wochenbericht | `false` | Montags: abgeschlossene Kalenderwoche (Mo–So) |
+| Monatsbericht | `false` | Am 1. des Monats: Vormonat |
+| Alarm | `false` | Warnung bei fehlenden Daten, unter Schwellwert oder Fehlercodes |
+| Schwellwert (kWh) | `0` | Mindest-Tagesertrag für Alarm (0 = deaktiviert) |
+
+#### E-Mail einrichten
+
+Der KostalPiko-Adapter **versendet keine E-Mails selbst** und kennt **keine SMTP-Zugangsdaten**. Er ruft den ioBroker E-Mail-Adapter per `sendTo()` auf.
+
+1. **ioBroker Admin → Adapter → E-Mail** installieren und Instanz anlegen (z. B. `email.0`)
+2. In der E-Mail-Instanz konfigurieren:
+   - SMTP-Server und Port (z. B. `smtp.gmail.com` / `587`)
+   - Benutzername und Passwort (bei Gmail: App-Passwort)
+   - Absender-Adresse (`from`)
+   - Optional: Standard-Empfänger (`default`)
+3. Im KostalPiko-Adapter:
+   - Benachrichtigungen aktivieren
+   - Adapter: **E-Mail**
+   - E-Mail-Instanz: `email.0`
+   - Empfänger: deine E-Mail-Adresse (überschreibt `default` des E-Mail-Adapters)
+   - **Historiendaten laden** aktivieren
+
+**Test:** Im E-Mail-Adapter eine Testnachricht senden. Erst wenn das klappt, funktionieren auch die KostalPiko-Berichte.
+
+#### Telegram / Pushover
+
+Analog: jeweiligen Adapter installieren, Token/API-Key in der Adapter-Instanz hinterlegen, Instanzname im KostalPiko-Adapter eintragen. Alle drei Instanz-Felder können dauerhaft konfiguriert bleiben – beim Wechsel des Benachrichtigungs-Adapters ist kein manuelles Umschreiben nötig.
+
+#### Berichtsinhalte
+
+**Tagesbericht** (Vortag):
+- Tagesertrag (kWh), optional spezifischer Ertrag (kWh/kWp) bei Modul-Konfiguration
+- AC-Spitzenleistung mit Uhrzeit, DC-Spitze
+- Erzeugungszeit und Zeitfenster (erste/letzte Erzeugung)
+- Durchschnittsleistung, Anzahl Messpunkte
+- Fehlercodes (falls vorhanden)
+- Unicode-Sparkline der AC-Leistung (5–21 Uhr)
+
+**Wochenbericht** (Montag, vorherige Kalenderwoche Mo–So):
+- Tagesbalken mit kWh pro Tag
+- Wochensumme, Durchschnitt pro Tag
+- Bester und schwächster Tag, Wochenspitzenleistung
+
+**Monatsbericht** (1. des Monats, Vormonat):
+- Tagesübersicht mit Balken
+- Monatssumme, Durchschnitt pro Ertragstag
+- Bester/schwächster Tag, Monatsspitze
+- Hinweis bei Datenlücken
+
 ---
 
 ## Angelegte Datenpunkte
@@ -197,6 +260,14 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 ---
 
 ## Changelog
+
+### 0.3.20 (2026-06-24)
+- **NEU:** Admin-UI mit drei separaten Instanz-Feldern (E-Mail, Telegram, Pushover) und Hinweistext zu SMTP/Historiendaten
+- **NEU:** README-Abschnitt zur E-Mail-Einrichtung über den ioBroker E-Mail-Adapter
+- **VERBESSERT:** Tagesbericht – DC-Spitze, Erzeugungszeit, Ø-Leistung, Fehlercodes, spez. Ertrag (kWh/kWp)
+- **VERBESSERT:** Wochenbericht – Kalenderwoche (Mo–So), Bester/Schwächster Tag, Wochenspitze
+- **VERBESSERT:** Monatsbericht – Durchschnitt, Bester/Schwächster Tag, Datenlücken-Hinweis
+- **VERBESSERT:** Tagesertrag bevorzugt Zähler-Delta aus LogDaten.dat (Fallback: Leistungsintegral)
 
 ### 0.3.19 (2026-03-20)
 - **Bugfix:** Standard-Adapter E-Mail + `email.0`; separate Instanz-Felder pro Adapter-Typ – wechselt automatisch mit
