@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.3.19",
+    "version": "0.3.20",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -90,6 +90,10 @@
       "0.3.19": {
         "de": "Bugfix: Standard-Benachrichtigungsadapter E-Mail/email.0; drei separate Instanz-Felder je Adapter-Typ (kein manuelles Umschreiben mehr noetig)",
         "en": "Bugfix: default notification adapter changed to email/email.0; three separate instance fields per adapter type (no manual update needed when switching)"
+      },
+      "0.3.20": {
+        "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
+        "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
       }
     },
     "title": "Kostal PIKO",
