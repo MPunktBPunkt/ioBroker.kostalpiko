@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.3.21
+ * Version: 0.4.0
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -14,7 +14,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.3.21';
+const ADAPTER_VERSION = '0.4.0';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -44,6 +44,9 @@ const HISTORY_STATES = [
     { id:'history.dc2.voltage',   col:COL.DC2_U,  factor:1,     unit:'V',  name:'String 2 Spannung (15-min)' },
     { id:'history.dc2.current',   col:COL.DC2_I,  factor:0.001, unit:'A',  name:'String 2 Strom (15-min)' },
     { id:'history.dc2.power',     col:COL.DC2_P,  factor:1,     unit:'W',  name:'String 2 Leistung (15-min)' },
+    { id:'history.dc3.voltage',   col:COL.DC3_U,  factor:1,     unit:'V',  name:'String 3 Spannung (15-min)' },
+    { id:'history.dc3.current',   col:COL.DC3_I,  factor:0.001, unit:'A',  name:'String 3 Strom (15-min)' },
+    { id:'history.dc3.power',     col:COL.DC3_P,  factor:1,     unit:'W',  name:'String 3 Leistung (15-min)' },
     { id:'history.ac1.voltage',   col:COL.AC1_U,  factor:1,     unit:'V',  name:'L1 Spannung (15-min)' },
     { id:'history.ac1.current',   col:COL.AC1_I,  factor:0.001, unit:'A',  name:'L1 Strom (15-min)' },
     { id:'history.ac1.power',     col:COL.AC1_P,  factor:1,     unit:'W',  name:'L1 Leistung (15-min)' },
@@ -57,7 +60,11 @@ const HISTORY_STATES = [
     { id:'history.ac.frequency',  col:COL.AC_F,   factor:1,     unit:'Hz', name:'Netzfrequenz (15-min)' },
     { id:'history.acStatus',      col:COL.AC_S,   factor:1,     unit:'',   name:'Betriebsstatus-Code (15-min)' },
     { id:'history.errorCode',     col:COL.ERR,    factor:1,     unit:'',   name:'Fehlercode (15-min)' },
+    { id:'history.energy.total',  col:COL.TOTAL_E, factor:1,    unit:'kWh', name:'Gesamtenergie-Z\u00e4hler (15-min)' },
 ];
+
+// Live-States die bei aktiviertem InfluxDB-Sync mitgeschrieben werden
+const LIVE_INFLUX_STATES = ['energy.today', 'energy.total', 'ac.power'];
 
 // ─── Adapter-Klasse ────────────────────────────────────────────────────────────
 class KostalPikoAdapter extends utils.Adapter {
@@ -75,6 +82,7 @@ class KostalPikoAdapter extends utils.Adapter {
         this._lastImportedTs  = 0;     // ms - zuletzt importierter Timestamp
         this._lastImportIso   = null;  // ISO-Zeitpunkt des letzten History-Imports
         this._lastHistoryFetch= 0;
+        this._historyCachePath = null;
 
         this.on('ready',       this._onReady.bind(this));
         this.on('stateChange', this._onStateChange.bind(this));
@@ -150,6 +158,8 @@ class KostalPikoAdapter extends utils.Adapter {
 
         await this._ensureBaseStates();
         await this._ensureHistoryStates();
+        this._historyCachePath = this._getHistoryCachePath();
+        await this._loadHistoryCache();
 
         // Letzten importierten Timestamp aus State laden
         try {
@@ -166,6 +176,16 @@ class KostalPikoAdapter extends utils.Adapter {
 
         await this._poll();
         this._pollTimer = setInterval(() => this._poll(), this._cfg.pollInterval * 1000);
+
+        // Nach Neustart sofort Historie vom PIKO nachladen (Cache zeigt bis dahin alte Daten)
+        if (this._cfg.historyFetch) {
+            this._lastHistoryFetch = 0;
+            setTimeout(() => {
+                this._fetchAndImportHistory(false).catch(e =>
+                    this._log('WARN', `Startup History-Fetch: ${e.message}`)
+                );
+            }, 5000);
+        }
 
         // Benachrichtigungs-Timer
         if (this._cfg.notifyEnabled) {
@@ -352,6 +372,9 @@ class KostalPikoAdapter extends utils.Adapter {
         // CSV parsen
         const rows = this._parseLogDaten(raw, this._pikoEpoch);
         this._lastHistoryRows = rows;
+        this._saveHistoryCache().catch(e =>
+            this._log('WARN', `History-Cache speichern: ${e.message}`)
+        );
 
         if (rows.length === 0) {
             this._log('WARN', 'LogDaten.dat: keine verwertbaren Zeilen gefunden');
@@ -460,6 +483,91 @@ class KostalPikoAdapter extends utils.Adapter {
             });
         });
         return points.length;
+    }
+
+    async _syncLiveToInflux(data) {
+        if (!this._cfg.influxEnable) return;
+        const ts = Date.now();
+        const points = [];
+        for (const id of LIVE_INFLUX_STATES) {
+            if (data[id] === null || data[id] === undefined) continue;
+            points.push({
+                id   : `${this.namespace}.${id}`,
+                state: { val: data[id], ts, ack: true, q: 0 },
+            });
+        }
+        if (!points.length) return;
+
+        await new Promise((resolve) => {
+            this.sendTo(this._cfg.influxInstance, 'storeState', points, (result) => {
+                if (result && result.error && this._cfg.verbose) {
+                    this._log('WARN', `InfluxDB Live-Sync: ${result.error}`);
+                }
+                resolve();
+            });
+        });
+    }
+
+    _getHistoryCachePath() {
+        const dataRoot = path.join(process.cwd(), 'iobroker-data', this.namespace);
+        return path.join(dataRoot, 'history-cache.json');
+    }
+
+    _compactHistoryRow(row) {
+        return {
+            ts: row.ts,
+            date: row.date,
+            dc1: row.dc1,
+            dc2: row.dc2,
+            dc3: row.dc3,
+            ac1: row.ac1,
+            ac2: row.ac2,
+            ac3: row.ac3,
+            frequency: row.frequency,
+            acStatus: row.acStatus,
+            errorCode: row.errorCode,
+            acTotalPower: row.acTotalPower,
+            totalEnergy: row.totalEnergy,
+        };
+    }
+
+    async _saveHistoryCache() {
+        if (!this._historyCachePath || !this._lastHistoryRows.length) return;
+        const dir = path.dirname(this._historyCachePath);
+        await fs.promises.mkdir(dir, { recursive: true });
+        const payload = {
+            savedAt  : new Date().toISOString(),
+            pikoEpoch: this._pikoEpoch,
+            rows     : this._lastHistoryRows.map(r => this._compactHistoryRow(r)),
+        };
+        await fs.promises.writeFile(this._historyCachePath, JSON.stringify(payload), 'utf-8');
+    }
+
+    async _loadHistoryCache() {
+        if (!this._historyCachePath) return;
+        try {
+            const raw = await fs.promises.readFile(this._historyCachePath, 'utf-8');
+            const data = JSON.parse(raw);
+            if (!data.rows || !Array.isArray(data.rows) || !data.rows.length) return;
+            this._lastHistoryRows = data.rows;
+            if (data.pikoEpoch) this._pikoEpoch = data.pikoEpoch;
+            this._log('INFO',
+                `History-Cache geladen: ${data.rows.length} Punkte` +
+                (data.savedAt ? ` (Stand ${data.savedAt.substring(0, 19).replace('T', ' ')})` : '')
+            );
+        } catch (e) {
+            if (e.code !== 'ENOENT' && this._cfg.verbose) {
+                this._log('DEBUG', `History-Cache: ${e.message}`);
+            }
+        }
+    }
+
+    _getStringCount() {
+        const fromData = parseInt(this._lastData['device.strings']);
+        if (fromData === 2 || fromData === 3) return fromData;
+        const model = (this._cfg.pikoModel || 'auto').toLowerCase();
+        if (model.includes('5.5') || model.includes('10.1')) return 3;
+        return 2;
     }
 
     _calcHistVal(row, def) {
@@ -1229,6 +1337,9 @@ class KostalPikoAdapter extends utils.Adapter {
             try { await this.setStateAsync(key, { val, ack:true, ts }); } catch (_) {}
         }
         this._lastData = { ...this._lastData, ...data, _ts: new Date().toISOString() };
+        this._syncLiveToInflux(data).catch(e => {
+            if (this._cfg.verbose) this._log('WARN', `Live Influx-Sync: ${e.message}`);
+        });
     }
 
     // ─── Web-Server ──────────────────────────────────────────────────────────────
@@ -1251,6 +1362,8 @@ class KostalPikoAdapter extends utils.Adapter {
                     lastImported   : this._lastImportIso,
                     loading        : this._historyLoading || false,
                     stringAnalysis : this._getStringAnalysisConfig(),
+                    stringCount    : this._getStringCount(),
+                    fromCache      : this._historyLoading && this._lastHistoryRows.length > 0,
                 });
             }
             if (p === '/api/logs')   return this._json(res, { logs: this._logBuffer });
@@ -1377,7 +1490,26 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .nav-date{font-size:13px;font-weight:600;color:var(--txt);min-width:150px;text-align:center}
 .ir{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
 .ii .il{font-size:10px;color:var(--mut)}.ii .iv{font-weight:600;font-size:13px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:12px}
+.kpi{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:10px 12px}
+.kpi .kl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.kpi .kv{font-size:18px;font-weight:700;margin-top:2px}
+.kpi .ks{font-size:10px;color:var(--mut);margin-top:2px}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-bottom:12px}
+.chart-box{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px;position:relative;min-height:220px}
+.chart-box.wide{grid-column:1/-1;min-height:280px}
+.chart-title{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chart-wrap{position:relative;height:200px}
+.chart-box.wide .chart-wrap{height:250px}
+.chart-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:10px;color:var(--mut)}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:8px;height:8px;border-radius:2px;display:inline-block}
+.tbl-wrap{max-height:420px;overflow:auto;border:1px solid var(--bd);border-radius:var(--r)}
+.tbl-wrap thead th{position:sticky;top:0;background:var(--bg2);z-index:1}
+.cache-hint{font-size:11px;color:var(--orn);margin-top:6px}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
 <header>
@@ -1499,6 +1631,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
   </div>
 
+  <!-- KPI-Leiste -->
+  <div class="kpi-grid" id="hist-kpi">
+    <div class="kpi"><div class="kl">Spitzenleistung</div><div class="kv" id="kpi-peak">--</div><div class="ks" id="kpi-peak-t">--</div></div>
+    <div class="kpi"><div class="kl">Ertrag (Zeitraum)</div><div class="kv" id="kpi-yield" style="color:var(--grn)">--</div><div class="ks">kWh</div></div>
+    <div class="kpi"><div class="kl">&Oslash; Leistung (Tag)</div><div class="kv" id="kpi-avg">--</div><div class="ks">W bei Erzeugung</div></div>
+    <div class="kpi"><div class="kl">DC-Spitze</div><div class="kv" id="kpi-dc">--</div><div class="ks">W Summe Strings</div></div>
+    <div class="kpi"><div class="kl">Messpunkte</div><div class="kv" id="kpi-pts">--</div><div class="ks">15-min Intervalle</div></div>
+    <div class="kpi"><div class="kl">Z&auml;hlerstand</div><div class="kv" id="kpi-energy" style="color:var(--blu)">--</div><div class="ks">kWh Gesamt</div></div>
+  </div>
+  <div id="cache-hint" class="cache-hint" style="display:none"></div>
+
   <!-- Navigationsleiste -->
   <div class="card" style="padding:10px 14px;margin-bottom:10px">
     <div class="nav-bar">
@@ -1513,33 +1656,47 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
   </div>
 
-  <!-- Charts -->
-  <div style="margin-bottom:10px">
-    <div class="hc"><div class="hct" id="sp0-title">AC Gesamtleistung [W]</div><canvas class="sp-big" id="sp0"></canvas></div>
-  </div>
-  <div class="grid g2" style="margin-bottom:12px">
-    <div class="hc"><div class="hct">String 1 Leistung [W]</div><canvas class="sp" id="sp1"></canvas></div>
-    <div class="hc"><div class="hct">String 2 Leistung [W]</div><canvas class="sp" id="sp2"></canvas></div>
-    <div class="hc" id="hc-s3p" style="display:none"><div class="hct">String 3 Leistung [W]</div><canvas class="sp" id="sp2b"></canvas></div>
-    <div class="hc" id="hc-s1u" style="display:none"><div class="hct" id="sp5-title">String 1 Spannung [V]</div><canvas class="sp" id="sp5"></canvas></div>
-    <div class="hc" id="hc-s2u" style="display:none"><div class="hct" id="sp6-title">String 2 Spannung [V]</div><canvas class="sp" id="sp6"></canvas></div>
-    <div class="hc" id="hc-s3u" style="display:none"><div class="hct" id="sp7-title">String 3 Spannung [V]</div><canvas class="sp" id="sp7"></canvas></div>
-    <div class="hc"><div class="hct">L1 Spannung [V]</div><canvas class="sp" id="sp3"></canvas></div>
-    <div class="hc"><div class="hct">AC Frequenz [Hz]</div><canvas class="sp" id="sp4"></canvas></div>
+  <!-- Charts (Chart.js) -->
+  <div class="chart-grid">
+    <div class="chart-box wide">
+      <div class="chart-title"><span id="chart-main-title">Leistung &amp; Erzeugung</span><span class="chart-legend" id="leg-main"></span></div>
+      <div class="chart-wrap"><canvas id="chart-main"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span>Phasenleistung L1/L2/L3</span></div>
+      <div class="chart-wrap"><canvas id="chart-phases"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span>PV-String Leistung</span></div>
+      <div class="chart-wrap"><canvas id="chart-dc-power"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span>String-Spannungen</span></div>
+      <div class="chart-wrap"><canvas id="chart-dc-voltage"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span>Netz &amp; Frequenz</span></div>
+      <div class="chart-wrap"><canvas id="chart-grid"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span>Energie-Z&auml;hler (kWh)</span></div>
+      <div class="chart-wrap"><canvas id="chart-energy"></canvas></div>
+    </div>
   </div>
 
   <div class="card">
     <div class="ct"><span class="dot"></span>Messwerte des gew&auml;hlten Zeitraums (neueste zuerst)</div>
-    <div style="overflow-x:auto">
+    <div class="tbl-wrap">
     <table>
       <thead><tr>
         <th>Zeitpunkt</th><th>AC [W]</th>
         <th>DC1 U</th><th>DC1 I</th><th>DC1 P</th>
         <th>DC2 U</th><th>DC2 I</th><th>DC2 P</th>
+        <th id="th-dc3-1">DC3 U</th><th id="th-dc3-2">DC3 I</th><th id="th-dc3-3">DC3 P</th>
         <th>L1 U</th><th>L1 P</th><th>L2 U</th><th>L2 P</th><th>L3 U</th><th>L3 P</th>
-        <th>Hz</th><th>St</th>
+        <th>Hz</th><th>kWh</th><th>St</th><th>Err</th>
       </tr></thead>
-      <tbody id="hTb"><tr><td colspan="16" style="color:var(--mut);text-align:center;padding:18px">Kein History-Import &ndash; History in den Einstellungen aktivieren</td></tr></tbody>
+      <tbody id="hTb"><tr><td colspan="22" style="color:var(--mut);text-align:center;padding:18px">Kein History-Import &ndash; History in den Einstellungen aktivieren</td></tr></tbody>
     </table>
     </div>
   </div>

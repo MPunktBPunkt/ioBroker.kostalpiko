@@ -1,6 +1,7 @@
 (function(){
 var allLogs=[],allNodes={},allData={},histRows=[],histStringCfg={enabled:false,strings:[]};
-var histLastCount=0;
+var histLastCount=0,histStringCount=2;
+var chartInstances={};
 
 window.showTab=function(n){
   document.querySelectorAll('.tc').forEach(function(e){e.classList.remove('act')});
@@ -14,6 +15,83 @@ window.showTab=function(n){
   if(n==='nodes')   renderNodes();
   if(n==='history') loadHistory(true);
 };
+
+/* ── Chart.js Theme ── */
+function initChartTheme(){
+  if(typeof Chart==='undefined') return;
+  Chart.defaults.color='#8b949e';
+  Chart.defaults.borderColor='rgba(48,54,61,.8)';
+  Chart.defaults.font.family="'Segoe UI',system-ui,sans-serif";
+  Chart.defaults.font.size=11;
+  Chart.defaults.plugins.legend.display=false;
+  Chart.defaults.plugins.tooltip.backgroundColor='rgba(22,27,34,.95)';
+  Chart.defaults.plugins.tooltip.borderColor='#30363d';
+  Chart.defaults.plugins.tooltip.borderWidth=1;
+  Chart.defaults.plugins.tooltip.titleColor='#e6edf3';
+  Chart.defaults.plugins.tooltip.bodyColor='#8b949e';
+  Chart.defaults.plugins.tooltip.padding=10;
+  Chart.defaults.elements.point.radius=0;
+  Chart.defaults.elements.point.hoverRadius=4;
+  Chart.defaults.elements.line.borderWidth=2;
+  Chart.defaults.elements.line.tension=0.25;
+}
+
+function destroyCharts(){
+  Object.keys(chartInstances).forEach(function(k){
+    if(chartInstances[k]){chartInstances[k].destroy();chartInstances[k]=null;}
+  });
+}
+
+function tsOpt(mode){
+  var isDay=mode==='day';
+  return {
+    type:'time',
+    time:{
+      unit:isDay?'hour':'day',
+      displayFormats:{hour:'HH:mm',day:'dd.MM',week:'dd.MM',month:'MMM yy'},
+      tooltipFormat:isDay?'dd.MM.yyyy HH:mm':'dd.MM.yyyy'
+    },
+    grid:{color:'rgba(48,54,61,.5)'},
+    ticks:{maxTicksLimit:isDay?12:8,color:'#8b949e'}
+  };
+}
+
+function valOpt(label,unit,color){
+  return {
+    display:true,
+    position:'left',
+    title:{display:!!label,text:label||'',color:'#8b949e',font:{size:10}},
+    grid:{color:'rgba(48,54,61,.35)'},
+    ticks:{
+      color:color||'#8b949e',
+      callback:function(v){return unit?v+unit:v;}
+    }
+  };
+}
+
+function makeChart(id,cfg){
+  if(typeof Chart==='undefined') return null;
+  var el=document.getElementById(id);
+  if(!el) return null;
+  if(chartInstances[id]){chartInstances[id].destroy();}
+  chartInstances[id]=new Chart(el,cfg);
+  return chartInstances[id];
+}
+
+function rowTs(r){return r.date?new Date(r.date).getTime():r.ts;}
+
+function dcPower(r,n){
+  var d=r['dc'+n];
+  return d&&d.power?d.power:0;
+}
+function dcVolt(r,n){
+  var d=r['dc'+n];
+  return d&&d.voltage?d.voltage:0;
+}
+function dcCurr(r,n){
+  var d=r['dc'+n];
+  return d&&d.current?d.current:0;
+}
 
 /* ── Live-Daten ── */
 window.loadData=function(){
@@ -69,8 +147,7 @@ function navGetRange(){
 
 function navLabel(range){
   var f=range.from, t=new Date(range.to); t.setDate(t.getDate()-1);
-  var opt={day:'2-digit',month:'2-digit',year:'numeric'};
-  if(navViewMode==='day') return f.toLocaleDateString('de-DE',opt);
+  if(navViewMode==='day') return f.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
   if(navViewMode==='week') return f.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' – '+t.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
   return f.toLocaleDateString('de-DE',{month:'long',year:'numeric'});
 }
@@ -79,7 +156,7 @@ function navFilter(rows){
   var r=navGetRange();
   var fromMs=r.from.getTime(), toMs=r.to.getTime();
   return rows.filter(function(row){
-    var ts=row.date?new Date(row.date).getTime():0;
+    var ts=row.date?new Date(row.date).getTime():row.ts||0;
     return ts>=fromMs && ts<toMs;
   });
 }
@@ -99,7 +176,7 @@ window.navShift=function(d){
   renderNavView();
 };
 
-function voltColor(voltage, cfg){
+function voltColor(voltage,cfg){
   if(!cfg||!voltage||!cfg.expectedVoltage) return 'var(--txt)';
   var ratio=voltage/cfg.expectedVoltage*100;
   if(ratio>=70&&ratio<=88) return 'var(--grn)';
@@ -116,52 +193,152 @@ function getStringCfg(id){
   return null;
 }
 
-function drawChart(canvasId,vals,color,height,band){
-  var cv=document.getElementById(canvasId); if(!cv) return;
-  var H=height||56;
-  var W=cv.parentElement.clientWidth-20;
-  cv.width=W; cv.height=H;
-  var ctx=cv.getContext('2d'), L=vals.length;
-  ctx.clearRect(0,0,W,H);
-  if(L<2){
-    ctx.fillStyle='#8b949e'; ctx.font='11px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('Keine Daten',W/2,H/2+4); return;
-  }
-  var max=Math.max.apply(null,vals)||1;
-  var pos=vals.filter(function(v){return v>0;});
-  var min=pos.length?Math.min.apply(null,pos):0;
-  if(band&&band.max>min){
-    max=Math.max(max,band.max);
-    min=Math.min(min,band.min);
-  }
-  var scale=function(v){return H-((v-min)/(max-min||1))*(H-8)-4;};
-  if(band){
-    var y1=scale(band.max), y2=scale(band.min);
-    ctx.fillStyle='rgba(63,185,80,.12)';
-    ctx.fillRect(0,Math.min(y1,y2),W,Math.abs(y2-y1));
-    ctx.strokeStyle='rgba(63,185,80,.35)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
-    ctx.beginPath(); ctx.moveTo(0,y1); ctx.lineTo(W,y1); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,y2); ctx.lineTo(W,y2); ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  ctx.beginPath();
-  vals.forEach(function(v,i){
-    var x=i/(L-1)*W, y=scale(v);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+function calcPeriodStats(rows){
+  if(!rows.length) return null;
+  var sorted=rows.slice().sort(function(a,b){return rowTs(a)-rowTs(b);});
+  var peak=sorted[0], peakW=0, peakTs=0;
+  var prod=[], maxDc=0, energyStart=null, energyEnd=null;
+  sorted.forEach(function(r){
+    if(r.acTotalPower>peakW){peakW=r.acTotalPower;peak=r;peakTs=rowTs(r);}
+    if(r.acTotalPower>=50) prod.push(r);
+    var dcSum=dcPower(r,1)+dcPower(r,2)+dcPower(r,3);
+    if(dcSum>maxDc) maxDc=dcSum;
+    if(r.totalEnergy>0){
+      if(energyStart===null) energyStart=r.totalEnergy;
+      energyEnd=r.totalEnergy;
+    }
   });
-  ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath();
-  ctx.fillStyle=color+'25'; ctx.fill();
-  ctx.beginPath();
-  vals.forEach(function(v,i){
-    var x=i/(L-1)*W, y=scale(v);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  var yieldKwh=0;
+  if(energyStart!==null&&energyEnd!==null&&energyEnd>energyStart){
+    yieldKwh=Math.round((energyEnd-energyStart)*100)/100;
+  } else {
+    yieldKwh=Math.round(sorted.reduce(function(s,r){return s+(r.acTotalPower||0)*0.25;},0))/1000;
+  }
+  var avgW=prod.length?Math.round(prod.reduce(function(s,r){return s+r.acTotalPower;},0)/prod.length):0;
+  return {
+    peakW:peakW,
+    peakTime:peakTs?new Date(peakTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'--',
+    yieldKwh:yieldKwh,
+    avgW:avgW,
+    maxDc:maxDc,
+    points:sorted.length,
+    energyEnd:energyEnd
+  };
+}
+
+function renderKpis(stats){
+  if(!stats){
+    ['kpi-peak','kpi-yield','kpi-avg','kpi-dc','kpi-pts','kpi-energy'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.textContent='--';
+    });
+    var pt=document.getElementById('kpi-peak-t'); if(pt) pt.textContent='--';
+    return;
+  }
+  document.getElementById('kpi-peak').textContent=stats.peakW+' W';
+  document.getElementById('kpi-peak-t').textContent='um '+stats.peakTime;
+  document.getElementById('kpi-yield').textContent=stats.yieldKwh.toFixed(2);
+  document.getElementById('kpi-avg').textContent=stats.avgW+' W';
+  document.getElementById('kpi-dc').textContent=stats.maxDc+' W';
+  document.getElementById('kpi-pts').textContent=stats.points;
+  document.getElementById('kpi-energy').textContent=stats.energyEnd!=null?stats.energyEnd.toFixed(1):'--';
+}
+
+function dsLine(rows,fn,color,label,yAxis){
+  return {
+    label:label,
+    data:rows.map(function(r){return {x:rowTs(r),y:fn(r)};}),
+    borderColor:color,
+    backgroundColor:color+'22',
+    fill:false,
+    yAxisID:yAxis||'y',
+    spanGaps:true
+  };
+}
+
+function renderCharts(filtered,range){
+  if(typeof Chart==='undefined'){
+    var hint=document.getElementById('cache-hint');
+    if(hint){hint.style.display='';hint.textContent='Chart.js nicht geladen – CDN prüfen';}
+    return;
+  }
+  var sorted=filtered.slice().sort(function(a,b){return rowTs(a)-rowTs(b);});
+  var has3=histStringCount>=3;
+  var titleEl=document.getElementById('chart-main-title');
+  if(titleEl) titleEl.textContent='Leistung & Erzeugung – '+navLabel(range);
+
+  var mainDs=[
+    dsLine(sorted,function(r){return r.acTotalPower;},'#f6c90e','AC Gesamt','y'),
+    dsLine(sorted,function(r){return dcPower(r,1)+dcPower(r,2)+dcPower(r,3);},'#3fb950','DC Summe','y')
+  ];
+  makeChart('chart-main',{
+    type:'line',
+    data:{datasets:mainDs},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{x:tsOpt(navViewMode),y:valOpt('W','','#f6c90e')}
+    }
   });
-  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
-  var peak=Math.max.apply(null,vals);
-  var maxIdx=vals.indexOf(peak);
-  var mx=maxIdx/(L-1)*W, my=scale(peak)-10;
-  ctx.fillStyle=color; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
-  ctx.fillText(peak,mx,my<12?12:my);
+
+  makeChart('chart-phases',{
+    type:'line',
+    data:{datasets:[
+      dsLine(sorted,function(r){return r.ac1.power;},'#e3b341','L1','y'),
+      dsLine(sorted,function(r){return r.ac2.power;},'#58a6ff','L2','y'),
+      dsLine(sorted,function(r){return r.ac3.power;},'#a371f7','L3','y')
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{x:tsOpt(navViewMode),y:valOpt('W','','#e3b341')}
+    }
+  });
+
+  var dcDs=[
+    dsLine(sorted,function(r){return dcPower(r,1);},'#3fb950','String 1','y'),
+    dsLine(sorted,function(r){return dcPower(r,2);},'#58a6ff','String 2','y')
+  ];
+  if(has3) dcDs.push(dsLine(sorted,function(r){return dcPower(r,3);},'#a371f7','String 3','y'));
+  makeChart('chart-dc-power',{
+    type:'line',data:{datasets:dcDs},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{x:tsOpt(navViewMode),y:valOpt('W','','#3fb950')}}
+  });
+
+  var voltDs=[
+    dsLine(sorted,function(r){return dcVolt(r,1);},'#3fb950','S1 U','y'),
+    dsLine(sorted,function(r){return dcVolt(r,2);},'#58a6ff','S2 U','y')
+  ];
+  if(has3) voltDs.push(dsLine(sorted,function(r){return dcVolt(r,3);},'#a371f7','S3 U','y'));
+  makeChart('chart-dc-voltage',{
+    type:'line',data:{datasets:voltDs},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{x:tsOpt(navViewMode),y:valOpt('V','','#3fb950')}}
+  });
+
+  makeChart('chart-grid',{
+    type:'line',
+    data:{datasets:[
+      dsLine(sorted,function(r){return r.ac1.voltage;},'#e3b341','L1 U','y'),
+      dsLine(sorted,function(r){return r.frequency;},'#a371f7','Hz','y1')
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{
+        x:tsOpt(navViewMode),
+        y:valOpt('V','','#e3b341'),
+        y1:{position:'right',title:{display:true,text:'Hz',color:'#a371f7'},grid:{drawOnChartArea:false},ticks:{color:'#a371f7'}}
+      }
+    }
+  });
+
+  var energyRows=sorted.filter(function(r){return r.totalEnergy>0;});
+  makeChart('chart-energy',{
+    type:'line',
+    data:{datasets:[dsLine(energyRows,function(r){return r.totalEnergy;},'#58a6ff','Gesamt kWh','y')]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{x:tsOpt(navViewMode),y:valOpt('kWh','','#58a6ff')}}
+  });
 }
 
 function renderHistStringAnalysis(filtered){
@@ -169,9 +346,6 @@ function renderHistStringAnalysis(filtered){
   var grid=document.getElementById('hsa-grid');
   if(!card||!grid||!histStringCfg.enabled){
     if(card) card.style.display='none';
-    ['hc-s1u','hc-s2u','hc-s3u','hc-s3p'].forEach(function(id){
-      var el=document.getElementById(id); if(el) el.style.display='none';
-    });
     return;
   }
   card.style.display='';
@@ -186,10 +360,10 @@ function renderHistStringAnalysis(filtered){
     var vMin=Math.min.apply(null,volts), vMax=Math.max.apply(null,volts);
     var vAvg=Math.round(volts.reduce(function(a,b){return a+b;},0)/volts.length);
     var iMax=currs.length?Math.max.apply(null,currs):0;
-    var okMin=0, okMax=0;
+    var okMin=0;
     volts.forEach(function(v){
       var ratio=v/cfg.expectedVoltage*100;
-      if(ratio>=70&&ratio<=88){okMin++;okMax++;}
+      if(ratio>=70&&ratio<=88) okMin++;
     });
     var okPct=Math.round(okMin/volts.length*100);
     var status=okPct>=80?'var(--grn)':okPct>=50?'var(--orn)':'var(--red)';
@@ -201,15 +375,6 @@ function renderHistStringAnalysis(filtered){
       '<div style="font-size:11px;color:var(--mut)">I<sub>max</sub>: '+iMax.toFixed(2)+' A · Nenn: '+cfg.expectedPower+' Wp</div>'+
       '</div>';
   }).join('');
-  histStringCfg.strings.forEach(function(cfg){
-    var showU=document.getElementById('hc-s'+cfg.id+'u');
-    if(showU) showU.style.display='';
-    var title=document.getElementById('sp'+(4+cfg.id)+'-title');
-    if(title) title.textContent='String '+cfg.id+' Spannung [V] (Korridor '+cfg.mppMin+'–'+cfg.mppMax+')';
-  });
-  var has3=histStringCfg.strings.some(function(s){return s.id===3;});
-  var s3p=document.getElementById('hc-s3p');
-  if(s3p) s3p.style.display=has3?'':'none';
 }
 
 function renderNavView(){
@@ -218,22 +383,19 @@ function renderNavView(){
   if(lbl) lbl.textContent=navLabel(range);
   var nxt=document.getElementById('nav-next');
   if(nxt) nxt.disabled=(navOffset>=0);
-  var filtered=navFilter(histRows).slice().reverse();
-  drawChart('sp0',filtered.map(function(r){return r.acTotalPower;}),'#f6c90e',110);
-  drawChart('sp1',filtered.map(function(r){return r.dc1.power;}),'#3fb950',56);
-  drawChart('sp2',filtered.map(function(r){return r.dc2.power;}),'#58a6ff',56);
-  var s3=filtered.map(function(r){return r.dc3?r.dc3.power:0;});
-  if(document.getElementById('sp2b')) drawChart('sp2b',s3,'#a371f7',56);
-  var cfg1=getStringCfg(1), cfg2=getStringCfg(2), cfg3=getStringCfg(3);
-  if(cfg1) drawChart('sp5',filtered.map(function(r){return r.dc1.voltage;}),'#3fb950',56,{min:cfg1.mppMin,max:cfg1.mppMax});
-  if(cfg2) drawChart('sp6',filtered.map(function(r){return r.dc2.voltage;}),'#58a6ff',56,{min:cfg2.mppMin,max:cfg2.mppMax});
-  if(cfg3) drawChart('sp7',filtered.map(function(r){return r.dc3?r.dc3.voltage:0;}),'#a371f7',56,{min:cfg3.mppMin,max:cfg3.mppMax});
-  drawChart('sp3',filtered.map(function(r){return r.ac1.voltage;}),'#e3b341',56);
-  drawChart('sp4',filtered.map(function(r){return r.frequency;}),'#a371f7',56);
-  var title=document.getElementById('sp0-title');
-  if(title) title.textContent='AC Gesamtleistung [W] – '+navLabel(range);
-  renderHistStringAnalysis(navFilter(histRows));
-  renderHistTable(navFilter(histRows));
+  var filtered=navFilter(histRows);
+  var stats=calcPeriodStats(filtered);
+  renderKpis(stats);
+  renderCharts(filtered,range);
+  renderHistStringAnalysis(filtered);
+  renderHistTable(filtered);
+  toggleDc3Columns(histStringCount>=3);
+}
+
+function toggleDc3Columns(show){
+  ['th-dc3-1','th-dc3-2','th-dc3-3'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.style.display=show?'':'none';
+  });
 }
 
 var histLoadTimer=null;
@@ -248,6 +410,7 @@ window.loadHistory=function(keepNav){
     }
     if(histLoadTimer){clearTimeout(histLoadTimer);histLoadTimer=null;}
     histStringCfg=j.stringAnalysis||{enabled:false,strings:[]};
+    histStringCount=j.stringCount||2;
     var newCount=j.recordCount||0;
     var dataChanged=(newCount!==histLastCount);
     histLastCount=newCount;
@@ -260,6 +423,15 @@ window.loadHistory=function(keepNav){
       document.getElementById('h-rng').textContent=(f.date||'').substring(0,10)+' – '+(l.date||'').substring(0,10);
     } else {
       document.getElementById('h-rng').textContent='Keine Daten';
+    }
+    var cacheHint=document.getElementById('cache-hint');
+    if(cacheHint){
+      if(j.loading&&histRows.length){
+        cacheHint.style.display='';
+        cacheHint.textContent='⏳ Aktualisiere vom PIKO… (Cache-Daten werden angezeigt)';
+      } else {
+        cacheHint.style.display='none';
+      }
     }
     if(!keepNav){
       navOffset=0; navViewMode='day';
@@ -286,27 +458,38 @@ function cellStyle(voltage,cfg,active){
 function renderHistTable(rows){
   var tb=document.getElementById('hTb');
   var r=rows||histRows;
+  var has3=histStringCount>=3;
+  var cols=has3?22:19;
   if(!r.length){
-    tb.innerHTML='<tr><td colspan="16" style="color:var(--mut);text-align:center;padding:16px">Keine Daten für diesen Zeitraum</td></tr>'; return;
+    tb.innerHTML='<tr><td colspan="'+cols+'" style="color:var(--mut);text-align:center;padding:16px">Keine Daten für diesen Zeitraum</td></tr>'; return;
   }
-  var rev=r.slice().reverse();
+  var rev=r.slice().sort(function(a,b){return rowTs(b)-rowTs(a);});
   tb.innerHTML=rev.map(function(row){
     var dt=row.date?new Date(row.date).toLocaleString('de-DE'):'--';
     var dim=row.acTotalPower===0?'style="color:var(--mut)"':'';
     var active=row.acTotalPower>=50;
-    var c1=getStringCfg(1), c2=getStringCfg(2);
+    var c1=getStringCfg(1), c2=getStringCfg(2), c3=getStringCfg(3);
     var u1s=cellStyle(row.dc1.voltage,c1,active);
     var u2s=cellStyle(row.dc2.voltage,c2,active);
+    var u3s=has3?cellStyle(row.dc3&&row.dc3.voltage,c3,active):'';
     var i1s=active&&c1&&row.dc1.current?'color:'+voltColor(row.dc1.voltage,c1)+';font-weight:600':'';
     var i2s=active&&c2&&row.dc2.current?'color:'+voltColor(row.dc2.voltage,c2)+';font-weight:600':'';
-    return '<tr '+dim+'><td style="font-size:11px;white-space:nowrap">'+dt+'</td>'+
+    var dc3=row.dc3||{voltage:0,current:0,power:0};
+    var err=row.errorCode?('<span style="color:var(--red)">'+row.errorCode+'</span>'):'–';
+    var rowHtml='<tr '+dim+'><td style="font-size:11px;white-space:nowrap">'+dt+'</td>'+
       '<td style="font-weight:600">'+row.acTotalPower+'</td>'+
       '<td style="'+u1s+'">'+row.dc1.voltage+'</td><td style="'+i1s+'">'+row.dc1.current.toFixed(3)+'</td><td>'+row.dc1.power+'</td>'+
-      '<td style="'+u2s+'">'+row.dc2.voltage+'</td><td style="'+i2s+'">'+row.dc2.current.toFixed(3)+'</td><td>'+row.dc2.power+'</td>'+
-      '<td>'+row.ac1.voltage+'</td><td>'+row.ac1.power+'</td>'+
+      '<td style="'+u2s+'">'+row.dc2.voltage+'</td><td style="'+i2s+'">'+row.dc2.current.toFixed(3)+'</td><td>'+row.dc2.power+'</td>';
+    if(has3){
+      rowHtml+='<td style="'+u3s+'">'+dc3.voltage+'</td><td>'+dc3.current.toFixed(3)+'</td><td>'+dc3.power+'</td>';
+    }
+    rowHtml+='<td>'+row.ac1.voltage+'</td><td>'+row.ac1.power+'</td>'+
       '<td>'+row.ac2.voltage+'</td><td>'+row.ac2.power+'</td>'+
       '<td>'+row.ac3.voltage+'</td><td>'+row.ac3.power+'</td>'+
-      '<td>'+row.frequency+'</td><td>'+row.acStatus+'</td></tr>';
+      '<td>'+row.frequency+'</td>'+
+      '<td>'+(row.totalEnergy?row.totalEnergy.toFixed(1):'–')+'</td>'+
+      '<td>'+row.acStatus+'</td><td>'+err+'</td></tr>';
+    return rowHtml;
   }).join('');
 }
 
@@ -428,6 +611,12 @@ function tick(){
   if(a.id==='tab-logs')    loadLogs();
   if(a.id==='tab-history') loadHistory(true);
 }
+initChartTheme();
 loadData(); loadLogs();
 setInterval(tick,15000);
+window.addEventListener('resize',function(){
+  if(document.getElementById('tab-history')&&document.getElementById('tab-history').classList.contains('act')){
+    renderNavView();
+  }
+});
 })();

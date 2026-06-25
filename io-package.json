@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.3.21",
+    "version": "0.4.0",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -95,6 +95,10 @@
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
       },
+      "0.4.0": {
+        "de": "NEU: Chart.js Engineer-Dashboard im Historie-Tab (KPIs, interaktive Charts, DC3, Energie-Zaehler); Bugfix: DC3 + history.energy.total fehlten in InfluxDB; Live-Sync energy.today/total/ac.power; History-Cache ueberlebt Neustart; Lizenz auf persoenliche Nutzung umgestellt",
+        "en": "NEW: Chart.js engineer dashboard in History tab (KPIs, interactive charts, DC3, energy counter); Bugfix: DC3 + history.energy.total missing in InfluxDB; live sync energy.today/total/ac.power; history cache survives restart; license changed to personal private use"
+      },
       "0.3.21": {
         "de": "Historie-Tab: Nav-Reset-Bug behoben; Button-Erklaerungen; String-Analyse mit MPP-Korridor in Charts und Tabelle",
         "en": "History tab: nav reset bug fixed; button explanations; string analysis with MPP corridor in charts and table"
@@ -120,7 +124,7 @@
       "photovoltaik",
       "wechselrichter"
     ],
-    "license": "GPL-3.0-only",
+    "license": "LicenseRef-Personal-Private-Use-Only",
     "icon": "admin/kostal-piko-icon.svg",
     "type": "general",
     "mode": "daemon",

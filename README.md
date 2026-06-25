@@ -1,7 +1,7 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.3.21-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko)
-[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko)
+[![License](https://img.shields.io/badge/license-Personal%20Private%20Use-lightgrey.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
 
@@ -218,7 +218,8 @@ history.newestRecord      – Neuester Eintrag
 history.influxSent        – An InfluxDB gesendete Punkte
 history.pikoEpoch         – Berechnetes PIKO-Inbetriebnahmedatum
 
-history.dc1/dc2.voltage/current/power  – String-Werte (15-min, historischer ts)
+history.dc1/dc2/dc3.voltage/current/power  – String-Werte (15-min, historischer ts)
+history.energy.total                       – Gesamtenergie-Zähler (15-min, historischer ts)
 history.ac1/ac2/ac3.voltage/current/power
 history.ac.totalPower
 history.ac.frequency
@@ -237,16 +238,60 @@ http://IOBROKER-IP:8092/
 
 | Tab | Inhalt |
 |---|---|
-| ⚡ Daten | Live-Werte: Status, AC-Leistung, Energie, PV-Strings, Phasen |
-| 📈 Historie | Sparklines (letzte 24h), Datentabelle (200 Zeilen), Sync-Buttons |
-| 🌐 Nodes | Alle Datenpunkte mit Typ, aktuellem Wert, Einheit |
+| ⚡ Daten | Live-Werte: Status, AC-Leistung, Energie, PV-Strings (2/3), Phasen |
+| 📈 Historie | Chart.js-Dashboard mit KPIs, interaktiven Zeitreihen, Datentabelle |
+| 🌐 Nodes | Alle ioBroker-Datenpunkte mit Typ, aktuellem Wert, Einheit |
 | 📄 Logs | Echtzeit-Log mit Level-Filter und Auto-Scroll |
 | ⚙️ System | Adapter-Info, Sync-Status, Aktionen, InfluxDB-Erklärung |
 
+### Screenshots (v0.4.0)
+
+**Daten-Tab** – Live-Messwerte PIKO 5.5 (3 Strings):
+
+![Daten-Tab](docs/screenshots/screenshot-daten.png)
+
+**Historie-Tab** – Engineer-Dashboard mit KPIs und Chart.js:
+
+![Historie-Tab](docs/screenshots/screenshot-historie.png)
+
+**Nodes-Tab** – alle ioBroker-States auf einen Blick:
+
+![Nodes-Tab](docs/screenshots/screenshot-nodes.png)
+
+**Logs-Tab** – Sync-Status und PIKO-Abruf im Detail:
+
+![Logs-Tab](docs/screenshots/screenshot-logs.png)
+
+**System-Tab** – InfluxDB-Sync und Aktionen:
+
+![System-Tab](docs/screenshots/screenshot-system.png)
+
 ### Sync-Aktionen im Web-UI
 
-- **„Neue Punkte synchronisieren"** – überträgt nur Datenpunkte seit dem letzten Sync
-- **„Sync-All (gesamte Historie)"** – setzt den Cursor zurück und überträgt alle ~6 Monate (Bestätigungs-Dialog, kann einige Minuten dauern)
+- **„Anzeige aktualisieren"** – lädt die Anzeige aus dem Adapter-Speicher (kein PIKO-Abruf)
+- **„Vom PIKO laden"** – holt LogDaten.dat vom Wechselrichter und importiert neue Punkte
+- **„Sync-All (gesamte Historie)"** – setzt den Cursor zurück und überträgt alle ~6 Monate an InfluxDB
+
+---
+
+## InfluxDB vs. Web-UI – wo liegen welche Daten?
+
+| Quelle | Zeitraum | Zweck |
+|---|---|---|
+| **LogDaten.dat** (PIKO) | ~6 Monate rollierend | Web-UI Historie-Tab, ioBroker History-States |
+| **InfluxDB** (nach Sync) | **Unbegrenzt*** | Langzeitarchiv, Grafana, Auswertungen |
+
+\*Solange du in InfluxDB keine kürzere Retention-Policy setzt und die Datenbank nicht löschst.
+
+**Wichtig:** Der Historie-Tab im Web-UI liest **nur** die LogDaten.dat (bzw. den lokalen Cache davon) – nicht InfluxDB. Sobald du mit **Sync-All** synchronisiert hast, bleiben die Daten in InfluxDB dauerhaft erhalten, auch wenn der PIKO ältere Messwerte überschreibt.
+
+Für Auswertungen über 6 Monate hinaus:
+
+- **Grafana** (ioBroker Grafana-Adapter oder direkt an InfluxDB)
+- **InfluxDB-Abfragen** (Flux/InfluxQL) auf `kostalpiko.0.history.*`, `energy.today`, `energy.total`
+- **ioBroker History-Graph** im Admin für einzelne States (wenn InfluxDB als History-Backend konfiguriert ist)
+
+Empfehlung: Einmal **Sync-All** pro Wechselrichter ausführen, danach läuft der 15-Minuten-Sync automatisch weiter und baut dein Langzeitarchiv auf.
 
 ---
 
@@ -260,6 +305,16 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 ---
 
 ## Changelog
+
+### 0.4.0 (2026-06-25)
+
+* **NEU:** Historie-Tab komplett überarbeitet – Chart.js Dashboard mit KPI-Leiste, interaktiven Zeitreihen (AC/DC/Phasen/Netz/Energie)
+* **NEU:** History-Cache auf Disk – nach Adapter-Neustart sofort Daten sichtbar, PIKO-Abruf im Hintergrund
+* **Bugfix:** `history.dc3.*` fehlte in InfluxDB (PIKO 5.5 / 10.1 mit 3 Strings)
+* **NEU:** `history.energy.total` – Gesamtenergie-Zähler aus LogDaten.dat (15-min) an InfluxDB
+* **NEU:** Live-Influx-Sync für `energy.today`, `energy.total`, `ac.power` bei jedem Poll
+* **VERBESSERT:** Datentabelle mit DC3, kWh-Zählerstand, Fehlercode; sticky Header
+* **Lizenz:** GPL-3.0 durch **Persönliche Nutzungslizenz** ersetzt (nur private, nicht-kommerzielle Nutzung)
 
 ### 0.3.21 (2026-06-24)
 - **Bugfix:** Historie-Tab springt nicht mehr alle 15 s zum heutigen Tag zurück (Navigation bleibt erhalten)
@@ -387,4 +442,5 @@ Wenn dir der Adapter gefällt, freue ich mich über eine kleine Unterstützung!
 
 ## Lizenz
 
-GPL-3.0 © MPunktBPunkt
+**Persönliche Nutzungslizenz** – ausschließlich für private, nicht-kommerzielle Zwecke.  
+Details siehe [LICENSE](./LICENSE). © MPunktBPunkt
