@@ -409,6 +409,8 @@ function renderInvSpecsCard(inv){
     '<div class="vc"><div class="vl">AC Netz (DE)</div><div class="vv" style="font-size:14px">'+g.acMinV+'–'+g.acMaxV+' V</div><div class="vu">'+g.fMin+'–'+g.fMax+' Hz</div></div>'+
     '<div class="vc"><div class="vl">Nenn-DC</div><div class="vv" style="font-size:14px">'+inv.udcNom+' V</div><div class="vu">laut Kostal-Datenblatt</div></div>'+
     '</div>';
+}
+
 function renderHistStringAnalysis(filtered){
   var invCard=document.getElementById('inv-specs-card-h');
   var invBody=document.getElementById('inv-specs-body-h');
