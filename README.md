@@ -306,6 +306,18 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 
 ## Changelog
 
+### 0.4.2 (2026-06-25)
+
+* **Bugfix:** Historie wird nicht mehr durch unvollständige `LogDaten.dat` ersetzt (5650→1 Punkte bei „service busy“)
+* **NEU:** History-Cache-Backup (`.bak`) und Wiederherstellung aus Backup beim Start
+* **NEU:** Kostal-Datenblatt-Grenzwerte (Udc, MPP, Idmax, AC-Netz DE) in String-Analyse und Web-UI
+* **Bugfix:** String-Analyse nutzt Vmpp statt Voc für MPP-Korridor; Modul-Vorlage Solarworld 225 poly/mono
+
+### 0.4.1 (2026-06-25)
+
+* **Bugfix:** String-Analyse MPP-Korridor basiert auf Vmpp (Betrieb), nicht Voc – kein falscher Rot-Status mehr
+* **NEU:** Modul-Vorlage Solarworld 225 poly/mono; Feld Vmpp in Admin
+
 ### 0.4.0 (2026-06-25)
 
 * **NEU:** Historie-Tab komplett überarbeitet – Chart.js Dashboard mit KPI-Leiste, interaktiven Zeitreihen (AC/DC/Phasen/Netz/Energie)

@@ -1,5 +1,7 @@
 (function(){
 var allLogs=[],allNodes={},allData={},histRows=[],histStringCfg={enabled:false,strings:[]};
+var liveStringCfg={enabled:false,strings:[]};
+var liveInvSpecs={enabled:false};
 var histLastCount=0,histStringCount=2;
 var chartInstances={};
 
@@ -97,6 +99,8 @@ function dcCurr(r,n){
 window.loadData=function(){
   fetch(window.location.origin+'/api/data').then(function(r){return r.json()}).then(function(j){
     allData=j.data||{}; allNodes=j.nodes||{};
+    liveStringCfg=j.stringAnalysis||{enabled:false,strings:[]};
+    liveInvSpecs=j.inverterSpecs||{enabled:false};
     var on=allData.online===1;
     document.getElementById('sdot').className='sd'+(on?' on':'');
     document.getElementById('stxt').textContent=on?'Online':'Offline';
@@ -117,6 +121,7 @@ window.loadData=function(){
     s('d-a1','info.analog1',2); s('d-a2','info.analog2',2); s('d-a3','info.analog3',2); s('d-a4','info.analog4',2);
     document.getElementById('d-modem').textContent=allData['info.modemStatus']||'--';
     renderStringAnalysis();
+    renderInvSpecsCard(liveInvSpecs);
     document.getElementById('d-portal').textContent=allData['info.lastPortalConnection']||'--';
     s('d-s0','info.s0Pulses');
     var mdl=document.getElementById('d-model');
@@ -177,12 +182,62 @@ window.navShift=function(d){
 };
 
 function voltColor(voltage,cfg){
-  if(!cfg||!voltage||!cfg.expectedVoltage) return 'var(--txt)';
-  var ratio=voltage/cfg.expectedVoltage*100;
-  if(ratio>=70&&ratio<=88) return 'var(--grn)';
-  if(ratio>=55&&ratio<70) return 'var(--orn)';
-  if(ratio>88&&ratio<=100) return 'var(--orn)';
+  if(!cfg||!voltage||cfg.mppMin==null) return 'var(--txt)';
+  if(voltage>=cfg.mppMin&&voltage<=cfg.mppMax) return 'var(--grn)';
+  if(voltage>=cfg.mppMin*0.93&&voltage<=cfg.mppMax*1.04) return 'var(--orn)';
   return 'var(--red)';
+}
+
+function voltStatus(voltage,cfg){
+  if(!cfg||!voltage||cfg.mppMin==null) return {pct:0,label:'--',color:'var(--mut)'};
+  var mid=(cfg.mppMin+cfg.mppMax)/2;
+  var pct=Math.round(voltage/mid*100);
+  var color=voltColor(voltage,cfg);
+  var label=pct+'%';
+  if(voltage>=cfg.mppMin&&voltage<=cfg.mppMax) label+=' im MPP-Korridor';
+  else if(voltage<cfg.mppMin) label+=' unter Korridor';
+  else label+=' über Korridor';
+  return {pct:pct,label:label,color:color};
+}
+
+function invLimitWarnings(voltage,current,cfg){
+  var w=[];
+  if(!cfg||!voltage) return w;
+  if(cfg.invDcMaxV&&voltage>cfg.invDcMaxV) w.push('U > Udcmax '+cfg.invDcMaxV+'V');
+  if(cfg.invDcMinV&&current>0.1&&voltage<cfg.invDcMinV) w.push('U < Udcmin '+cfg.invDcMinV+'V');
+  if(cfg.invMppMin&&current>0.5&&voltage<cfg.invMppMin) w.push('U < MPP-Min '+cfg.invMppMin+'V');
+  if(cfg.invMppMax&&current>0.5&&voltage>cfg.invMppMax) w.push('U > MPP-Max '+cfg.invMppMax+'V');
+  if(cfg.invDcMaxA&&current>cfg.invDcMaxA) w.push('I > Idmax '+cfg.invDcMaxA+'A');
+  return w;
+}
+
+function renderStringCard(cfg,volts,currs,titlePrefix){
+  if(!volts.length){
+    return '<div class="vc"><div class="vl">'+titlePrefix+cfg.id+'</div><div style="color:var(--mut);font-size:12px;margin-top:4px">Keine Erzeugung im Zeitraum</div></div>';
+  }
+  var vMin=Math.min.apply(null,volts), vMax=Math.max.apply(null,volts);
+  var vAvg=Math.round(volts.reduce(function(a,b){return a+b;},0)/volts.length);
+  var vPerMod=(vAvg/cfg.modules).toFixed(1);
+  var iMax=currs.length?Math.max.apply(null,currs):0;
+  var invW=invLimitWarnings(vAvg,iMax,cfg);
+  var ok=0;
+  volts.forEach(function(v){if(v>=cfg.mppMin&&v<=cfg.mppMax) ok++;});
+  var okPct=Math.round(ok/volts.length*100);
+  var st=voltStatus(vAvg,cfg);
+  var invLine='';
+  if(cfg.invDcMaxA||cfg.invMppMin){
+    invLine='<div style="font-size:10px;color:var(--mut);margin-top:2px">WR-Grenzen: U '+cfg.invDcMinV+'–'+cfg.invDcMaxV+'V · MPP '+cfg.invMppMin+'–'+cfg.invMppMax+'V · I<sub>max</sub> '+cfg.invDcMaxA+'A</div>';
+  }
+  var warnLine=invW.length?'<div style="font-size:10px;color:var(--red);margin-top:2px">⚠ '+invW.join(' · ')+'</div>':'';
+  return '<div class="vc">'+
+    '<div class="vl">'+titlePrefix+cfg.id+' ('+cfg.modules+' Module)</div>'+
+    '<div style="font-size:13px;font-weight:700;margin:4px 0">'+
+      '<span style="color:'+st.color+'">'+vMin+'–'+vMax+'</span> V '+
+      '<span style="color:var(--mut);font-weight:400">(Ø '+vAvg+' · '+vPerMod+' V/Mod)</span></div>'+
+    '<div style="font-size:11px;color:var(--mut)">MPP-Korridor: '+cfg.mppMin+'–'+cfg.mppMax+' V · '+okPct+'% im Bereich</div>'+
+    '<div style="font-size:11px;color:var(--mut)">I<sub>max</sub>: '+iMax.toFixed(2)+' A · Nenn: '+cfg.expectedPower+' Wp · Soll-MPP: '+cfg.expectedMpp+' V</div>'+
+    invLine+warnLine+
+    '</div>';
 }
 
 function getStringCfg(id){
@@ -341,7 +396,33 @@ function renderCharts(filtered,range){
   });
 }
 
+function renderInvSpecsCard(inv){
+  var card=document.getElementById('inv-specs-card');
+  if(!card) return;
+  if(!inv||!inv.enabled){ card.style.display='none'; return; }
+  card.style.display='';
+  var g=inv.grid||{};
+  document.getElementById('inv-specs-body').innerHTML=
+    '<div class="grid g4">'+
+    '<div class="vc"><div class="vl">Modell</div><div class="vv" style="font-size:16px">'+inv.modelName+'</div><div class="vu">Nenn '+inv.pacNom+' W</div></div>'+
+    '<div class="vc"><div class="vl">DC Eingang</div><div class="vv" style="font-size:14px">'+inv.dcMinV+'–'+inv.dcMaxV+' V</div><div class="vu">MPP '+inv.mppMinActive+'–'+inv.mppMax+' V · I<sub>max</sub> '+inv.dcMaxA+' A/String</div></div>'+
+    '<div class="vc"><div class="vl">AC Netz (DE)</div><div class="vv" style="font-size:14px">'+g.acMinV+'–'+g.acMaxV+' V</div><div class="vu">'+g.fMin+'–'+g.fMax+' Hz</div></div>'+
+    '<div class="vc"><div class="vl">Nenn-DC</div><div class="vv" style="font-size:14px">'+inv.udcNom+' V</div><div class="vu">laut Kostal-Datenblatt</div></div>'+
+    '</div>';
 function renderHistStringAnalysis(filtered){
+  var invCard=document.getElementById('inv-specs-card-h');
+  var invBody=document.getElementById('inv-specs-body-h');
+  if(invCard&&invBody&&histStringCfg.inverter&&histStringCfg.inverter.enabled){
+    invCard.style.display='';
+    var inv=histStringCfg.inverter, g=inv.grid||{};
+    invBody.innerHTML=
+      '<div class="grid g4">'+
+      '<div class="vc"><div class="vl">Modell</div><div class="vv" style="font-size:16px">'+inv.modelName+'</div><div class="vu">Nenn '+inv.pacNom+' W</div></div>'+
+      '<div class="vc"><div class="vl">DC Eingang</div><div class="vv" style="font-size:14px">'+inv.dcMinV+'–'+inv.dcMaxV+' V</div><div class="vu">MPP '+inv.mppMinActive+'–'+inv.mppMax+' V · I<sub>max</sub> '+inv.dcMaxA+' A/String</div></div>'+
+      '<div class="vc"><div class="vl">AC Netz (DE)</div><div class="vv" style="font-size:14px">'+g.acMinV+'–'+g.acMaxV+' V</div><div class="vu">'+g.fMin+'–'+g.fMax+' Hz</div></div>'+
+      '<div class="vc"><div class="vl">Nenn-DC</div><div class="vv" style="font-size:14px">'+inv.udcNom+' V</div><div class="vu">laut Kostal-Datenblatt</div></div>'+
+      '</div>';
+  } else if(invCard) invCard.style.display='none';
   var card=document.getElementById('hsa-card');
   var grid=document.getElementById('hsa-grid');
   if(!card||!grid||!histStringCfg.enabled){
@@ -354,26 +435,7 @@ function renderHistStringAnalysis(filtered){
     var key='dc'+cfg.id;
     var volts=prod.map(function(r){return r[key]&&r[key].voltage?r[key].voltage:0;}).filter(function(v){return v>0;});
     var currs=prod.map(function(r){return r[key]&&r[key].current?r[key].current:0;}).filter(function(v){return v>0;});
-    if(!volts.length){
-      return '<div class="vc"><div class="vl">String '+cfg.id+'</div><div style="color:var(--mut);font-size:12px;margin-top:4px">Keine Erzeugung im Zeitraum</div></div>';
-    }
-    var vMin=Math.min.apply(null,volts), vMax=Math.max.apply(null,volts);
-    var vAvg=Math.round(volts.reduce(function(a,b){return a+b;},0)/volts.length);
-    var iMax=currs.length?Math.max.apply(null,currs):0;
-    var okMin=0;
-    volts.forEach(function(v){
-      var ratio=v/cfg.expectedVoltage*100;
-      if(ratio>=70&&ratio<=88) okMin++;
-    });
-    var okPct=Math.round(okMin/volts.length*100);
-    var status=okPct>=80?'var(--grn)':okPct>=50?'var(--orn)':'var(--red)';
-    return '<div class="vc">'+
-      '<div class="vl">String '+cfg.id+' ('+cfg.modules+' Module)</div>'+
-      '<div style="font-size:13px;font-weight:700;margin:4px 0">'+
-        '<span style="color:'+status+'">'+vMin+'–'+vMax+'</span> V <span style="color:var(--mut);font-weight:400">(Ø '+vAvg+')</span></div>'+
-      '<div style="font-size:11px;color:var(--mut)">Korridor: '+cfg.mppMin+'–'+cfg.mppMax+' V · '+okPct+'% im MPP-Bereich</div>'+
-      '<div style="font-size:11px;color:var(--mut)">I<sub>max</sub>: '+iMax.toFixed(2)+' A · Nenn: '+cfg.expectedPower+' Wp</div>'+
-      '</div>';
+    return renderStringCard(cfg,volts,currs,'String ');
   }).join('');
 }
 
@@ -528,26 +590,36 @@ window.confirmSyncAll=function(){
 
 /* ── Nodes ── */
 window.renderStringAnalysis=function(){
+  var cfg=liveStringCfg.enabled?liveStringCfg:{enabled:false,strings:[]};
   var strings=['1','2','3'];
   var hasAny=false;
   strings.forEach(function(n){
-    var ev=allData['string'+n+'.expectedVoltage'];
+    var scfg=null;
+    for(var i=0;i<cfg.strings.length;i++){if(String(cfg.strings[i].id)===n) scfg=cfg.strings[i];}
     var av=allData['pv.string'+n+'.voltage'];
+    var ai=allData['pv.string'+n+'.current'];
     var ep=allData['string'+n+'.expectedPower'];
     var box=document.getElementById('sa-'+n);
     if(!box) return;
-    if(!ev||!ep){box.style.display='none';return;}
+    if(!scfg||!ep||!av){box.style.display='none';return;}
     hasAny=true;
     box.style.display='';
-    var vRatio=av&&ev?(av/ev*100):null;
-    var vColor=vRatio===null?'var(--mut)':(vRatio>=70&&vRatio<=88)?'var(--grn)':(vRatio>=55&&vRatio<=100)?'var(--orn)':'var(--red)';
-    box.innerHTML='<div class="vl">String '+n+' Soll/Ist</div>'+
+    var st=voltStatus(av,scfg);
+    var vPerMod=scfg.modules?(av/scfg.modules).toFixed(1):'--';
+    var pEst=av&&ai?Math.round(av*ai):'--';
+    var invW=invLimitWarnings(av,ai||0,scfg);
+    var invHint='';
+    if(scfg.invDcMaxA){
+      invHint='<div style="font-size:10px;color:var(--mut)">WR: U '+scfg.invDcMinV+'–'+scfg.invDcMaxV+'V · MPP ab '+scfg.invMppMin+'V · I<sub>max</sub> '+scfg.invDcMaxA+'A</div>';
+    }
+    var warnLine=invW.length?'<div style="font-size:10px;color:var(--red)">⚠ '+invW.join(' · ')+'</div>':'';
+    box.innerHTML='<div class="vl">String '+n+' ('+scfg.modules+' Module)</div>'+
       '<div style="font-size:13px;font-weight:700;margin:3px 0">'+
-        '<span style="color:'+vColor+'">'+(av||'--')+'</span>'+
-        ' / <span style="color:var(--mut)">'+(ev||'--')+'</span> V</div>'+
-      '<div style="font-size:10px;color:var(--mut)">Nennleistung: '+ep+' Wp'+
-        (vRatio?' | '+vRatio.toFixed(0)+'% von Voc':'')+
-      '</div>';
+        '<span style="color:'+st.color+'">'+(av||'--')+'</span>'+
+        ' / <span style="color:var(--mut)">'+scfg.expectedMpp+'</span> V MPP</div>'+
+      '<div style="font-size:10px;color:var(--mut)">'+vPerMod+' V/Mod · ~'+pEst+' W · Nenn '+ep+' Wp</div>'+
+      '<div style="font-size:10px;color:var(--mut)">Korridor: '+scfg.mppMin+'–'+scfg.mppMax+' V (Vmpp-basiert)</div>'+
+      invHint+warnLine;
   });
   var card=document.getElementById('sa-card');
   if(card) card.style.display=hasAny?'':'none';

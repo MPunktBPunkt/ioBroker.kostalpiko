@@ -212,8 +212,20 @@
     },
     "_info_modules": {
       "type": "staticText",
-      "text": "Optionale Angaben zur Berechnung der Soll-Stringspannung. Leer lassen um die Funktion zu deaktivieren.",
+      "text": "Optionale Angaben für die String-Analyse. Spannungs-Korridor basiert auf Vmpp (Betrieb), nicht Voc (Leerlauf). Vorlage wählen oder Werte manuell eintragen.",
       "sm": 12
+    },
+    "modulePreset": {
+      "type": "select",
+      "label": "Modul-Vorlage",
+      "help": "Füllt Wp/Voc/Vmpp automatisch – Solarworld 225 Wp (~2010)",
+      "options": [
+        { "label": "Manuell / unbekannt", "value": "" },
+        { "label": "Solarworld SW 225 poly (~2010)", "value": "sw225poly" },
+        { "label": "Solarworld SW 225 mono", "value": "sw225mono" }
+      ],
+      "default": "",
+      "sm": 4
     },
     "moduleWp": {
       "type": "number",
@@ -227,7 +239,16 @@
     "moduleVoc": {
       "type": "number",
       "label": "Leerlaufspannung Voc (V)",
-      "help": "Leerlaufspannung eines Moduls bei STC, z. B. 36.8",
+      "help": "Leerlaufspannung bei STC (ohne Last), z. B. 36.8",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "sm": 3
+    },
+    "moduleVmpp": {
+      "type": "number",
+      "label": "MPP-Spannung Vmpp (V)",
+      "help": "Spannung am MPP bei STC, z. B. 29.5 – leer = auto aus Voc",
       "default": 0,
       "min": 0,
       "max": 100,
