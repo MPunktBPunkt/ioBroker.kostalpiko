@@ -89,13 +89,13 @@ const VMPP_VOC_RATIO = 29.5 / 36.8; // typisch poly 225 Wp
 
 // Kostal PIKO Grenzwerte laut Datenblatt (PIKO 4.2–10.1)
 const PIKO_SPECS = {
-    piko3.0 : { name:'PIKO 3.0',  strings:1, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:500, mppMax:850, udcNom:680, pacNom:3000  },
-    piko3.6 : { name:'PIKO 3.6',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:360, mppMax:850, udcNom:680, pacNom:3600  },
-    piko4.2 : { name:'PIKO 4.2',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:360, mppMax:850, udcNom:680, pacNom:4200  },
-    piko5.5 : { name:'PIKO 5.5',  strings:3, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin1:660, mppMin2:360, mppMax:850, udcNom:680, pacNom:5500  },
-    piko7.0 : { name:'PIKO 7.0',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:400, mppMax:850, udcNom:680, pacNom:7000  },
-    piko8.3 : { name:'PIKO 8.3',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:400, mppMax:850, udcNom:680, pacNom:8300  },
-    piko10.1: { name:'PIKO 10.1', strings:3, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:420, mppMax:850, udcNom:680, pacNom:10000 },
+    'piko3.0' : { name:'PIKO 3.0',  strings:1, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:500, mppMax:850, udcNom:680, pacNom:3000  },
+    'piko3.6' : { name:'PIKO 3.6',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:360, mppMax:850, udcNom:680, pacNom:3600  },
+    'piko4.2' : { name:'PIKO 4.2',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:360, mppMax:850, udcNom:680, pacNom:4200  },
+    'piko5.5' : { name:'PIKO 5.5',  strings:3, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin1:660, mppMin2:360, mppMax:850, udcNom:680, pacNom:5500  },
+    'piko7.0' : { name:'PIKO 7.0',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:400, mppMax:850, udcNom:680, pacNom:7000  },
+    'piko8.3' : { name:'PIKO 8.3',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:400, mppMax:850, udcNom:680, pacNom:8300  },
+    'piko10.1': { name:'PIKO 10.1', strings:3, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:420, mppMax:850, udcNom:680, pacNom:10000 },
 };
 const GRID_LIMITS_DE = { acMaxV:264.5, acMinV:184, fMax:51.5, fMin:47.5 };
 
