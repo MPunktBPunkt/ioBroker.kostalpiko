@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko)
+[![Version](https://img.shields.io/badge/version-0.4.3-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases/tag/v0.4.3)
 [![License](https://img.shields.io/badge/license-Personal%20Private%20Use-lightgrey.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
@@ -244,7 +244,7 @@ http://IOBROKER-IP:8092/
 | 📄 Logs | Echtzeit-Log mit Level-Filter und Auto-Scroll |
 | ⚙️ System | Adapter-Info, Sync-Status, Aktionen, InfluxDB-Erklärung |
 
-### Screenshots (v0.4.0)
+### Screenshots (v0.4.3)
 
 **Daten-Tab** – Live-Messwerte PIKO 5.5 (3 Strings):
 
@@ -306,6 +306,12 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 
 ## Changelog
 
+### 0.4.3 (2026-06-25)
+
+* **Bugfix:** Keine falschen Rot-Warnungen mehr bei Spannung unter MPP-Min (Nennleistungsbereich, kein Grenzwert)
+* **Bugfix:** Web-UI-Syntaxfehler in `app.js` behoben (fehlende Klammer in `renderInvSpecsCard`)
+* **VERBESSERT:** Grenzwert-Alarme nur bei echten Verstößen: U > Udcmax, U < Udcmin, I > Idmax
+
 ### 0.4.2 (2026-06-25)
 
 * **Bugfix:** Historie wird nicht mehr durch unvollständige `LogDaten.dat` ersetzt (5650→1 Punkte bei „service busy“)
@@ -331,7 +337,7 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 ### 0.3.21 (2026-06-24)
 - **Bugfix:** Historie-Tab springt nicht mehr alle 15 s zum heutigen Tag zurück (Navigation bleibt erhalten)
 - **VERBESSERT:** Klare Button-Beschriftungen – „Anzeige aktualisieren“ vs. „Vom PIKO laden“ vs. „Sync-All“
-- **NEU:** String-Analyse im Historie-Tab – MPP-Korridor (70–88 % Voc) in Charts, Tabelle und Tagesübersicht
+- **NEU:** String-Analyse im Historie-Tab – MPP-Korridor (Vmpp-basiert) in Charts, Tabelle und Tagesübersicht
 - **Bugfix:** „Letzter Import“ zeigt jetzt den echten Import-Zeitpunkt (nicht den Deduplication-Cursor)
 
 ### 0.3.20 (2026-06-24)
