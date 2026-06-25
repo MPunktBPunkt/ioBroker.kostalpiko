@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -94,6 +94,10 @@
       "0.3.20": {
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
+      },
+      "0.4.3": {
+        "de": "Bugfix: Keine falschen Rot-Warnungen mehr bei U unter MPP-Min (Nennleistungsbereich, kein Grenzwert); nur echte Sicherheitsverstöße Udc/I",
+        "en": "Bugfix: no false red warnings for U below MPP-Min (nominal power range, not a safety limit); only real Udc/I violations"
       },
       "0.4.2": {
         "de": "Bugfix: Historie wird nicht mehr durch unvollständige LogDaten.dat ersetzt (5650→1); Backup-Cache (.bak); Kostal-Datenblatt-Grenzwerte (U/I, MPP, Netz DE) in String-Analyse und Web-UI",

@@ -200,13 +200,11 @@ function voltStatus(voltage,cfg){
   return {pct:pct,label:label,color:color};
 }
 
-function invLimitWarnings(voltage,current,cfg){
+function invLimitWarnings(vMin,vMax,current,cfg){
   var w=[];
-  if(!cfg||!voltage) return w;
-  if(cfg.invDcMaxV&&voltage>cfg.invDcMaxV) w.push('U > Udcmax '+cfg.invDcMaxV+'V');
-  if(cfg.invDcMinV&&current>0.1&&voltage<cfg.invDcMinV) w.push('U < Udcmin '+cfg.invDcMinV+'V');
-  if(cfg.invMppMin&&current>0.5&&voltage<cfg.invMppMin) w.push('U < MPP-Min '+cfg.invMppMin+'V');
-  if(cfg.invMppMax&&current>0.5&&voltage>cfg.invMppMax) w.push('U > MPP-Max '+cfg.invMppMax+'V');
+  if(!cfg||!vMax) return w;
+  if(cfg.invDcMaxV&&vMax>cfg.invDcMaxV) w.push('Spitze '+vMax+'V > Udcmax '+cfg.invDcMaxV+'V');
+  if(cfg.invDcMinV&&current>0.1&&vMin<cfg.invDcMinV) w.push('Minimum '+vMin+'V < Udcmin '+cfg.invDcMinV+'V');
   if(cfg.invDcMaxA&&current>cfg.invDcMaxA) w.push('I > Idmax '+cfg.invDcMaxA+'A');
   return w;
 }
@@ -219,14 +217,14 @@ function renderStringCard(cfg,volts,currs,titlePrefix){
   var vAvg=Math.round(volts.reduce(function(a,b){return a+b;},0)/volts.length);
   var vPerMod=(vAvg/cfg.modules).toFixed(1);
   var iMax=currs.length?Math.max.apply(null,currs):0;
-  var invW=invLimitWarnings(vAvg,iMax,cfg);
+  var invW=invLimitWarnings(vMin,vMax,iMax,cfg);
   var ok=0;
   volts.forEach(function(v){if(v>=cfg.mppMin&&v<=cfg.mppMax) ok++;});
   var okPct=Math.round(ok/volts.length*100);
   var st=voltStatus(vAvg,cfg);
   var invLine='';
   if(cfg.invDcMaxA||cfg.invMppMin){
-    invLine='<div style="font-size:10px;color:var(--mut);margin-top:2px">WR-Grenzen: U '+cfg.invDcMinV+'–'+cfg.invDcMaxV+'V · MPP '+cfg.invMppMin+'–'+cfg.invMppMax+'V · I<sub>max</sub> '+cfg.invDcMaxA+'A</div>';
+    invLine='<div style="font-size:10px;color:var(--mut);margin-top:2px">WR-Grenzen (Sicherheit): U '+cfg.invDcMinV+'–'+cfg.invDcMaxV+'V · I<sub>max</sub> '+cfg.invDcMaxA+'A · MPP '+cfg.invMppMin+'–'+cfg.invMppMax+'V = Nennleistungsbereich</div>';
   }
   var warnLine=invW.length?'<div style="font-size:10px;color:var(--red);margin-top:2px">⚠ '+invW.join(' · ')+'</div>':'';
   return '<div class="vc">'+
@@ -609,10 +607,10 @@ window.renderStringAnalysis=function(){
     var st=voltStatus(av,scfg);
     var vPerMod=scfg.modules?(av/scfg.modules).toFixed(1):'--';
     var pEst=av&&ai?Math.round(av*ai):'--';
-    var invW=invLimitWarnings(av,ai||0,scfg);
+    var invW=invLimitWarnings(av,av,ai||0,scfg);
     var invHint='';
     if(scfg.invDcMaxA){
-      invHint='<div style="font-size:10px;color:var(--mut)">WR: U '+scfg.invDcMinV+'–'+scfg.invDcMaxV+'V · MPP ab '+scfg.invMppMin+'V · I<sub>max</sub> '+scfg.invDcMaxA+'A</div>';
+      invHint='<div style="font-size:10px;color:var(--mut)">WR (Sicherheit): U '+scfg.invDcMinV+'–'+scfg.invDcMaxV+'V · I<sub>max</sub> '+scfg.invDcMaxA+'A</div>';
     }
     var warnLine=invW.length?'<div style="font-size:10px;color:var(--red)">⚠ '+invW.join(' · ')+'</div>':'';
     box.innerHTML='<div class="vl">String '+n+' ('+scfg.modules+' Module)</div>'+

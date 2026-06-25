@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.4.2
+ * Version: 0.4.3
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -14,7 +14,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.4.2';
+const ADAPTER_VERSION = '0.4.3';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -615,12 +615,6 @@ class KostalPikoAdapter extends utils.Adapter {
         const w = [];
         if (voltage > inv.dcMaxV) w.push(`Spannung ${voltage}V > Udcmax ${inv.dcMaxV}V`);
         if (voltage < inv.dcMinV && current > 0.1) w.push(`Spannung ${voltage}V < Udcmin ${inv.dcMinV}V`);
-        if (inv.mppMinActive && voltage < inv.mppMinActive && current > 0.5) {
-            w.push(`Spannung ${voltage}V unter MPP-Min ${inv.mppMinActive}V`);
-        }
-        if (inv.mppMax && voltage > inv.mppMax && current > 0.5) {
-            w.push(`Spannung ${voltage}V über MPP-Max ${inv.mppMax}V`);
-        }
         if (inv.dcMaxA && current > inv.dcMaxA) {
             w.push(`Strom ${current}A > Idmax ${inv.dcMaxA}A`);
         }
@@ -1798,7 +1792,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="ct"><span class="dot"></span>String-Analyse (gew&auml;hlter Zeitraum)</div>
     <div class="grid g3" id="hsa-grid"></div>
     <div style="font-size:10px;color:var(--mut);margin-top:8px">
-      MPP-Korridor basiert auf Vmpp (Betriebsspannung unter Last), nicht Voc. Gr&uuml;n = im Korridor, Orange = grenzwertig, Rot = au&szlig;erhalb.
+      MPP-Korridor basiert auf Vmpp (Betriebsspannung unter Last), nicht Voc. Gr&uuml;n = im Korridor, Orange = grenzwertig, Rot = au&szlig;erhalb. MPP-Min/Max im Datenblatt = Nennleistungsbereich, kein Sicherheitsalarm.
     </div>
   </div>
 
