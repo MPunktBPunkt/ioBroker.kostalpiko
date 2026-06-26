@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.0';
+const ADAPTER_VERSION = '0.6.1';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -619,22 +619,27 @@ class KostalPikoAdapter extends utils.Adapter {
         }
 
         const prevRows = this._lastHistoryRows;
+        const prevMaxTs = prevRows.reduce((m, r) => Math.max(m, r.ts), 0);
+        const newMaxTs  = rows.reduce((m, r) => Math.max(m, r.ts), 0);
+
         if (this._isHistoryParseSuspicious(prevRows, rows)) {
             this._log('WARN',
                 `LogDaten.dat wirkt unvollständig (${rows.length} Punkte, zuvor ${prevRows.length}, ` +
                 `${rows[0].date.substring(0,10)} – ${rows[rows.length-1].date.substring(0,10)}) – ` +
-                `Historie wird nicht ersetzt, nur neue Messpunkte angehängt`
+                `Cache wird per Merge aktualisiert, ältere Punkte bleiben erhalten`
             );
-            const prevMaxTs = prevRows.reduce((m, r) => Math.max(m, r.ts), 0);
-            const newOnly   = rows.filter(r => r.ts > prevMaxTs);
-            if (!newOnly.length) {
-                this._historyLoading = false;
-                return;
-            }
-            this._lastHistoryRows = [...prevRows, ...newOnly].sort((a, b) => a.ts - b.ts);
-            this._log('INFO', `${newOnly.length} neue Punkte an bestehende Historie angehängt (gesamt ${this._lastHistoryRows.length})`);
-        } else {
-            this._lastHistoryRows = rows;
+        } else if (prevRows.length && newMaxTs < prevMaxTs - 45 * 60 * 1000) {
+            this._log('WARN',
+                `LogDaten.dat endet früher als Cache (${new Date(newMaxTs).toISOString()} vs. ` +
+                `${new Date(prevMaxTs).toISOString()}) – Cache wird per Merge beibehalten`
+            );
+        }
+
+        const merged = this._mergeHistoryRows(prevRows, rows);
+        const added  = merged.length - prevRows.length;
+        this._lastHistoryRows = merged;
+        if (added > 0) {
+            this._log('INFO', `${added} neue Punkte per Merge (gesamt ${merged.length})`);
         }
 
         await this._saveHistoryCache().catch(e =>
@@ -776,9 +781,22 @@ class KostalPikoAdapter extends utils.Adapter {
         });
     }
 
+    _mergeHistoryRows(prevRows, newRows) {
+        if (!prevRows.length) return newRows;
+        if (!newRows.length) return prevRows;
+        const byTs = new Map();
+        for (const r of prevRows) byTs.set(r.ts, r);
+        for (const r of newRows) byTs.set(r.ts, r);
+        return [...byTs.values()].sort((a, b) => a.ts - b.ts);
+    }
+
     _isHistoryParseSuspicious(prevRows, newRows) {
         if (!prevRows.length || !newRows.length) return false;
         if (prevRows.length < 100) return false;
+        const prevMax = prevRows[prevRows.length - 1].ts;
+        const newMax  = newRows[newRows.length - 1].ts;
+        // Abgeschnittene Datei: neuester Punkt deutlich älter als im Cache (z. B. fehlender Nachmittag)
+        if (newMax < prevMax - 45 * 60 * 1000) return true;
         if (newRows.length >= prevRows.length * 0.5) return false;
         const prevSpan = prevRows[prevRows.length - 1].ts - prevRows[0].ts;
         const newSpan  = newRows[newRows.length - 1].ts - newRows[0].ts;
@@ -2239,11 +2257,15 @@ class KostalPikoAdapter extends utils.Adapter {
             if (p === '/api/history') {
                 // Alle Zeilen senden – Filterung/Limitierung passiert im Browser
                 const rows = [...this._lastHistoryRows].reverse();
+                const newest = this._lastHistoryRows.length
+                    ? this._lastHistoryRows[this._lastHistoryRows.length - 1].date
+                    : null;
                 return this._json(res, {
                     rows,
                     pikoEpoch      : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
                     recordCount    : this._lastHistoryRows.length,
                     lastImported   : this._lastImportIso,
+                    newestRecord   : newest,
                     loading        : this._historyLoading || false,
                     stringAnalysis : this._getStringAnalysisConfig(),
                     stringCount    : this._getStringCount(),
