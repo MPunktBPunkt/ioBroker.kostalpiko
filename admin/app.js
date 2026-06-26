@@ -127,6 +127,7 @@ window.loadData=function(){
     document.getElementById('d-modem').textContent=allData['info.modemStatus']||'--';
     renderStringAnalysis();
     renderInvSpecsCard(liveInvSpecs);
+    renderWeatherCard(j.weather);
     document.getElementById('d-portal').textContent=allData['info.lastPortalConnection']||'--';
     s('d-s0','info.s0Pulses');
     var mdl=document.getElementById('d-model');
@@ -414,20 +415,30 @@ function renderInvSpecsCard(inv){
     '</div>';
 }
 
+function renderWeatherCard(w){
+  var card=document.getElementById('weather-card');
+  if(!card) return;
+  if(!w||!w.plz){ card.style.display='none'; return; }
+  card.style.display='';
+  var loc=document.getElementById('w-loc');
+  if(loc) loc.textContent='('+w.plz+' '+w.place+(w.state?', '+w.state:'')+')';
+  var sun=document.getElementById('w-sun');
+  if(sun) sun.textContent=w.sunshineH!=null?w.sunshineH.toLocaleString('de-DE'):'–';
+  var desc=document.getElementById('w-desc');
+  if(desc) desc.textContent=w.weather||'–';
+  var temp=document.getElementById('w-temp');
+  if(temp) temp.textContent=w.tempMax!=null?'max. '+w.tempMax.toLocaleString('de-DE')+' °C':'';
+  var cloud=document.getElementById('w-cloud');
+  if(cloud) cloud.textContent=w.cloudPct!=null?w.cloudPct:'–';
+  var rain=document.getElementById('w-rain');
+  if(rain) rain.textContent=w.precipMm!=null?w.precipMm.toLocaleString('de-DE'):'–';
+  var src=document.getElementById('w-src');
+  if(src&&w.updatedAt){
+    src.textContent='Quelle: '+w.source+' · Aktualisiert '+new Date(w.updatedAt).toLocaleTimeString('de-DE');
+  }
+}
+
 function renderHistStringAnalysis(filtered){
-  var invCard=document.getElementById('inv-specs-card-h');
-  var invBody=document.getElementById('inv-specs-body-h');
-  if(invCard&&invBody&&histStringCfg.inverter&&histStringCfg.inverter.enabled){
-    invCard.style.display='';
-    var inv=histStringCfg.inverter, g=inv.grid||{};
-    invBody.innerHTML=
-      '<div class="grid g4">'+
-      '<div class="vc"><div class="vl">Modell</div><div class="vv" style="font-size:16px">'+inv.modelName+'</div><div class="vu">Nenn '+inv.pacNom+' W</div></div>'+
-      '<div class="vc"><div class="vl">DC Eingang</div><div class="vv" style="font-size:14px">'+inv.dcMinV+'–'+inv.dcMaxV+' V</div><div class="vu">MPP '+inv.mppMinActive+'–'+inv.mppMax+' V · I<sub>max</sub> '+inv.dcMaxA+' A/String</div></div>'+
-      '<div class="vc"><div class="vl">AC Netz (DE)</div><div class="vv" style="font-size:14px">'+g.acMinV+'–'+g.acMaxV+' V</div><div class="vu">'+g.fMin+'–'+g.fMax+' Hz</div></div>'+
-      '<div class="vc"><div class="vl">Nenn-DC</div><div class="vv" style="font-size:14px">'+inv.udcNom+' V</div><div class="vu">laut Kostal-Datenblatt</div></div>'+
-      '</div>';
-  } else if(invCard) invCard.style.display='none';
   var card=document.getElementById('hsa-card');
   var grid=document.getElementById('hsa-grid');
   if(!card||!grid||!histStringCfg.enabled){
@@ -681,6 +692,10 @@ window.loadSystem=function(){
 };
 
 /* ── Ertrag / Monatsübersicht ── */
+function fmtKwh(v){
+  if(v==null||v===undefined||isNaN(v)) return '–';
+  return v.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1});
+}
 function fmtWh(v){
   if(v==null||v===undefined||isNaN(v)) return '–';
   return Math.round(v).toLocaleString('de-DE');
@@ -708,13 +723,13 @@ window.loadYields=function(){
 function renderYields(){
   if(!yieldsData) return;
   var s=yieldsData.settings||{};
-  document.getElementById('y-total-wh').textContent=fmtWh(yieldsData.totalWh)+' Wh';
+  document.getElementById('y-total-kwh').textContent=fmtKwh(yieldsData.totalKwh!=null?yieldsData.totalKwh:yieldsData.totalWh/1000)+' kWh';
   document.getElementById('y-total-eur').textContent=fmtEur(yieldsData.totalEuro);
   document.getElementById('y-month-cnt').textContent=yieldsData.monthCount||0;
   document.getElementById('y-epoch').textContent=s.pikoEpoch||'–';
   document.getElementById('y-tariff').value=String(s.feedInTariff||0.3925).replace('.',',');
   document.getElementById('y-kwp').value=s.installedKwp>0?String(s.installedKwp).replace('.',','):'';
-  document.getElementById('y-plz').value=s.plzRegion||'';
+  document.getElementById('y-plz').value=s.plz||s.plzRegion||'';
   document.getElementById('y-storage').textContent=yieldsData.storagePath||'iobroker-data/'+window.location.pathname.split('/')[1]+'/monthly-yields.json';
 
   var years=yieldsData.years||[];
@@ -917,7 +932,7 @@ window.saveYieldSettings=function(){
     action:'setSettings',
     feedInTariff:document.getElementById('y-tariff').value,
     installedKwp:document.getElementById('y-kwp').value,
-    plzRegion:document.getElementById('y-plz').value
+    plz:document.getElementById('y-plz').value
   });
 };
 

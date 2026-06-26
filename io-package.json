@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -94,6 +94,10 @@
       "0.3.20": {
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
+      },
+      "0.5.2": {
+        "de": "Gesamtertrag in kWh; volle PLZ (87781) für Wetter/Sonnenstunden auf Daten-Tab; doppelte WR-Grenzwerte auf Historie-Tab entfernt",
+        "en": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab"
       },
       "0.5.1": {
         "de": "NEU: Jahres-Spalten hinzufügen/auffüllen, JSON/CSV Export & Import, Speicherort-Anzeige, Jahresvergleich als Balkendiagramm (MWh / kWh/kWp, Jahre umschaltbar)",
@@ -193,7 +197,7 @@
     "string3Modules": 0,
     "yieldFeedInTariff": 0.3925,
     "yieldInstalledKwp": 0,
-    "yieldPlzRegion": "",
+    "yieldPlz": "87781",
     "pikoModel": "auto",
     "influxSync": false,
     "notifyEnabled": false,

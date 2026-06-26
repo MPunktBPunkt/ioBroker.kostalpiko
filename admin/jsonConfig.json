@@ -311,11 +311,11 @@
       "step": 0.001,
       "sm": 4
     },
-    "yieldPlzRegion": {
+    "yieldPlz": {
       "type": "text",
-      "label": "PLZ-Region (1. Ziffer)",
-      "help": "Erste Ziffer der Postleitzahl für regionalen Vergleich (ertragsdatenbank.de)",
-      "default": "",
+      "label": "Postleitzahl (5-stellig)",
+      "help": "Für Wetter/Sonnenerwartung auf dem Daten-Tab und regionalen Ertragsvergleich (ertragsdatenbank.de)",
+      "default": "87781",
       "sm": 4
     },
     "verbose": {
