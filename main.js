@@ -14,7 +14,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.4.3';
+const ADAPTER_VERSION = '0.5.0';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -116,6 +116,8 @@ class KostalPikoAdapter extends utils.Adapter {
         this._lastImportIso   = null;  // ISO-Zeitpunkt des letzten History-Imports
         this._lastHistoryFetch= 0;
         this._historyCachePath = null;
+        this._yieldsCachePath  = null;
+        this._monthlyYields    = null;
 
         this.on('ready',       this._onReady.bind(this));
         this.on('stateChange', this._onStateChange.bind(this));
@@ -178,6 +180,9 @@ class KostalPikoAdapter extends utils.Adapter {
             string1Modules : parseInt(this.config.string1Modules)   || 0,
             string2Modules : parseInt(this.config.string2Modules)   || 0,
             string3Modules : parseInt(this.config.string3Modules)   || 0,
+            yieldFeedInTariff: parseFloat(this.config.yieldFeedInTariff) || 0.3925,
+            yieldInstalledKwp: parseFloat(this.config.yieldInstalledKwp) || 0,
+            yieldPlzRegion   : (this.config.yieldPlzRegion || '').trim(),
         };
 
         const networkInfo = this._cfg.networkMode === 'fritzwireguard'
@@ -194,7 +199,9 @@ class KostalPikoAdapter extends utils.Adapter {
         await this._ensureBaseStates();
         await this._ensureHistoryStates();
         this._historyCachePath = this._getHistoryCachePath();
+        this._yieldsCachePath  = this._getYieldsCachePath();
         await this._loadHistoryCache();
+        await this._loadMonthlyYields();
 
         // Letzten importierten Timestamp aus State laden
         try {
@@ -435,6 +442,9 @@ class KostalPikoAdapter extends utils.Adapter {
         await this._saveHistoryCache().catch(e =>
             this._log('WARN', `History-Cache speichern: ${e.message}`)
         );
+        await this._refreshAutoYields().catch(e =>
+            this._log('WARN', `Monatserträge aktualisieren: ${e.message}`)
+        );
 
         const allRows = this._lastHistoryRows;
         this._log('INFO',
@@ -458,6 +468,9 @@ class KostalPikoAdapter extends utils.Adapter {
             this._lastImportIso = new Date().toISOString();
             await this.setStateAsync('history.lastImport',  { val: this._lastImportIso, ack: true });
             await this.setStateAsync('history.recordCount', { val: allRows.length, ack: true });
+            await this._refreshAutoYields().catch(e =>
+                this._log('WARN', `Monatserträge aktualisieren: ${e.message}`)
+            );
             this._historyLoading = false;
             return;
         }
@@ -681,6 +694,302 @@ class KostalPikoAdapter extends utils.Adapter {
                 }
             }
         }
+    }
+
+    _getYieldsCachePath() {
+        const dataRoot = path.join(process.cwd(), 'iobroker-data', this.namespace);
+        return path.join(dataRoot, 'monthly-yields.json');
+    }
+
+    _defaultMonthlyYields() {
+        const kwp = this._cfg.yieldInstalledKwp || this._getInstalledKwp();
+        let commissionYear = null;
+        if (this._pikoEpoch) commissionYear = new Date(this._pikoEpoch * 1000).getFullYear();
+        return {
+            savedAt       : new Date().toISOString(),
+            feedInTariff  : this._cfg.yieldFeedInTariff || 0.3925,
+            installedKwp  : kwp || 0,
+            plzRegion     : this._cfg.yieldPlzRegion || '',
+            regionalKwpRef: null,
+            months        : {},
+        };
+    }
+
+    async _loadMonthlyYields() {
+        if (!this._yieldsCachePath) return;
+        try {
+            const raw = await fs.promises.readFile(this._yieldsCachePath, 'utf-8');
+            const data = JSON.parse(raw);
+            if (!data.months || typeof data.months !== 'object') throw new Error('ungültiges Format');
+            this._monthlyYields = { ...this._defaultMonthlyYields(), ...data, months: { ...data.months } };
+            this._log('INFO', `Monatserträge geladen: ${Object.keys(this._monthlyYields.months).length} Monate`);
+        } catch (e) {
+            if (e.code !== 'ENOENT') {
+                this._log('WARN', `Monatserträge laden: ${e.message}`);
+            }
+            this._monthlyYields = this._defaultMonthlyYields();
+        }
+    }
+
+    async _saveMonthlyYields() {
+        if (!this._yieldsCachePath || !this._monthlyYields) return;
+        const dir = path.dirname(this._yieldsCachePath);
+        await fs.promises.mkdir(dir, { recursive: true });
+        try {
+            await fs.promises.access(this._yieldsCachePath);
+            await fs.promises.copyFile(this._yieldsCachePath, `${this._yieldsCachePath}.bak`);
+        } catch (_) {}
+        this._monthlyYields.savedAt = new Date().toISOString();
+        await fs.promises.writeFile(this._yieldsCachePath, JSON.stringify(this._monthlyYields, null, 2), 'utf-8');
+    }
+
+    _monthKey(year, month) {
+        return `${year}-${String(month).padStart(2, '0')}`;
+    }
+
+    _parseMonthKey(key) {
+        const m = /^(\d{4})-(\d{2})$/.exec(key || '');
+        if (!m) return null;
+        return { year: parseInt(m[1]), month: parseInt(m[2]) };
+    }
+
+    _getRowsForMonth(year, month) {
+        return this._lastHistoryRows.filter(r => {
+            const d = new Date(r.ts);
+            return d.getFullYear() === year && d.getMonth() + 1 === month;
+        });
+    }
+
+    _calcMonthWhFromRows(rows) {
+        if (!rows.length) return 0;
+        const byDay = {};
+        rows.forEach(r => {
+            const day = r.date.substring(0, 10);
+            if (!byDay[day]) byDay[day] = [];
+            byDay[day].push(r);
+        });
+        let totalKwh = 0;
+        Object.values(byDay).forEach(dayRows => {
+            totalKwh += this._calcDailyKwh(dayRows);
+        });
+        return Math.round(totalKwh * 1000);
+    }
+
+    async _refreshAutoYields() {
+        if (!this._monthlyYields) this._monthlyYields = this._defaultMonthlyYields();
+        if (!this._lastHistoryRows.length) return;
+
+        const kwp = this._cfg.yieldInstalledKwp || this._getInstalledKwp();
+        if (kwp) this._monthlyYields.installedKwp = kwp;
+        this._monthlyYields.feedInTariff = this._cfg.yieldFeedInTariff || this._monthlyYields.feedInTariff;
+        if (this._cfg.yieldPlzRegion) this._monthlyYields.plzRegion = this._cfg.yieldPlzRegion;
+
+        const monthSet = {};
+        this._lastHistoryRows.forEach(r => {
+            const d = new Date(r.ts);
+            monthSet[this._monthKey(d.getFullYear(), d.getMonth() + 1)] = {
+                year : d.getFullYear(),
+                month: d.getMonth() + 1,
+            };
+        });
+
+        let updated = 0;
+        Object.values(monthSet).forEach(({ year, month }) => {
+            const key = this._monthKey(year, month);
+            const existing = this._monthlyYields.months[key];
+            if (existing && existing.source === 'manual') return;
+
+            const wh = this._calcMonthWhFromRows(this._getRowsForMonth(year, month));
+            if (wh <= 0) return;
+
+            const now = new Date();
+            const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+            if (existing && existing.source === 'auto' && existing.wh === wh && !isCurrentMonth) return;
+
+            this._monthlyYields.months[key] = {
+                wh,
+                source   : 'auto',
+                updatedAt: new Date().toISOString(),
+            };
+            updated++;
+        });
+
+        if (updated > 0) {
+            await this._saveMonthlyYields();
+            this._log('INFO', `Monatserträge: ${updated} Monat(e) aus Historie aktualisiert`);
+        }
+    }
+
+    _buildYieldsApiResponse() {
+        const data = this._monthlyYields || this._defaultMonthlyYields();
+        const months = data.months || {};
+        const years = [...new Set(Object.keys(months).map(k => this._parseMonthKey(k)?.year).filter(Boolean))].sort();
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        if (!years.includes(currentYear)) years.push(currentYear);
+        years.sort();
+
+        const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+        const grid = [];
+        const monthStats = [];
+
+        for (let m = 1; m <= 12; m++) {
+            const row = { month: m, name: monthNames[m - 1], cells: {}, stats: {} };
+            const values = [];
+            years.forEach(year => {
+                const key = this._monthKey(year, m);
+                const entry = months[key];
+                const wh = entry && entry.wh > 0 ? entry.wh : null;
+                row.cells[year] = {
+                    wh,
+                    source: entry?.source || null,
+                };
+                if (wh) values.push(wh);
+            });
+            if (values.length) {
+                const avg = values.reduce((s, v) => s + v, 0) / values.length;
+                row.stats = {
+                    avg : Math.round(avg),
+                    min : Math.min(...values),
+                    max : Math.max(...values),
+                };
+            }
+            grid.push(row);
+            monthStats.push(row.stats);
+        }
+
+        const yearTotals = {};
+        const yearEuro = {};
+        const yearKwp = {};
+        const tariff = data.feedInTariff || 0.3925;
+        const kwp = data.installedKwp || 0;
+
+        years.forEach(year => {
+            let sumWh = 0;
+            for (let m = 1; m <= 12; m++) {
+                const key = this._monthKey(year, m);
+                const wh = months[key]?.wh;
+                if (wh > 0) sumWh += wh;
+            }
+            yearTotals[year] = sumWh;
+            yearEuro[year] = Math.round(sumWh / 1000 * tariff * 100) / 100;
+            yearKwp[year] = kwp > 0 ? Math.round(sumWh / 1000 / kwp * 10) / 10 : null;
+        });
+
+        let totalWh = 0;
+        Object.values(yearTotals).forEach(v => { totalWh += v; });
+        const totalEuro = Math.round(totalWh / 1000 * tariff * 100) / 100;
+
+        return {
+            settings: {
+                feedInTariff : tariff,
+                installedKwp : kwp,
+                plzRegion    : data.plzRegion || '',
+                regionalKwpRef: data.regionalKwpRef || null,
+                pikoEpoch    : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10) : null,
+            },
+            years,
+            grid,
+            yearTotals,
+            yearEuro,
+            yearKwp,
+            totalWh,
+            totalEuro,
+            monthCount: Object.keys(months).length,
+        };
+    }
+
+    async _handleYieldsPost(body) {
+        if (!this._monthlyYields) this._monthlyYields = this._defaultMonthlyYields();
+        const action = body.action;
+
+        if (action === 'setCell') {
+            const year = parseInt(body.year);
+            const month = parseInt(body.month);
+            if (!year || month < 1 || month > 12) throw new Error('Ungültiges Jahr/Monat');
+            const key = this._monthKey(year, month);
+            const wh = body.wh === null || body.wh === '' || body.wh === undefined
+                ? null
+                : Math.round(parseFloat(String(body.wh).replace(',', '.')));
+            if (wh === null || isNaN(wh)) {
+                delete this._monthlyYields.months[key];
+            } else if (wh < 0) {
+                throw new Error('Ertrag darf nicht negativ sein');
+            } else {
+                this._monthlyYields.months[key] = {
+                    wh,
+                    source   : 'manual',
+                    updatedAt: new Date().toISOString(),
+                };
+            }
+            await this._saveMonthlyYields();
+            return { ok: true, message: 'Gespeichert' };
+        }
+
+        if (action === 'setSettings') {
+            if (body.feedInTariff !== undefined) {
+                const t = parseFloat(String(body.feedInTariff).replace(',', '.'));
+                if (!isNaN(t) && t >= 0) this._monthlyYields.feedInTariff = t;
+            }
+            if (body.installedKwp !== undefined) {
+                const k = parseFloat(String(body.installedKwp).replace(',', '.'));
+                if (!isNaN(k) && k >= 0) this._monthlyYields.installedKwp = k;
+            }
+            if (body.plzRegion !== undefined) {
+                this._monthlyYields.plzRegion = String(body.plzRegion).trim();
+            }
+            if (body.regionalKwpRef !== undefined) {
+                if (body.regionalKwpRef === null) {
+                    this._monthlyYields.regionalKwpRef = null;
+                } else if (Array.isArray(body.regionalKwpRef) && body.regionalKwpRef.length === 12) {
+                    this._monthlyYields.regionalKwpRef = body.regionalKwpRef.map(v =>
+                        v === null || v === '' ? null : parseFloat(String(v).replace(',', '.'))
+                    );
+                }
+            }
+            await this._saveMonthlyYields();
+            return { ok: true, message: 'Einstellungen gespeichert' };
+        }
+
+        if (action === 'refreshAuto') {
+            await this._refreshAutoYields();
+            return { ok: true, message: 'Automatische Monate aus Historie aktualisiert' };
+        }
+
+        if (action === 'clearAuto') {
+            let cleared = 0;
+            Object.keys(this._monthlyYields.months).forEach(key => {
+                if (this._monthlyYields.months[key].source === 'auto') {
+                    delete this._monthlyYields.months[key];
+                    cleared++;
+                }
+            });
+            await this._saveMonthlyYields();
+            return { ok: true, message: `${cleared} automatische Einträge entfernt` };
+        }
+
+        throw new Error('Unbekannte Aktion');
+    }
+
+    _readPostBody(req) {
+        return new Promise((resolve, reject) => {
+            let data = '';
+            req.on('data', chunk => {
+                data += chunk;
+                if (data.length > 1e6) {
+                    req.destroy();
+                    reject(new Error('Request zu groß'));
+                }
+            });
+            req.on('end', () => {
+                try {
+                    resolve(data ? JSON.parse(data) : {});
+                } catch (e) {
+                    reject(new Error('Ungültiges JSON'));
+                }
+            });
+            req.on('error', reject);
+        });
     }
 
     _getStringCount() {
@@ -1546,6 +1855,23 @@ class KostalPikoAdapter extends utils.Adapter {
                 this._fetchAndImportHistory(true).catch(e => this._log('ERROR', `Vollsync: ${e.message}`));
                 return this._json(res, { ok:true, message:'Vollsync gestartet – alle Datenpunkte werden übertragen' });
             }
+            if (p === '/api/yields' && req.method === 'GET') {
+                return this._json(res, this._buildYieldsApiResponse());
+            }
+            if (p === '/api/yields' && req.method === 'POST') {
+                return this._readPostBody(req).then(async body => {
+                    try {
+                        const result = await this._handleYieldsPost(body);
+                        return this._json(res, { ...result, data: this._buildYieldsApiResponse() });
+                    } catch (e) {
+                        res.writeHead(400, { 'Content-Type':'application/json; charset=utf-8' });
+                        res.end(JSON.stringify({ ok: false, error: e.message }));
+                    }
+                }).catch(e => {
+                    res.writeHead(400, { 'Content-Type':'application/json; charset=utf-8' });
+                    res.end(JSON.stringify({ ok: false, error: e.message }));
+                });
+            }
             if (p === '/api/ping') return this._json(res, { ok:true, adapter:ADAPTER_NAME, version:ADAPTER_VERSION });
             if (p === '/app.js') {
                 res.writeHead(200, { 'Content-Type':'application/javascript; charset=utf-8' });
@@ -1662,6 +1988,27 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .tbl-wrap{max-height:420px;overflow:auto;border:1px solid var(--bd);border-radius:var(--r)}
 .tbl-wrap thead th{position:sticky;top:0;background:var(--bg2);z-index:1}
 .cache-hint{font-size:11px;color:var(--orn);margin-top:6px}
+.yield-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.yield-toolbar label{font-size:11px;color:var(--mut);display:flex;flex-direction:column;gap:3px}
+.yield-toolbar input,.yield-toolbar select{background:var(--bg3);border:1px solid var(--bd);color:var(--txt);padding:5px 8px;border-radius:var(--r);font-size:12px;min-width:90px}
+.yield-grid-wrap{overflow:auto;max-height:70vh;border:1px solid var(--bd);border-radius:var(--r)}
+.yield-grid{border-collapse:collapse;font-size:11px;min-width:100%}
+.yield-grid th,.yield-grid td{padding:5px 7px;border:1px solid rgba(48,54,61,.6);text-align:right;white-space:nowrap}
+.yield-grid th{background:var(--bg2);color:var(--mut);position:sticky;top:0;z-index:2}
+.yield-grid th.ymonth,.yield-grid td.ymonth{position:sticky;left:0;background:var(--bg2);text-align:left;z-index:1;font-weight:600}
+.yield-grid th.ymonth{z-index:3}
+.yield-grid td.ymonth{color:var(--mut)}
+.yield-grid td.editable{cursor:pointer}
+.yield-grid td.editable:hover{outline:1px solid var(--acc)}
+.yield-grid td.manual{color:var(--blu)}
+.yield-grid td.auto{color:var(--txt)}
+.yield-grid td.above{background:rgba(63,185,80,.12)}
+.yield-grid td.below{background:rgba(248,81,73,.10)}
+.yield-grid td.is-min{font-weight:700;color:var(--red)}
+.yield-grid td.is-max{font-weight:700;color:var(--grn)}
+.yield-grid tr.sum-row td{background:var(--bg3);font-weight:600}
+.yield-grid tr.sum-row td.ymonth{color:var(--acc)}
+.yield-edit{background:var(--bg);border:1px solid var(--acc);color:var(--txt);width:80px;padding:2px 4px;font-size:11px;border-radius:4px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -1679,6 +2026,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <nav id="tabs">
   <button class="act" onclick="showTab('daten')">&#9889; Daten</button>
   <button onclick="showTab('history')">&#128200; Historie</button>
+  <button onclick="showTab('yields')">&#128202; Ertrag</button>
   <button onclick="showTab('nodes')">&#127760; Nodes</button>
   <button onclick="showTab('logs')">&#128196; Logs</button>
   <button onclick="showTab('system')">&#9881; System</button>
@@ -1863,6 +2211,55 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </tr></thead>
       <tbody id="hTb"><tr><td colspan="22" style="color:var(--mut);text-align:center;padding:18px">Kein History-Import &ndash; History in den Einstellungen aktivieren</td></tr></tbody>
     </table>
+    </div>
+  </div>
+</div>
+
+<!-- ERTRAG -->
+<div class="tc" id="tab-yields">
+  <div class="card" style="padding:13px 16px">
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:14px">
+      <div><div class="muted" style="font-size:10px">Gesamtertrag</div><div style="font-weight:700;font-size:20px" id="y-total-wh">--</div></div>
+      <div><div class="muted" style="font-size:10px">Gesamt &euro;</div><div style="font-weight:700;font-size:20px;color:var(--grn)" id="y-total-eur">--</div></div>
+      <div><div class="muted" style="font-size:10px">Erfasste Monate</div><div style="font-size:13px;font-weight:600" id="y-month-cnt">--</div></div>
+      <div><div class="muted" style="font-size:10px">Inbetriebnahme</div><div style="font-size:13px;font-weight:600" id="y-epoch">--</div></div>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="loadYields()" title="Tabelle neu laden">&#8635; Aktualisieren</button>
+        <button class="btn" onclick="refreshYieldsAuto()" title="Monate aus 15-min-Historie berechnen (manuelle Werte bleiben)">&#9889; Aus Historie</button>
+        <button class="btn a" onclick="saveYieldSettings()" title="Verg&uuml;tung und kWp speichern">&#10003; Einstellungen</button>
+      </div>
+    </div>
+    <div id="yieldMsg" style="margin-top:8px;font-size:11px;color:var(--mut)"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct"><span class="dot"></span>Einstellungen &amp; Vergleich</div>
+    <div class="yield-toolbar">
+      <label>Verg&uuml;tung [&euro;/kWh]
+        <input type="text" id="y-tariff" value="0,3925" title="Einspeiseverg&uuml;tung in Euro pro kWh">
+      </label>
+      <label>Installierte Leistung [kWp]
+        <input type="text" id="y-kwp" placeholder="auto" title="Leer = aus Modul-Konfiguration">
+      </label>
+      <label>PLZ-Region (1. Ziffer)
+        <input type="text" id="y-plz" maxlength="1" placeholder="8" title="F&uuml;r Vergleich mit ertragsdatenbank.de">
+      </label>
+    </div>
+    <div style="font-size:10px;color:var(--mut);line-height:1.6;margin-bottom:8px">
+      <strong>Manuell eingeben:</strong> Zelle anklicken &rarr; Monatswert in Wh eintragen (wie in Excel). Blaue Werte = manuell, wei&szlig;e = aus Historie berechnet.
+      Gr&uuml;n/Rot = &uuml;ber/unter dem Durchschnitt aller Jahre f&uuml;r diesen Monat.
+      Regionale Referenz: <a href="https://ertragsdatenbank.de/auswertung/region.html" target="_blank" rel="noopener" style="color:var(--blu)">ertragsdatenbank.de</a>
+    </div>
+    <div class="kpi-grid" id="y-kpi"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct"><span class="dot"></span>Monatsertr&auml;ge [Wh] &ndash; Jahre als Spalten</div>
+    <div class="yield-grid-wrap">
+      <table class="yield-grid" id="y-grid">
+        <thead><tr><th class="ymonth">Monat</th></tr></thead>
+        <tbody><tr><td class="ymonth" style="color:var(--mut)">Lade...</td></tr></tbody>
+      </table>
     </div>
   </div>
 </div>

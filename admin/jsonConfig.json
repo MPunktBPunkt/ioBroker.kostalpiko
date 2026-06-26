@@ -281,6 +281,43 @@
       "max": 50,
       "sm": 3
     },
+    "_h_yields": {
+      "type": "header",
+      "text": "Ertragsauswertung (Web-UI Tab „Ertrag“)",
+      "size": 4
+    },
+    "_info_yields": {
+      "type": "staticText",
+      "text": "Monatliche Erträge werden in iobroker-data gespeichert. Historische Monate können im Web-UI manuell eingetragen werden. Automatische Monate werden aus LogDaten.dat berechnet (letzte ~6 Monate).",
+      "sm": 12
+    },
+    "yieldFeedInTariff": {
+      "type": "number",
+      "label": "Einspeisevergütung (€/kWh)",
+      "help": "Vergütung für die €-Berechnung, z. B. 0,3925 für 39,25 ct/kWh",
+      "default": 0.3925,
+      "min": 0,
+      "max": 2,
+      "step": 0.0001,
+      "sm": 4
+    },
+    "yieldInstalledKwp": {
+      "type": "number",
+      "label": "Installierte Leistung (kWp, 0=auto)",
+      "help": "0 = aus Modul-Konfiguration berechnen (Wp × Module)",
+      "default": 0,
+      "min": 0,
+      "max": 500,
+      "step": 0.001,
+      "sm": 4
+    },
+    "yieldPlzRegion": {
+      "type": "text",
+      "label": "PLZ-Region (1. Ziffer)",
+      "help": "Erste Ziffer der Postleitzahl für regionalen Vergleich (ertragsdatenbank.de)",
+      "default": "",
+      "sm": 4
+    },
     "verbose": {
       "type": "checkbox",
       "label": "Ausführliches Logging (Debug)",
