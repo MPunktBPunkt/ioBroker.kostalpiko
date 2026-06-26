@@ -475,6 +475,26 @@ function renderNavView(){
   renderHistStringAnalysis(filtered);
   renderHistTable(filtered);
   toggleDc3Columns(histStringCount>=3);
+  updateStaleHint(filtered);
+}
+
+function updateStaleHint(filtered){
+  var cacheHint=document.getElementById('cache-hint');
+  if(!cacheHint) return;
+  if(navOffset!==0 || navViewMode!=='day' || !filtered.length){
+    if(!cacheHint.dataset.loading) cacheHint.style.display='none';
+    return;
+  }
+  var sorted=filtered.slice().sort(function(a,b){return rowTs(a)-rowTs(b);});
+  var lastTs=rowTs(sorted[sorted.length-1]);
+  var ageMin=Math.round((Date.now()-lastTs)/60000);
+  if(ageMin>45){
+    var lastTime=new Date(lastTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+    cacheHint.style.display='';
+    cacheHint.textContent='\u26a0 Letzter Messpunkt um '+lastTime+' (vor '+ageMin+' Min) – Kurve kann abgeschnitten wirken. „Vom PIKO laden“ holt frische LogDaten.dat.';
+  } else if(!cacheHint.dataset.loading){
+    cacheHint.style.display='none';
+  }
 }
 
 function toggleDc3Columns(show){
@@ -513,8 +533,10 @@ window.loadHistory=function(keepNav){
     if(cacheHint){
       if(j.loading&&histRows.length){
         cacheHint.style.display='';
-        cacheHint.textContent='⏳ Aktualisiere vom PIKO… (Cache-Daten werden angezeigt)';
+        cacheHint.dataset.loading='1';
+        cacheHint.textContent='\u23f3 Aktualisiere vom PIKO\u2026 (Cache-Daten werden angezeigt)';
       } else {
+        delete cacheHint.dataset.loading;
         cacheHint.style.display='none';
       }
     }
