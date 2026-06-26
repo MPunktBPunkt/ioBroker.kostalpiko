@@ -1,236 +1,57 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases/tag/v0.5.2)
-[![License](https://img.shields.io/badge/license-Personal%20Private%20Use-lightgrey.svg)](./LICENSE)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
 
-Liest Echtzeit- und Historiendaten vom **Kostal PIKO Solarwechselrichter** direkt über den eingebauten HTTP-Webserver und speichert sie als ioBroker-Datenpunkte. Die 15-Minuten-Messreihen der letzten ~6 Monate werden mit korrektem historischen Zeitstempel an InfluxDB übertragen.
+Liest Echtzeit- und Historiendaten vom **Kostal PIKO Solarwechselrichter** direkt über den eingebauten HTTP-Webserver. Messwerte werden als ioBroker-Datenpunkte bereitgestellt; optional synchronisiert der Adapter 15-Minuten-Historie und Live-Werte mit **InfluxDB** (für Grafana).
 
 ---
 
 ## Features
 
-- ☀️ **HTTP-Scraping** – direkte Anbindung an den PIKO-Webserver, kein Cloud-Zwang
-- ⚡ **Echtzeit-Messwerte** – AC-Leistung, PV-Strings, L1/L2/L3, Energie, Status
-- 🔌 **Offline-Erkennung** – `x x x` Muster im HTML erkannt; Energie-Zähler bleiben erhalten
-- 📊 **Historiendaten** – LogDaten.dat (CSV, 15-min-Intervall, ~6 Monate)
-- 🕐 **Korrekter Zeitstempel** – dekodiert den PIKO-internen Uptime-Zähler in echte Unix-Timestamps
-- 📤 **InfluxDB-Integration** – sendet History-Daten via `sendTo()` mit historischem Zeitstempel
-- 🔄 **Sync-All** – überträgt die gesamte gespeicherte Historie auf Knopfdruck
-- 🌐 **Web-UI** – eingebautes Dashboard mit 6 Tabs: Daten, Historie, Ertrag, Nodes, Logs, System
-- 🔢 **Multi-String** – automatische Erkennung von 2 oder 3 PV-Strings (PIKO 8.3 / PIKO 5.5)
-- 📬 **Benachrichtigungen** – Tages-, Wochen- und Monatsberichte per E-Mail, Telegram oder Pushover
+| Bereich | Funktion |
+|---|---|
+| **Live-Daten** | AC/DC-Leistung, String-Spannungen & Ströme, Phasen, Energie, Status |
+| **Historie** | LogDaten.dat (~6 Monate, 15-min), Chart.js-Dashboard, lokaler Cache |
+| **Ertrag** | Monatstabelle (Jahre × Monate), manuelle Historie, €/kWh, Export/Import |
+| **Wetter** | Sonnenstunden, Temperatur, Bewölkung, Niederschlag (Open-Meteo, PLZ-basiert) |
+| **Analyse** | Wirkungsgrad DC→AC, String-Analyse, Kostal-Datenblatt-Grenzwerte |
+| **InfluxDB** | Live **und** History mit korrektem Zeitstempel via `sendTo()` |
+| **Web-UI** | 6 Tabs: Daten, Historie, Ertrag, Nodes, Logs, System |
+| **Multi-Instanz** | Mehrere PIKOs parallel (z. B. `kostalpiko.0` + `kostalpiko.1`) |
+| **Benachrichtigungen** | Tages-/Wochen-/Monatsberichte per E-Mail, Telegram, Pushover |
 
 ---
 
 ## Getestete Hardware
 
-| Modell | Firmware | Strings | Status |
-|---|---|---|---|
-| PIKO 3.0 | ver 3.62 | 1 | Unterstützt |
-| PIKO 3.6 | ver 3.62 | 2 | Unterstützt |
-| PIKO 4.2 | ver 3.62 | 2 | Unterstützt |
-| PIKO 5.5 | ver 3.62 | 3 | ✅ Getestet |
-| PIKO 7.0 | ver 3.62 | 2 | Unterstützt |
-| PIKO 8.3 | ver 3.62 | 2 | ✅ Getestet |
-| PIKO 10.1 | ver 3.62 | 3 | Unterstützt |
+| Modell | Strings | Status |
+|---|---|---|
+| PIKO 3.0 – 4.2 | 1–2 | Unterstützt |
+| PIKO 5.5 | 3 | ✅ Getestet |
+| PIKO 7.0 – 8.3 | 2 | ✅ Getestet (8.3) |
+| PIKO 10.1 | 3 | Unterstützt |
+
+Firmware: ver 3.62 · PIKO-Modell in den Einstellungen wählbar oder Auto-Erkennung.
 
 ---
 
-## Installation
-
-### Option A – Kommandozeile (empfohlen)
+## Installation & Update
 
 ```bash
 iobroker url https://github.com/MPunktBPunkt/iobroker.kostalpiko
-iobroker add kostalpiko
-```
-
-### Option B – ioBroker Admin UI
-
-Im ioBroker Admin unter **Adapter** auf das 🐙 **Octocat-Icon** klicken → Tab **„ANY"** → folgende URL eintragen:
-
-```
-https://github.com/MPunktBPunkt/iobroker.kostalpiko/tarball/main/
-```
-
-→ „Installieren" klicken. Danach im Admin unter **Instanzen** eine neue Instanz anlegen und konfigurieren.
-
-### Option C – manuell (offline)
-
-```bash
-mkdir -p /opt/iobroker/node_modules/iobroker.kostalpiko
-# Alle Dateien aus dem ZIP nach /opt/iobroker/node_modules/iobroker.kostalpiko/ kopieren
-cd /opt/iobroker/node_modules/iobroker.kostalpiko
-npm install
-cd /opt/iobroker
-iobroker add kostalpiko
-```
-
----
-
-## Update
-
-```bash
-iobroker url https://github.com/MPunktBPunkt/iobroker.kostalpiko
+iobroker add kostalpiko          # nur bei Erstinstallation
+iobroker update kostalpiko       # Update
 iobroker restart kostalpiko
 ```
 
-Bei mehreren Instanzen startet `iobroker restart kostalpiko` alle automatisch neu.
-
----
-
-## Mehrere Wechselrichter (Multi-Instanz)
-
-Jede Instanz verwaltet einen eigenen Wechselrichter mit vollständig getrennten Datenpunkten:
-
-| Instanz | Namespace | IP | Web-UI Port |
-|---|---|---|---|
-| kostalpiko.0 | `kostalpiko.0.*` | 192.168.178.30 (PIKO 8.3) | 8092 |
-| kostalpiko.1 | `kostalpiko.1.*` | 192.168.178.31 (PIKO 5.5) | 8093 |
-
-Für die zweite Instanz einfach im Admin **„+ Instanz hinzufügen"** klicken und einen anderen Web-UI Port einstellen.
-
----
-
-## Konfiguration
-
-Im ioBroker Admin unter **Adapter → Kostal PIKO → Instanz konfigurieren**:
-
-| Einstellung | Standard | Beschreibung |
-|---|---|---|
-| IP-Adresse | `192.168.178.30` | IP des PIKO-Wechselrichters |
-| HTTP-Port | `80` | Web-Server Port des PIKO |
-| Benutzername | `pvserver` | HTTP Basic Auth |
-| Passwort | `pvwr` | HTTP Basic Auth |
-| Poll-Intervall | `30` | Sekunden zwischen Live-Abfragen |
-| Historiendaten & InfluxDB | `false` | LogDaten.dat abrufen + an InfluxDB senden |
-| Sync-Intervall | `15` | Minuten zwischen automatischen Syncs |
-| InfluxDB-Instanz | `influxdb.0` | Name der InfluxDB-Adapter-Instanz |
-| Web-UI Port | `8092` | Port für das eingebaute Dashboard |
-| **PIKO Modell** | `Auto` | Modell explizit setzen (PIKO 3.0–10.1) oder Auto-Erkennung |
-| Modul-Leistung (Wp) | `0` | Optional: Nennleistung eines Moduls für String-Analyse |
-| Leerlaufspannung Voc | `0` | Optional: Leerlaufspannung eines Moduls (STC) |
-| Anzahl Module pro String | `0` | Optional: Anzahl Module in String 1/2/3 |
-| Verbose Logging | `false` | Debug-Ausgaben aktivieren |
-| **Netzwerk-Modus** | `Lokal` | `Lokal` = direkter Zugriff · `Via iobroker.fritzwireguard` = Zugriff über WireGuard-Tunnel |
-| fritzwireguard-Instanz | `fritzwireguard.0` | Name der fritzwireguard Adapter-Instanz (nur im Tunnel-Modus relevant) |
-| Verbindungs-State | *(leer)* | Optionaler ioBroker State für Tunnel-Status – leer lassen für Auto-Erkennung |
-
-### InfluxDB-Verbindung
-
-Die Verbindungsdaten für InfluxDB (Host, Port, Datenbank, Token) werden **nicht** in diesem Adapter eingetragen, sondern im **ioBroker Admin → Adapter → InfluxDB → Instanz konfigurieren**. Dieser Adapter kennt nur den Instanz-Namen und leitet die Daten über den ioBroker-internen `sendTo()`-Mechanismus weiter.
-
-### Benachrichtigungen (E-Mail / Telegram / Pushover)
-
-Berichte basieren auf **LogDaten.dat** – dafür muss **„Historiendaten laden“** aktiviert sein (InfluxDB ist dafür nicht nötig).
-
-| Einstellung | Standard | Beschreibung |
-|---|---|---|
-| Benachrichtigungen aktivieren | `false` | Schaltet alle Berichte und Alarme ein |
-| Benachrichtigungs-Adapter | `E-Mail` | `E-Mail`, `Telegram` oder `Pushover` |
-| E-Mail-Instanz | `email.0` | Name der ioBroker E-Mail-Adapter-Instanz |
-| Telegram-Instanz | `telegram.0` | Name der ioBroker Telegram-Adapter-Instanz |
-| Pushover-Instanz | `pushover.0` | Name der ioBroker Pushover-Adapter-Instanz |
-| Empfänger | *(leer)* | E-Mail-Adresse oder Telegram Chat-ID |
-| Tagesbericht | `false` | Täglich um konfigurierte Uhrzeit (Vortag) |
-| Wochenbericht | `false` | Montags: abgeschlossene Kalenderwoche (Mo–So) |
-| Monatsbericht | `false` | Am 1. des Monats: Vormonat |
-| Alarm | `false` | Warnung bei fehlenden Daten, unter Schwellwert oder Fehlercodes |
-| Schwellwert (kWh) | `0` | Mindest-Tagesertrag für Alarm (0 = deaktiviert) |
-
-#### E-Mail einrichten
-
-Der KostalPiko-Adapter **versendet keine E-Mails selbst** und kennt **keine SMTP-Zugangsdaten**. Er ruft den ioBroker E-Mail-Adapter per `sendTo()` auf.
-
-1. **ioBroker Admin → Adapter → E-Mail** installieren und Instanz anlegen (z. B. `email.0`)
-2. In der E-Mail-Instanz konfigurieren:
-   - SMTP-Server und Port (z. B. `smtp.gmail.com` / `587`)
-   - Benutzername und Passwort (bei Gmail: App-Passwort)
-   - Absender-Adresse (`from`)
-   - Optional: Standard-Empfänger (`default`)
-3. Im KostalPiko-Adapter:
-   - Benachrichtigungen aktivieren
-   - Adapter: **E-Mail**
-   - E-Mail-Instanz: `email.0`
-   - Empfänger: deine E-Mail-Adresse (überschreibt `default` des E-Mail-Adapters)
-   - **Historiendaten laden** aktivieren
-
-**Test:** Im E-Mail-Adapter eine Testnachricht senden. Erst wenn das klappt, funktionieren auch die KostalPiko-Berichte.
-
-#### Telegram / Pushover
-
-Analog: jeweiligen Adapter installieren, Token/API-Key in der Adapter-Instanz hinterlegen, Instanzname im KostalPiko-Adapter eintragen. Alle drei Instanz-Felder können dauerhaft konfiguriert bleiben – beim Wechsel des Benachrichtigungs-Adapters ist kein manuelles Umschreiben nötig.
-
-#### Berichtsinhalte
-
-**Tagesbericht** (Vortag):
-- Tagesertrag (kWh), optional spezifischer Ertrag (kWh/kWp) bei Modul-Konfiguration
-- AC-Spitzenleistung mit Uhrzeit, DC-Spitze
-- Erzeugungszeit und Zeitfenster (erste/letzte Erzeugung)
-- Durchschnittsleistung, Anzahl Messpunkte
-- Fehlercodes (falls vorhanden)
-- Unicode-Sparkline der AC-Leistung (5–21 Uhr)
-
-**Wochenbericht** (Montag, vorherige Kalenderwoche Mo–So):
-- Tagesbalken mit kWh pro Tag
-- Wochensumme, Durchschnitt pro Tag
-- Bester und schwächster Tag, Wochenspitzenleistung
-
-**Monatsbericht** (1. des Monats, Vormonat):
-- Tagesübersicht mit Balken
-- Monatssumme, Durchschnitt pro Ertragstag
-- Bester/schwächster Tag, Monatsspitze
-- Hinweis bei Datenlücken
-
----
-
-## Angelegte Datenpunkte
-
-Unter `kostalpiko.0.*`:
-
-```
-info.connection           – Adapter verbunden (boolean)
-info.lastPoll             – Letzter Poll-Zeitpunkt (ISO-8601)
-status                    – Betriebsstatus ("Einspeisen MPP" / "Aus" / ...)
-online                    – 1 = läuft, 0 = offline/Nacht
-device.strings            – Anzahl PV-Strings (2 oder 3, auto-erkannt)
-ac.power                  – AC-Gesamtleistung aktuell (W)
-ac.l1/l2/l3.voltage       – Phasenspannungen (V)
-ac.l1/l2/l3.power         – Phasenleistungen (W)
-energy.total              – Gesamtenergie (kWh) – auch nachts gültig
-energy.today              – Tagesenergie (kWh)  – auch nachts gültig
-pv.string1/2.voltage      – PV-String-Spannungen (V)
-pv.string1/2.current      – PV-String-Ströme (A)
-pv.string3.voltage/current – nur PIKO 5.5 (3 Strings)
-info.analog1–4            – Analoge Eingänge (V)
-info.modemStatus
-info.lastPortalConnection
-info.s0Pulses
-
-history.lastImport        – Zeitpunkt letzter Sync
-history.lastImportedTs    – Deduplication-Cursor (ms)
-history.recordCount       – Datenpunkte in der Logdatei gesamt
-history.newRecords        – Beim letzten Sync übertragene Punkte
-history.oldestRecord      – Ältester Eintrag in der Logdatei
-history.newestRecord      – Neuester Eintrag
-history.influxSent        – An InfluxDB gesendete Punkte
-history.pikoEpoch         – Berechnetes PIKO-Inbetriebnahmedatum
-
-history.dc1/dc2/dc3.voltage/current/power  – String-Werte (15-min, historischer ts)
-history.energy.total                       – Gesamtenergie-Zähler (15-min, historischer ts)
-history.ac1/ac2/ac3.voltage/current/power
-history.ac.totalPower
-history.ac.frequency
-history.acStatus / history.errorCode
-```
+**GitHub-Release:** [Releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
 
 ---
 
 ## Web-UI
-
-Aufrufbar im Browser (kein Login):
 
 ```
 http://IOBROKER-IP:8092/
@@ -238,238 +59,121 @@ http://IOBROKER-IP:8092/
 
 | Tab | Inhalt |
 |---|---|
-| ⚡ Daten | Live-Werte: Status, AC-Leistung, Energie, PV-Strings (2/3), Phasen |
-| 📈 Historie | Chart.js-Dashboard mit KPIs, interaktiven Zeitreihen, Datentabelle |
-| 📊 Ertrag | Monatstabelle (Jahre × Monate) mit manueller Historie, €-Ertrag, kWh/kWp |
-| 🌐 Nodes | Alle ioBroker-Datenpunkte mit Typ, aktuellem Wert, Einheit |
-| 📄 Logs | Echtzeit-Log mit Level-Filter und Auto-Scroll |
-| ⚙️ System | Adapter-Info, Sync-Status, Aktionen, InfluxDB-Erklärung |
+| ⚡ **Daten** | Live-Werte, Wetter & Sonne, String-Analyse, Wirkungsgrad |
+| 📈 **Historie** | KPIs, interaktive Charts, 15-min-Tabelle |
+| 📊 **Ertrag** | Langzeit-Monatstabelle, Jahresvergleich, Import/Export |
+| 🌐 **Nodes** | Alle ioBroker-Datenpunkte |
+| 📄 **Logs** | Adapter-Log mit Filter |
+| ⚙️ **System** | Sync-Status, InfluxDB-Aktionen |
 
-### Screenshots (v0.5.1)
+### Ertrag-Tab (Langzeitauswertung)
 
-**Daten-Tab** – Live-Messwerte PIKO 5.5 (3 Strings):
+Ersatz für die Excel-Tabelle – persistent gespeichert in:
 
-![Daten-Tab](docs/screenshots/screenshot-daten.png)
-
-**Historie-Tab** – Engineer-Dashboard mit KPIs und Chart.js:
-
-![Historie-Tab](docs/screenshots/screenshot-historie.png)
-
-**Nodes-Tab** – alle ioBroker-States auf einen Blick:
-
-![Nodes-Tab](docs/screenshots/screenshot-nodes.png)
-
-**Logs-Tab** – Sync-Status und PIKO-Abruf im Detail:
-
-![Logs-Tab](docs/screenshots/screenshot-logs.png)
-
-**System-Tab** – InfluxDB-Sync und Aktionen:
-
-![System-Tab](docs/screenshots/screenshot-system.png)
-
-### Sync-Aktionen im Web-UI
-
-- **„Anzeige aktualisieren"** – lädt die Anzeige aus dem Adapter-Speicher (kein PIKO-Abruf)
-- **„Vom PIKO laden"** – holt LogDaten.dat vom Wechselrichter und importiert neue Punkte
-- **„Sync-All (gesamte Historie)"** – setzt den Cursor zurück und überträgt alle ~6 Monate an InfluxDB
-
----
-
-## InfluxDB vs. Web-UI – wo liegen welche Daten?
-
-| Quelle | Zeitraum | Zweck |
-|---|---|---|
-| **LogDaten.dat** (PIKO) | ~6 Monate rollierend | Web-UI Historie-Tab, ioBroker History-States |
-| **InfluxDB** (nach Sync) | **Unbegrenzt*** | Langzeitarchiv, Grafana, Auswertungen |
-
-\*Solange du in InfluxDB keine kürzere Retention-Policy setzt und die Datenbank nicht löschst.
-
-**Wichtig:** Der Historie-Tab im Web-UI liest **nur** die LogDaten.dat (bzw. den lokalen Cache davon) – nicht InfluxDB. Sobald du mit **Sync-All** synchronisiert hast, bleiben die Daten in InfluxDB dauerhaft erhalten, auch wenn der PIKO ältere Messwerte überschreibt.
-
-Für Auswertungen über 6 Monate hinaus:
-
-- **Grafana** (ioBroker Grafana-Adapter oder direkt an InfluxDB)
-- **InfluxDB-Abfragen** (Flux/InfluxQL) auf `kostalpiko.0.history.*`, `energy.today`, `energy.total`
-- **ioBroker History-Graph** im Admin für einzelne States (wenn InfluxDB als History-Backend konfiguriert ist)
-
-Empfehlung: Einmal **Sync-All** pro Wechselrichter ausführen, danach läuft der 15-Minuten-Sync automatisch weiter und baut dein Langzeitarchiv auf.
-
----
-
-## Firewall (falls nötig)
-
-```bash
-sudo ufw allow 8092/tcp   # Instanz 0 (PIKO 8.3)
-sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
+```
+/opt/iobroker/iobroker-data/kostalpiko.0/monthly-yields.json
 ```
 
+![Ertrag-Tab – Monatstabelle und Jahresvergleich](docs/screenshots/screenshot-ertrag.png)
+
+- **Spalten** = Jahre, **Zeilen** = Monate (Wh) + Σ Jahr, €/Jahr, kWh/kWp
+- **Manuelle Eingabe** – historische Monate per Klick (seit Inbetriebnahme)
+- **Automatisch** – letzte ~6 Monate aus LogDaten.dat
+- **+ Jahr / Jahre auffüllen** – leere Vorjahres-Spalten
+- **Export** JSON (Backup) oder CSV (Excel) · **Import** mit Zusammenführen
+- **Balkendiagramm** – Monatsvergleich nach Jahren (MWh / kWh/kWp)
+
+### Weitere Screenshots
+
+<details>
+<summary>Daten, Historie, Nodes, Logs, System</summary>
+
+![Daten-Tab](docs/screenshots/screenshot-daten.png)
+![Historie-Tab](docs/screenshots/screenshot-historie.png)
+![Nodes-Tab](docs/screenshots/screenshot-nodes.png)
+![Logs-Tab](docs/screenshots/screenshot-logs.png)
+![System-Tab](docs/screenshots/screenshot-system.png)
+
+</details>
+
 ---
 
-## Changelog
+## Konfiguration (Auszug)
 
-### 0.5.2 (2026-06-26)
+| Einstellung | Standard | Beschreibung |
+|---|---|---|
+| IP / Port / Auth | – | PIKO-Webserver-Zugang |
+| Poll-Intervall | 30 s | Live-Abfrage |
+| Historiendaten laden | aus | LogDaten.dat abrufen |
+| InfluxDB-Sync | aus | Live + History an `influxdb.0` |
+| Web-UI Port | 8092 | Dashboard pro Instanz |
+| PIKO Modell | Auto | 3.0 – 10.1 |
+| **Postleitzahl** | 87781 | Wetter + regionaler Vergleich |
+| **Einspeisevergütung** | 0,3925 €/kWh | €-Berechnung im Ertrag-Tab |
+| Modul-Konfiguration | optional | String-Analyse, kWh/kWp |
 
-* **VERBESSERT:** Gesamtertrag im Ertrag-Tab in **kWh** (statt Wh)
-* **NEU:** Wetter & Sonne auf dem **Daten-Tab** (erwartete Sonnenstunden, Wetter, Bewölkung) – basierend auf voller PLZ via Open-Meteo
-* **NEU:** Postleitzahl in Admin (Standard **87781**, 5-stellig) ersetzt PLZ-Region (1 Ziffer)
-* **Bugfix:** Wechselrichter-Grenzwerte nur noch auf dem Daten-Tab (nicht mehr doppelt auf Historie)
+InfluxDB-Verbindung (Host, Token, DB) wird im **InfluxDB-Adapter** konfiguriert – dieser Adapter kennt nur den Instanznamen (`influxdb.0`).
 
-### 0.5.1 (2026-06-26)
+Details: [INSTALLATION.md](./INSTALLATION.md) · [Schnittstellen.md](./Schnittstellen.md)
 
-* **NEU:** Jahres-Spalten für Vorjahre hinzufügen (`+ Jahr`) oder von Inbetriebnahme bis heute auffüllen
-* **NEU:** Export als **JSON** (Backup) oder **CSV** (Excel) – Import mit Zusammenführen oder Ersetzen
-* **NEU:** Speicherort der Tabelle im Tab angezeigt (`iobroker-data/kostalpiko.N/monthly-yields.json`)
-* **NEU:** Jahresvergleich als **Balkendiagramm** (MWh oder kWh/kWp, Jahre per Checkbox umschaltbar)
+---
 
-### 0.5.0 (2026-06-26)
+## Datenpunkte
 
-* **NEU:** Tab **„Ertrag"** – Monatstabelle wie in Excel (Spalten = Jahre, Zeilen = Monate in Wh)
-* **NEU:** Manuelle Eingabe historischer Monatswerte (persistent in `monthly-yields.json`)
-* **NEU:** Automatische Berechnung der letzten ~6 Monate aus 15-min-Historie (manuelle Werte bleiben erhalten)
-* **NEU:** Zusammenfassungszeilen: Σ Jahr, €/Jahr (konfigurierbare Vergütung), kWh/kWp
-* **NEU:** Einstellungen: Einspeisevergütung, installierte kWp, PLZ-Region
+Namespace `kostalpiko.0.*` (pro Instanz):
 
-### 0.4.3 (2026-06-25)
+### Live (Poll)
 
-* **Bugfix:** Keine falschen Rot-Warnungen mehr bei Spannung unter MPP-Min (Nennleistungsbereich, kein Grenzwert)
-* **Bugfix:** Web-UI-Syntaxfehler in `app.js` behoben (fehlende Klammer in `renderInvSpecsCard`)
-* **VERBESSERT:** Grenzwert-Alarme nur bei echten Verstößen: U > Udcmax, U < Udcmin, I > Idmax
+```
+ac.power, energy.total, energy.today
+ac.l1/l2/l3.voltage, ac.l1/l2/l3.power
+pv.string1/2/3.voltage, pv.string1/2/3.current   (String 3 nur bei PIKO 5.5/10.1)
+dc.totalPower                                     (berechnet: Σ U×I)
+efficiency.ratio, efficiency.expected             (Wirkungsgrad %, temp.-korrigiert)
+weather.sunshineHours, weather.tempMax, weather.cloudCover, weather.precipitation
+weather.description, weather.plz, weather.place
+status, online, device.model, device.strings
+```
 
-### 0.4.2 (2026-06-25)
+### History (15-min, historischer Zeitstempel → InfluxDB)
 
-* **Bugfix:** Historie wird nicht mehr durch unvollständige `LogDaten.dat` ersetzt (5650→1 Punkte bei „service busy“)
-* **NEU:** History-Cache-Backup (`.bak`) und Wiederherstellung aus Backup beim Start
-* **NEU:** Kostal-Datenblatt-Grenzwerte (Udc, MPP, Idmax, AC-Netz DE) in String-Analyse und Web-UI
-* **Bugfix:** String-Analyse nutzt Vmpp statt Voc für MPP-Korridor; Modul-Vorlage Solarworld 225 poly/mono
+```
+history.dc1/2/3.voltage, current, power
+history.dc.totalPower, history.efficiency.ratio
+history.ac1/2/3.voltage, current, power, history.ac.totalPower
+history.ac.frequency, history.energy.total
+history.acStatus, history.errorCode
+```
 
-### 0.4.1 (2026-06-25)
+**InfluxDB Live-Sync** (bei aktiviertem Sync): alle Live-Messwerte oben inkl. DC-Strings, Wirkungsgrad und Wetter.
 
-* **Bugfix:** String-Analyse MPP-Korridor basiert auf Vmpp (Betrieb), nicht Voc – kein falscher Rot-Status mehr
-* **NEU:** Modul-Vorlage Solarworld 225 poly/mono; Feld Vmpp in Admin
+---
 
-### 0.4.0 (2026-06-25)
+## Mehrere Wechselrichter
 
-* **NEU:** Historie-Tab komplett überarbeitet – Chart.js Dashboard mit KPI-Leiste, interaktiven Zeitreihen (AC/DC/Phasen/Netz/Energie)
-* **NEU:** History-Cache auf Disk – nach Adapter-Neustart sofort Daten sichtbar, PIKO-Abruf im Hintergrund
-* **Bugfix:** `history.dc3.*` fehlte in InfluxDB (PIKO 5.5 / 10.1 mit 3 Strings)
-* **NEU:** `history.energy.total` – Gesamtenergie-Zähler aus LogDaten.dat (15-min) an InfluxDB
-* **NEU:** Live-Influx-Sync für `energy.today`, `energy.total`, `ac.power` bei jedem Poll
-* **VERBESSERT:** Datentabelle mit DC3, kWh-Zählerstand, Fehlercode; sticky Header
-* **Lizenz:** GPL-3.0 durch **Persönliche Nutzungslizenz** ersetzt (nur private, nicht-kommerzielle Nutzung)
+| Instanz | Web-UI | Daten |
+|---|---|---|
+| `kostalpiko.0` | Port 8092 | eigene `monthly-yields.json` |
+| `kostalpiko.1` | Port 8093 | eigene Datei |
 
-### 0.3.21 (2026-06-24)
-- **Bugfix:** Historie-Tab springt nicht mehr alle 15 s zum heutigen Tag zurück (Navigation bleibt erhalten)
-- **VERBESSERT:** Klare Button-Beschriftungen – „Anzeige aktualisieren“ vs. „Vom PIKO laden“ vs. „Sync-All“
-- **NEU:** String-Analyse im Historie-Tab – MPP-Korridor (Vmpp-basiert) in Charts, Tabelle und Tagesübersicht
-- **Bugfix:** „Letzter Import“ zeigt jetzt den echten Import-Zeitpunkt (nicht den Deduplication-Cursor)
+---
 
-### 0.3.20 (2026-06-24)
-- **NEU:** Admin-UI mit drei separaten Instanz-Feldern (E-Mail, Telegram, Pushover) und Hinweistext zu SMTP/Historiendaten
-- **NEU:** README-Abschnitt zur E-Mail-Einrichtung über den ioBroker E-Mail-Adapter
-- **VERBESSERT:** Tagesbericht – DC-Spitze, Erzeugungszeit, Ø-Leistung, Fehlercodes, spez. Ertrag (kWh/kWp)
-- **VERBESSERT:** Wochenbericht – Kalenderwoche (Mo–So), Bester/Schwächster Tag, Wochenspitze
-- **VERBESSERT:** Monatsbericht – Durchschnitt, Bester/Schwächster Tag, Datenlücken-Hinweis
-- **VERBESSERT:** Tagesertrag bevorzugt Zähler-Delta aus LogDaten.dat (Fallback: Leistungsintegral)
+## InfluxDB & Grafana
 
-### 0.3.19 (2026-03-20)
-- **Bugfix:** Standard-Adapter E-Mail + `email.0`; separate Instanz-Felder pro Adapter-Typ – wechselt automatisch mit
+| Quelle | Zeitraum |
+|---|---|
+| LogDaten.dat / Cache | ~6 Monate |
+| InfluxDB (nach Sync) | unbegrenzt* |
 
-### 0.3.18 (2026-03-20)
-- **Bugfix:** Historie-Tab zeigt Ladeindikator und lädt automatisch neu wenn Daten verfügbar sind
-- Lizenz auf **GPL-3.0** geändert, Spendenbutton ergänzt
+\*Sofern keine kürzere Retention gesetzt wird.
 
-### 0.3.17 (2026-03-20)
-- **NEU:** Benachrichtigungen via Telegram / E-Mail / Pushover
-- Tagesbericht mit Unicode-Sparkline-Diagramm, Wochenbericht, Monatsbericht
-- Alarm bei fehlenden Daten oder Ertrag unter Schwellwert
+Empfehlung: einmal **Sync-All** pro WR, danach automatischer 15-min-Sync. Wetter- und Wirkungsgrad-Datenpunkte erlauben in Grafana den Abgleich mit dem Tagesertrag.
 
-### 0.3.16 (2026-03-16)
-- **Bugfix:** 200-Zeilen-Limit in API entfernt – alle ~6000 Punkte, clientseitige Filterung
+---
 
-### 0.3.15 (2026-03-16)
-- **NEU:** `historyFetch` und `influxSync` getrennt konfigurierbar
-- LogDaten.dat ohne InfluxDB nutzbar
+## Versionen & Changelog
 
-### 0.3.14 (2026-03-16)
-- **NEU:** Historie-Navigation Tag/Woche/Monat mit Pfeil-Buttons; größerer AC-Chart, Frequenz-Chart
-
-### 0.3.13 (2026-03-16)
-- **Bugfix:** History-Sync startet 3s nach Live-Poll; Auto-Retry bei PIKO "service busy"
-
-### 0.3.12 (2026-03-16)
-- **Bugfix:** `encryptedNative` entfernt (verursachte 401-Fehler)
-
-### 0.3.11 (2026-03-16)
-- **Bugfix:** Passwortfeld verschwindet nicht mehr (`type=text` + `inputType=password`)
-
-### 0.3.10 (2026-03-16)
-- **Bugfix:** Speichern-Button bei Port-Eingabe nicht mehr rot (`min=1`)
-- **NEU:** Verbindungstest-Button in den Einstellungen
-
-### 0.3.9 (2026-03-15)
-- **Bugfix:** Passwortfeld verschwand beim Antippen in den Instanzeinstellungen
-- `encryptedNative: ["password"]` in `io-package.json` ergänzt, Plaintext-Default entfernt
-- Nach dem Update Passwort bitte einmal neu eingeben und speichern
-
-### 0.3.8 (2026-03-15)
-- **Bugfix:** Speichern-Button in den Adapter-Einstellungen war rot/deaktiviert
-- Ursache: `required: true` auf dem IP-Feld + fehlende `sm`-Angaben in `jsonConfig.json`
-
-### 0.3.7 (2026-03-15)
-- **NEU:** Modell-Dropdown in den Einstellungen – PIKO 3.0 bis 10.1 wählbar, überschreibt Auto-Erkennung
-- Korrekte String-Anzahl laut Datenblatt: PIKO 5.5 / 10.1 = 3 Strings, alle anderen = 2 Strings
-
-### 0.3.6 (2026-03-15)
-- **NEU:** Modul-Konfiguration in den Einstellungen (Wp, Voc, Anzahl pro String)
-- **NEU:** Berechnete Soll-Spannung und Nennleistung als ioBroker-States
-- **NEU:** String-Analyse-Karte im Web-UI (Soll vs. Ist mit Farb-Indikator)
-- **Bugfix:** `akt. Zeit` Regex robuster (Tab-Separierung)
-
-### 0.3.5 (2026-03-15)
-- **Bugfix:** Zellenreihenfolge im HTML-Parser war falsch – String und L-Phase stehen in der GLEICHEN Tabellenzeile (interleaved), nicht sequentiell. Alle Messwerte waren dadurch vertauscht
-- **Bugfix:** `pv.string1.current` zeigte L1-Spannung, `pv.string2.voltage` zeigte String1-Strom usw.
-- **NEU:** `device.model` State – liest Modellbezeichnung (PIKO 8.3 / PIKO 5.5) direkt aus dem HTML
-- **NEU:** Modell-Anzeige im Web-UI jetzt dynamisch (nicht mehr hardcoded PIKO 8.3)
-
-### 0.3.4 (2026-03-14)
-- **NEU:** Netzwerk-Modus Einstellung: `Lokal` (direkter Zugriff) oder `Via iobroker.fritzwireguard` (WireGuard-Tunnel)
-- Vor jedem Poll wird der Tunnel-Status geprüft – bei inaktivem Tunnel wird der Poll übersprungen und im Log gemeldet
-- Tunnel läuft dauerhaft im Hintergrund, der Adapter nutzt ihn transparent
-- Neuer State `info.networkMode` zeigt den aktuell genutzten Modus
-
-### 0.3.3 (2026-03-14)
-- **Bugfix:** `app.js` als echte Datei (`admin/app.js`) via `fs.readFileSync` serviert – behebt `SyntaxError: Invalid or unexpected token` durch fehlerhafte `\n`-Interpretation im Node.js Template-Literal
-
-### 0.3.2 (2026-03-14)
-- **Bugfix:** JavaScript als separate `/app.js` Route serviert statt Inline-Script
-  – behebt das Problem dass Tabs nicht funktionierten weil Node.js lange HTML-Responses abschnitt
-
-### 0.3.1 (2026-03-14)
-- **Bugfix:** `x x x` Offline-Muster gilt für beide PIKO-Modelle (nicht nur PIKO 5.5)
-- **Bugfix:** `energy.total` und `energy.today` werden auch im Offline-Zustand korrekt gelesen und nicht auf 0 gesetzt
-
-### 0.3.0 (2026-03-14)
-- **NEU:** PIKO 5.5 Support – automatische Erkennung von 2 oder 3 PV-Strings
-- **NEU:** `pv.string3.voltage/current` States für 3-String-Wechselrichter
-- **NEU:** `device.strings` State zeigt Anzahl erkannter Strings
-- **NEU:** String 3 Cards im Web-UI erscheinen automatisch bei PIKO 5.5
-- **Bugfix:** JavaScript-Sonderzeichen als `\uXXXX` escaped → Tabs funktionieren
-- **Bugfix:** `fetch()`-URLs absolut mit `window.location.origin` → kein Proxy-Problem mehr
-
-### 0.2.0 (2026-03-13)
-- **NEU:** LogDaten.dat Parser – PIKO-Epoch-Berechnung (`fetchUnixSec − akt. Zeit`)
-- **NEU:** InfluxDB-Integration via `sendTo()` mit historischem Zeitstempel
-- **NEU:** Deduplication-Cursor (überlebt Adapter-Neustarts)
-- **NEU:** History-Tab im Web-UI mit Sparklines und Datentabelle
-- **NEU:** Sync-All Button (Vollsync der gesamten ~6-Monats-Historie)
-- **NEU:** System-Tab erklärt wo InfluxDB-Verbindungsdaten konfiguriert werden
-- Alle Stromwerte korrekt von mA in A umgerechnet (Faktor 0.001)
-- Konfigparam `syncInterval` (statt `historyInterval` + `influxEnable`)
-
-### 0.1.0 (2026-03-13)
-- Erstveröffentlichung
-- HTTP-Scraping: index.fhtml + Inf.fhtml
-- Web-UI: Daten, Nodes, Logs, System
+Aktuelle Version und Änderungshistorie: **[GitHub Releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)**
 
 ---
 
@@ -477,11 +181,9 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 
-Wenn dir der Adapter gefällt, freue ich mich über eine kleine Unterstützung!
-
 ---
 
 ## Lizenz
 
-**Persönliche Nutzungslizenz** – ausschließlich für private, nicht-kommerzielle Zwecke.  
-Details siehe [LICENSE](./LICENSE). © MPunktBPunkt
+**GNU General Public License v3.0** – siehe [LICENSE](./LICENSE).  
+© 2026 MPunktBPunkt

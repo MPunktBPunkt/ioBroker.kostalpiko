@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.5.2
+ * Version: 0.6.0
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.5.2';
+const ADAPTER_VERSION = '0.6.0';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -58,6 +58,8 @@ const HISTORY_STATES = [
     { id:'history.ac3.current',   col:COL.AC3_I,  factor:0.001, unit:'A',  name:'L3 Strom (15-min)' },
     { id:'history.ac3.power',     col:COL.AC3_P,  factor:1,     unit:'W',  name:'L3 Leistung (15-min)' },
     { id:'history.ac.totalPower', col:null,        factor:1,     unit:'W',  name:'AC Gesamtleistung (15-min)' },
+    { id:'history.dc.totalPower', col:null,        factor:1,     unit:'W',  name:'DC Gesamtleistung (15-min)' },
+    { id:'history.efficiency.ratio', col:null,     factor:1,     unit:'%',  name:'Wirkungsgrad DC\u2192AC (15-min)' },
     { id:'history.ac.frequency',  col:COL.AC_F,   factor:1,     unit:'Hz', name:'Netzfrequenz (15-min)' },
     { id:'history.acStatus',      col:COL.AC_S,   factor:1,     unit:'',   name:'Betriebsstatus-Code (15-min)' },
     { id:'history.errorCode',     col:COL.ERR,    factor:1,     unit:'',   name:'Fehlercode (15-min)' },
@@ -65,7 +67,15 @@ const HISTORY_STATES = [
 ];
 
 // Live-States die bei aktiviertem InfluxDB-Sync mitgeschrieben werden
-const LIVE_INFLUX_STATES = ['energy.today', 'energy.total', 'ac.power'];
+const LIVE_INFLUX_STATES = [
+    'ac.power', 'energy.today', 'energy.total',
+    'ac.l1.voltage', 'ac.l1.power', 'ac.l2.voltage', 'ac.l2.power', 'ac.l3.voltage', 'ac.l3.power',
+    'pv.string1.voltage', 'pv.string1.current',
+    'pv.string2.voltage', 'pv.string2.current',
+    'pv.string3.voltage', 'pv.string3.current',
+    'dc.totalPower', 'efficiency.ratio', 'efficiency.expected',
+    'weather.sunshineHours', 'weather.tempMax', 'weather.cloudCover', 'weather.precipitation',
+];
 
 // Typische Modul-Vorlagen (Solarworld 225 Wp, ~2010)
 const MODULE_PRESETS = {
@@ -510,6 +520,51 @@ class KostalPikoAdapter extends utils.Adapter {
         if (this._cfg.verbose) {
             this._log('DEBUG', `Wetter ${plz} ${geo.place}: ${this._lastWeather.sunshineH}h Sonne, ${this._lastWeather.weather}`);
         }
+        await this._writeWeatherStates();
+    }
+
+    async _writeWeatherStates() {
+        const w = this._lastWeather;
+        if (!w) return;
+        await this._writeStates({
+            'weather.sunshineHours' : w.sunshineH ?? 0,
+            'weather.tempMax'       : w.tempMax ?? 0,
+            'weather.cloudCover'    : w.cloudPct ?? 0,
+            'weather.precipitation' : w.precipMm ?? 0,
+            'weather.description'   : w.weather || '',
+            'weather.plz'           : w.plz || '',
+            'weather.place'           : w.place || '',
+            'weather.updatedAt'     : w.updatedAt || '',
+        }, { skipDerived: true });
+    }
+
+    _calcDerivedStates(data) {
+        const str = n => ({
+            v: parseFloat(data[`pv.string${n}.voltage`]) || 0,
+            a: parseFloat(data[`pv.string${n}.current`]) || 0,
+        });
+        const strings = [str(1), str(2), str(3)];
+        const stringCount = this._getStringCount();
+        const dcTotal = Math.round(strings
+            .slice(0, stringCount)
+            .reduce((sum, s) => sum + s.v * s.a, 0));
+        const acPower = parseFloat(data['ac.power']) || 0;
+        let ratio = 0;
+        if (dcTotal >= 50 && acPower >= 0) {
+            ratio = Math.round(acPower / dcTotal * 1000) / 10;
+        }
+        const tempMax = this._lastWeather?.tempMax;
+        let expected = 97;
+        if (tempMax != null) {
+            const cellTempEst = tempMax + 18;
+            const tempFactor = 1 - 0.004 * Math.max(0, cellTempEst - 25);
+            expected = Math.round(97 * tempFactor * 10) / 10;
+        }
+        return {
+            'dc.totalPower'      : dcTotal,
+            'efficiency.ratio'   : ratio,
+            'efficiency.expected': expected,
+        };
     }
 
     // ─── History: Abruf + Import ─────────────────────────────────────────────────
@@ -1346,9 +1401,17 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _calcHistVal(row, def) {
         if (def.col === null) {
-            // Berechneter Wert
-            if (def.id.includes('totalPower')) {
+            if (def.id === 'history.ac.totalPower') {
                 return row.ac1.power + row.ac2.power + row.ac3.power;
+            }
+            if (def.id === 'history.dc.totalPower') {
+                return (row.dc1?.power || 0) + (row.dc2?.power || 0) + (row.dc3?.power || 0);
+            }
+            if (def.id === 'history.efficiency.ratio') {
+                const dc = (row.dc1?.power || 0) + (row.dc2?.power || 0) + (row.dc3?.power || 0);
+                const ac = row.acTotalPower || 0;
+                if (dc < 50) return null;
+                return Math.round(ac / dc * 1000) / 10;
             }
             return null;
         }
@@ -2083,6 +2146,17 @@ class KostalPikoAdapter extends utils.Adapter {
             { id:'string1.expectedPower',     type:'number',  role:'value.power',         name:'String 1 Soll-Leistung',      def:0, unit:'Wp' },
             { id:'string2.expectedPower',     type:'number',  role:'value.power',         name:'String 2 Soll-Leistung',      def:0, unit:'Wp' },
             { id:'string3.expectedPower',     type:'number',  role:'value.power',         name:'String 3 Soll-Leistung',      def:0, unit:'Wp' },
+            { id:'dc.totalPower',             type:'number',  role:'value.power.active',  name:'DC-Gesamtleistung (berechnet)', def:0, unit:'W' },
+            { id:'efficiency.ratio',          type:'number',  role:'value',               name:'Wirkungsgrad DC\u2192AC',     def:0, unit:'%' },
+            { id:'efficiency.expected',       type:'number',  role:'value',               name:'Soll-Wirkungsgrad (temp.-korr.)', def:97, unit:'%' },
+            { id:'weather.sunshineHours',     type:'number',  role:'value',               name:'Sonnenstunden heute (Prognose)', def:0, unit:'h' },
+            { id:'weather.tempMax',           type:'number',  role:'value.temperature',   name:'Max.-Temperatur heute',       def:0, unit:'\u00b0C' },
+            { id:'weather.cloudCover',        type:'number',  role:'value',               name:'Bew\u00f6lkung heute (7\u201319h)', def:0, unit:'%' },
+            { id:'weather.precipitation',     type:'number',  role:'value',               name:'Niederschlag heute',          def:0, unit:'mm' },
+            { id:'weather.description',       type:'string',  role:'weather.forecast.0',  name:'Wetter heute (Text)',         def:'' },
+            { id:'weather.plz',               type:'string',  role:'text',                name:'Wetter-PLZ',                  def:'' },
+            { id:'weather.place',             type:'string',  role:'text',                name:'Wetter-Ort',                  def:'' },
+            { id:'weather.updatedAt',         type:'string',  role:'date',                name:'Wetter letzte Aktualisierung', def:'' },
         ];
         for (const d of defs) {
             const obj = { type:'state', common:{ name:d.name, type:d.type, role:d.role, read:true, write:false }, native:{} };
@@ -2132,14 +2206,15 @@ class KostalPikoAdapter extends utils.Adapter {
         }
     }
 
-    async _writeStates(data) {
+    async _writeStates(data, opts = {}) {
+        const merged = opts.skipDerived ? { ...data } : { ...data, ...this._calcDerivedStates({ ...this._lastData, ...data }) };
         const ts = Date.now();
-        for (const [key, val] of Object.entries(data)) {
+        for (const [key, val] of Object.entries(merged)) {
             if (val === null || val === undefined) continue;
             try { await this.setStateAsync(key, { val, ack:true, ts }); } catch (_) {}
         }
-        this._lastData = { ...this._lastData, ...data, _ts: new Date().toISOString() };
-        this._syncLiveToInflux(data).catch(e => {
+        this._lastData = { ...this._lastData, ...merged, _ts: new Date().toISOString() };
+        this._syncLiveToInflux(merged).catch(e => {
             if (this._cfg.verbose) this._log('WARN', `Live Influx-Sync: ${e.message}`);
         });
     }
@@ -2431,6 +2506,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="vc a"><div class="vl">AC-Leistung</div><div class="vv" id="d-acp">--</div><div class="vu">W</div></div>
       <div class="vc g"><div class="vl">Gesamtenergie</div><div class="vv" id="d-etot">--</div><div class="vu">kWh</div></div>
       <div class="vc b"><div class="vl">Tagesenergie</div><div class="vv" id="d-eday">--</div><div class="vu">kWh</div></div>
+      <div class="vc"><div class="vl">DC-Leistung</div><div class="vv" id="d-dcp">--</div><div class="vu">W</div></div>
+      <div class="vc"><div class="vl">Wirkungsgrad</div><div class="vv" id="d-eff">--</div><div class="vu" id="d-eff-hint">DC &rarr; AC</div></div>
     </div>
   </div>
   <div class="card">

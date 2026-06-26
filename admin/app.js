@@ -113,6 +113,13 @@ window.loadData=function(){
     var b=document.getElementById('sBadge'); b.textContent=allData.status||'--'; b.className='sb'+(on?' on':'');
     function s(id,k,dec){var v=allData[k];document.getElementById(id).textContent=v!=null?(dec!=null?Number(v).toFixed(dec):v):'--';}
     s('d-acp','ac.power'); s('d-etot','energy.total'); s('d-eday','energy.today');
+    s('d-dcp','dc.totalPower',0);
+    var eff=allData['efficiency.ratio'];
+    var effExp=allData['efficiency.expected'];
+    var effEl=document.getElementById('d-eff');
+    if(effEl) effEl.textContent=(eff>0)?Number(eff).toFixed(1):'--';
+    var effHint=document.getElementById('d-eff-hint');
+    if(effHint) effHint.textContent=effExp>0?'Soll ~'+Number(effExp).toFixed(1)+' %':'DC \u2192 AC';
     s('d-s1v','pv.string1.voltage',0); s('d-s1a','pv.string1.current',2);
     s('d-s2v','pv.string2.voltage'); s('d-s2a','pv.string2.current',2);
     s('d-s3v','pv.string3.voltage'); s('d-s3a','pv.string3.current',2);

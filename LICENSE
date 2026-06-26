@@ -1,37 +1,17 @@
-Persönliche Nutzungslizenz / Personal Private Use License
-Copyright (c) 2026 MPunktBPunkt
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
 
-DEUTSCH
-=======
+ Copyright (C) 2026 MPunktBPunkt
 
-Diese Software ist ausschließlich für die private, nicht-kommerzielle Nutzung
-bestimmt (z. B. eigenes Smart Home, eigener ioBroker-Server).
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
 
-Erlaubt:
-  - Installation und Nutzung für private Zwecke
-  - Anpassungen für den eigenen Gebrauch
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
 
-Nicht erlaubt ohne ausdrückliche schriftliche Zustimmung des Autors:
-  - Kommerzielle Nutzung oder Weiterverkauf
-  - Weitergabe, Veröffentlichung oder Hosting als Dienst für Dritte
-  - Entfernen dieses Lizenztextes
-
-Die Software wird ohne Gewähr bereitgestellt. Der Autor haftet nicht für
-Schäden, die aus der Nutzung entstehen.
-
-ENGLISH
-=======
-
-This software is intended for personal, non-commercial use only
-(e.g. your own smart home, your own ioBroker server).
-
-Permitted:
-  - Installation and use for private purposes
-  - Modifications for your own use
-
-Not permitted without explicit written consent from the author:
-  - Commercial use or resale
-  - Redistribution, publication, or offering as a service to third parties
-  - Removal of this license text
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <https://www.gnu.org/licenses/>.
