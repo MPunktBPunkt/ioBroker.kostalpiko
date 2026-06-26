@@ -4,6 +4,7 @@ var liveStringCfg={enabled:false,strings:[]};
 var liveInvSpecs={enabled:false};
 var histLastCount=0,histStringCount=2;
 var chartInstances={};
+var yieldsData=null;
 
 window.showTab=function(n){
   document.querySelectorAll('.tc').forEach(function(e){e.classList.remove('act')});
@@ -16,6 +17,7 @@ window.showTab=function(n){
   if(n==='system')  loadSystem();
   if(n==='nodes')   renderNodes();
   if(n==='history') loadHistory(true);
+  if(n==='yields')  loadYields();
 };
 
 /* ── Chart.js Theme ── */
@@ -675,6 +677,145 @@ window.loadSystem=function(){
   });
 };
 
+/* ── Ertrag / Monatsübersicht ── */
+function fmtWh(v){
+  if(v==null||v===undefined||isNaN(v)) return '–';
+  return Math.round(v).toLocaleString('de-DE');
+}
+function fmtEur(v){
+  if(v==null||v===undefined||isNaN(v)) return '–';
+  return v.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+}
+function fmtNum(v,d){
+  if(v==null||v===undefined||isNaN(v)) return '–';
+  return v.toLocaleString('de-DE',{minimumFractionDigits:d||0,maximumFractionDigits:d||1});
+}
+function yieldMsg(text){
+  var el=document.getElementById('yieldMsg');
+  if(el) el.textContent=text||'';
+}
+
+window.loadYields=function(){
+  fetch(window.location.origin+'/api/yields').then(function(r){return r.json()}).then(function(j){
+    yieldsData=j;
+    renderYields();
+  }).catch(function(e){ yieldMsg('Fehler: '+e.message); });
+};
+
+function renderYields(){
+  if(!yieldsData) return;
+  var s=yieldsData.settings||{};
+  document.getElementById('y-total-wh').textContent=fmtWh(yieldsData.totalWh)+' Wh';
+  document.getElementById('y-total-eur').textContent=fmtEur(yieldsData.totalEuro);
+  document.getElementById('y-month-cnt').textContent=yieldsData.monthCount||0;
+  document.getElementById('y-epoch').textContent=s.pikoEpoch||'–';
+  document.getElementById('y-tariff').value=String(s.feedInTariff||0.3925).replace('.',',');
+  document.getElementById('y-kwp').value=s.installedKwp>0?String(s.installedKwp).replace('.',','):'';
+  document.getElementById('y-plz').value=s.plzRegion||'';
+
+  var years=yieldsData.years||[];
+  var grid=yieldsData.grid||[];
+  var thead='<tr><th class="ymonth">Monat</th>';
+  years.forEach(function(y){ thead+='<th>'+y+'</th>'; });
+  thead+='</tr>';
+  document.querySelector('#y-grid thead').innerHTML=thead;
+
+  var tbody='';
+  grid.forEach(function(row){
+    tbody+='<tr><td class="ymonth">'+row.name+'</td>';
+    years.forEach(function(y){
+      var cell=row.cells[y]||{};
+      var wh=cell.wh;
+      var cls='editable '+(cell.source==='manual'?'manual':'auto');
+      if(wh&&row.stats&&row.stats.avg){
+        if(wh>=row.stats.avg) cls+=' above'; else cls+=' below';
+        if(wh===row.stats.min) cls+=' is-min';
+        if(wh===row.stats.max) cls+=' is-max';
+      }
+      tbody+='<td class="'+cls+'" data-year="'+y+'" data-month="'+row.month+'" title="'+(cell.source==='manual'?'Manuell':'Automatisch')+'">'+fmtWh(wh)+'</td>';
+    });
+    tbody+='</tr>';
+  });
+
+  tbody+='<tr class="sum-row"><td class="ymonth">Σ Jahr [Wh]</td>';
+  years.forEach(function(y){ tbody+='<td>'+fmtWh(yieldsData.yearTotals[y])+'</td>'; });
+  tbody+='</tr>';
+  tbody+='<tr class="sum-row"><td class="ymonth">€ / Jahr</td>';
+  years.forEach(function(y){ tbody+='<td style="color:var(--grn)">'+fmtEur(yieldsData.yearEuro[y])+'</td>'; });
+  tbody+='</tr>';
+  tbody+='<tr class="sum-row"><td class="ymonth">kWh / kWp</td>';
+  years.forEach(function(y){
+    var v=yieldsData.yearKwp[y];
+    tbody+='<td>'+(v!=null?fmtNum(v,1):'–')+'</td>';
+  });
+  tbody+='</tr>';
+
+  document.querySelector('#y-grid tbody').innerHTML=tbody;
+  bindYieldCells();
+
+  var kpi=document.getElementById('y-kpi');
+  if(kpi&&years.length){
+    var cy=years[years.length-1];
+    kpi.innerHTML=[
+      '<div class="kpi"><div class="kl">Jahr '+cy+'</div><div class="kv">'+fmtWh(yieldsData.yearTotals[cy])+'</div><div class="ks">Wh gesamt</div></div>',
+      '<div class="kpi"><div class="kl">Jahr '+cy+' €</div><div class="kv" style="color:var(--grn)">'+fmtEur(yieldsData.yearEuro[cy])+'</div><div class="ks">bei '+String(s.feedInTariff||0.3925).replace('.',',')+' €/kWh</div></div>',
+      '<div class="kpi"><div class="kl">Jahr '+cy+'</div><div class="kv">'+(yieldsData.yearKwp[cy]!=null?fmtNum(yieldsData.yearKwp[cy],1):'–')+'</div><div class="ks">kWh/kWp</div></div>'
+    ].join('');
+  }
+}
+
+function bindYieldCells(){
+  document.querySelectorAll('#y-grid td.editable').forEach(function(td){
+    td.onclick=function(){
+      if(td.querySelector('input')) return;
+      var year=td.getAttribute('data-year');
+      var month=td.getAttribute('data-month');
+      var cur=td.textContent==='–'?'':td.textContent.replace(/\./g,'');
+      var inp=document.createElement('input');
+      inp.type='text'; inp.className='yield-edit'; inp.value=cur;
+      td.textContent=''; td.appendChild(inp); inp.focus(); inp.select();
+      function save(){
+        var val=inp.value.trim();
+        postYield({action:'setCell',year:parseInt(year),month:parseInt(month),wh:val===''?null:val});
+      }
+      inp.onblur=save;
+      inp.onkeydown=function(e){
+        if(e.key==='Enter'){inp.blur();}
+        if(e.key==='Escape'){td.textContent=cur?fmtWh(parseInt(cur)): '–'; bindYieldCells();}
+      };
+    };
+  });
+}
+
+function postYield(body){
+  yieldMsg('Speichere…');
+  fetch(window.location.origin+'/api/yields',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  }).then(function(r){return r.json()}).then(function(j){
+    if(j.error) throw new Error(j.error);
+    yieldsData=j.data||j;
+    renderYields();
+    yieldMsg(j.message||'Gespeichert');
+    setTimeout(function(){yieldMsg('');},3000);
+  }).catch(function(e){ yieldMsg('Fehler: '+e.message); });
+}
+
+window.saveYieldSettings=function(){
+  postYield({
+    action:'setSettings',
+    feedInTariff:document.getElementById('y-tariff').value,
+    installedKwp:document.getElementById('y-kwp').value,
+    plzRegion:document.getElementById('y-plz').value
+  });
+};
+
+window.refreshYieldsAuto=function(){
+  yieldMsg('Berechne Monate aus Historie…');
+  postYield({action:'refreshAuto'});
+};
+
 /* ── Auto-Refresh ── */
 function tick(){
   var a=document.querySelector('.tc.act');
@@ -682,6 +823,7 @@ function tick(){
   if(a.id==='tab-daten')   loadData();
   if(a.id==='tab-logs')    loadLogs();
   if(a.id==='tab-history') loadHistory(true);
+  if(a.id==='tab-yields')  loadYields();
 }
 initChartTheme();
 loadData(); loadLogs();

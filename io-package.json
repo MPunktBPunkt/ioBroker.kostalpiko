@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.4.3",
+    "version": "0.5.0",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -95,6 +95,10 @@
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
       },
+      "0.5.0": {
+        "de": "NEU: Tab „Ertrag“ – Monatstabelle (Jahre × Monate) mit manueller Eingabe historischer Wh-Werte, automatischer Berechnung aus Historie, €-Ertrag und kWh/kWp; persistent in monthly-yields.json",
+        "en": "NEW: Yield tab – monthly table (years × months) with manual historical Wh entry, auto calculation from history, € revenue and kWh/kWp; persisted in monthly-yields.json"
+      },
       "0.4.3": {
         "de": "Bugfix: Keine falschen Rot-Warnungen mehr bei U unter MPP-Min (Nennleistungsbereich, kein Grenzwert); nur echte Sicherheitsverstöße Udc/I",
         "en": "Bugfix: no false red warnings for U below MPP-Min (nominal power range, not a safety limit); only real Udc/I violations"
@@ -183,6 +187,9 @@
     "string1Modules": 0,
     "string2Modules": 0,
     "string3Modules": 0,
+    "yieldFeedInTariff": 0.3925,
+    "yieldInstalledKwp": 0,
+    "yieldPlzRegion": "",
     "pikoModel": "auto",
     "influxSync": false,
     "notifyEnabled": false,
