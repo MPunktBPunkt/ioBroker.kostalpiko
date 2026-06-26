@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.4.3
+ * Version: 0.5.1
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -14,7 +14,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.5.0';
+const ADAPTER_VERSION = '0.5.1';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -711,8 +711,19 @@ class KostalPikoAdapter extends utils.Adapter {
             installedKwp  : kwp || 0,
             plzRegion     : this._cfg.yieldPlzRegion || '',
             regionalKwpRef: null,
+            extraYears    : [],
             months        : {},
         };
+    }
+
+    _getYieldsYears(months, extraYears) {
+        const fromData = Object.keys(months || {})
+            .map(k => this._parseMonthKey(k)?.year)
+            .filter(Boolean);
+        const pinned = (extraYears || []).map(y => parseInt(y)).filter(y => y >= 1990 && y <= 2100);
+        const currentYear = new Date().getFullYear();
+        const years = [...new Set([...fromData, ...pinned, currentYear])].sort((a, b) => a - b);
+        return years;
     }
 
     async _loadMonthlyYields() {
@@ -722,6 +733,9 @@ class KostalPikoAdapter extends utils.Adapter {
             const data = JSON.parse(raw);
             if (!data.months || typeof data.months !== 'object') throw new Error('ungültiges Format');
             this._monthlyYields = { ...this._defaultMonthlyYields(), ...data, months: { ...data.months } };
+            if (!Array.isArray(this._monthlyYields.extraYears)) {
+                this._monthlyYields.extraYears = [];
+            }
             this._log('INFO', `Monatserträge geladen: ${Object.keys(this._monthlyYields.months).length} Monate`);
         } catch (e) {
             if (e.code !== 'ENOENT') {
@@ -823,11 +837,7 @@ class KostalPikoAdapter extends utils.Adapter {
     _buildYieldsApiResponse() {
         const data = this._monthlyYields || this._defaultMonthlyYields();
         const months = data.months || {};
-        const years = [...new Set(Object.keys(months).map(k => this._parseMonthKey(k)?.year).filter(Boolean))].sort();
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        if (!years.includes(currentYear)) years.push(currentYear);
-        years.sort();
+        const years = this._getYieldsYears(months, data.extraYears);
 
         const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
         const grid = [];
@@ -888,6 +898,8 @@ class KostalPikoAdapter extends utils.Adapter {
                 regionalKwpRef: data.regionalKwpRef || null,
                 pikoEpoch    : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10) : null,
             },
+            storagePath: this._yieldsCachePath || null,
+            extraYears : data.extraYears || [],
             years,
             grid,
             yearTotals,
@@ -968,7 +980,176 @@ class KostalPikoAdapter extends utils.Adapter {
             return { ok: true, message: `${cleared} automatische Einträge entfernt` };
         }
 
+        if (action === 'addYear') {
+            const year = parseInt(body.year);
+            if (!year || year < 1990 || year > 2100) throw new Error('Ungültiges Jahr (1990–2100)');
+            if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+            if (!this._monthlyYields.extraYears.includes(year)) {
+                this._monthlyYields.extraYears.push(year);
+                this._monthlyYields.extraYears.sort((a, b) => a - b);
+            }
+            await this._saveMonthlyYields();
+            return { ok: true, message: `Jahr ${year} hinzugefügt` };
+        }
+
+        if (action === 'fillYears') {
+            const from = body.fromYear
+                ? parseInt(body.fromYear)
+                : (this._pikoEpoch ? new Date(this._pikoEpoch * 1000).getFullYear() : 2010);
+            const to = body.toYear ? parseInt(body.toYear) : new Date().getFullYear();
+            if (!from || from < 1990 || to > 2100 || from > to) {
+                throw new Error('Ungültiger Jahresbereich');
+            }
+            if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+            let added = 0;
+            for (let y = from; y <= to; y++) {
+                if (!this._monthlyYields.extraYears.includes(y)) {
+                    this._monthlyYields.extraYears.push(y);
+                    added++;
+                }
+            }
+            this._monthlyYields.extraYears.sort((a, b) => a - b);
+            await this._saveMonthlyYields();
+            return { ok: true, message: `${added} Jahr(e) hinzugefügt (${from}–${to})` };
+        }
+
+        if (action === 'removeYear') {
+            const year = parseInt(body.year);
+            if (!year) throw new Error('Jahr fehlt');
+            if (this._monthlyYields.extraYears) {
+                this._monthlyYields.extraYears = this._monthlyYields.extraYears.filter(y => y !== year);
+            }
+            if (body.clearData) {
+                for (let m = 1; m <= 12; m++) {
+                    delete this._monthlyYields.months[this._monthKey(year, m)];
+                }
+            }
+            await this._saveMonthlyYields();
+            return { ok: true, message: `Jahr ${year} entfernt` };
+        }
+
+        if (action === 'import') {
+            const mode = body.mode === 'replace' ? 'replace' : 'merge';
+            let imported = 0;
+
+            if (body.data && typeof body.data === 'object') {
+                const payload = body.data;
+                if (payload.feedInTariff !== undefined) {
+                    const t = parseFloat(String(payload.feedInTariff).replace(',', '.'));
+                    if (!isNaN(t)) this._monthlyYields.feedInTariff = t;
+                }
+                if (payload.installedKwp !== undefined) {
+                    const k = parseFloat(String(payload.installedKwp).replace(',', '.'));
+                    if (!isNaN(k)) this._monthlyYields.installedKwp = k;
+                }
+                if (payload.plzRegion !== undefined) {
+                    this._monthlyYields.plzRegion = String(payload.plzRegion).trim();
+                }
+                if (Array.isArray(payload.extraYears)) {
+                    this._monthlyYields.extraYears = [...new Set([
+                        ...(this._monthlyYields.extraYears || []),
+                        ...payload.extraYears.map(y => parseInt(y)).filter(Boolean),
+                    ])].sort((a, b) => a - b);
+                }
+                if (mode === 'replace' && payload.months) {
+                    this._monthlyYields.months = {};
+                }
+                if (payload.months && typeof payload.months === 'object') {
+                    Object.entries(payload.months).forEach(([key, entry]) => {
+                        const parsed = this._parseMonthKey(key);
+                        if (!parsed) return;
+                        const wh = typeof entry === 'object' ? entry.wh : entry;
+                        const n = Math.round(parseFloat(String(wh).replace(',', '.')));
+                        if (!n || n <= 0) return;
+                        const existing = this._monthlyYields.months[key];
+                        if (mode === 'merge' && existing?.source === 'auto' && entry?.source !== 'manual') return;
+                        this._monthlyYields.months[key] = {
+                            wh       : n,
+                            source   : 'manual',
+                            updatedAt: new Date().toISOString(),
+                        };
+                        imported++;
+                    });
+                }
+            } else if (body.csv && typeof body.csv === 'string') {
+                imported = this._importYieldsCsv(body.csv, mode);
+            } else {
+                throw new Error('Keine Import-Daten (data oder csv)');
+            }
+
+            await this._saveMonthlyYields();
+            return { ok: true, message: `${imported} Monatswerte importiert (${mode})` };
+        }
+
         throw new Error('Unbekannte Aktion');
+    }
+
+    _importYieldsCsv(csv, mode) {
+        const monthNames = {
+            januar: 1, jan: 1, februar: 2, feb: 2, märz: 3, mar: 3, maerz: 3,
+            april: 4, apr: 4, mai: 5, juni: 6, jun: 6, juli: 7, jul: 7,
+            august: 8, aug: 8, september: 9, sep: 9, oktober: 10, okt: 10,
+            november: 11, nov: 11, dezember: 12, dez: 12,
+        };
+        const lines = csv.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length < 2) return 0;
+
+        const sep = lines[0].includes(';') ? ';' : ',';
+        const header = lines[0].split(sep).map(h => h.trim());
+        const yearCols = [];
+        header.forEach((h, i) => {
+            if (i === 0) return;
+            const ym = h.match(/(\d{4})/);
+            if (ym) yearCols.push({ index: i, year: parseInt(ym[1]) });
+        });
+        if (!yearCols.length) throw new Error('CSV: keine Jahres-Spalten gefunden');
+
+        if (mode === 'replace') this._monthlyYields.months = {};
+        if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+        yearCols.forEach(c => {
+            if (!this._monthlyYields.extraYears.includes(c.year)) {
+                this._monthlyYields.extraYears.push(c.year);
+            }
+        });
+        this._monthlyYields.extraYears.sort((a, b) => a - b);
+
+        let imported = 0;
+        for (let li = 1; li < lines.length; li++) {
+            const cols = lines[li].split(sep).map(c => c.trim());
+            const monthKey = monthNames[cols[0].toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')];
+            if (!monthKey) continue;
+            yearCols.forEach(({ index, year }) => {
+                const raw = cols[index];
+                if (!raw) return;
+                const n = Math.round(parseFloat(raw.replace(/\./g, '').replace(',', '.')));
+                if (!n || n <= 0) return;
+                const key = this._monthKey(year, monthKey);
+                const existing = this._monthlyYields.months[key];
+                if (mode === 'merge' && existing?.source === 'auto') return;
+                this._monthlyYields.months[key] = {
+                    wh       : n,
+                    source   : 'manual',
+                    updatedAt: new Date().toISOString(),
+                };
+                imported++;
+            });
+        }
+        return imported;
+    }
+
+    _exportYieldsCsv() {
+        const resp = this._buildYieldsApiResponse();
+        const sep = ';';
+        const header = ['Monat', ...resp.years.map(y => `${y} [Wh]`)].join(sep);
+        const rows = resp.grid.map(row => {
+            const vals = resp.years.map(y => {
+                const wh = row.cells[y]?.wh;
+                return wh > 0 ? String(wh) : '';
+            });
+            return [row.name, ...vals].join(sep);
+        });
+        const sum = ['Σ Jahr [Wh]', ...resp.years.map(y => resp.yearTotals[y] || '')].join(sep);
+        return [header, ...rows, sum].join('\n');
     }
 
     _readPostBody(req) {
@@ -1858,6 +2039,27 @@ class KostalPikoAdapter extends utils.Adapter {
             if (p === '/api/yields' && req.method === 'GET') {
                 return this._json(res, this._buildYieldsApiResponse());
             }
+            if (p === '/api/yields/export' && req.method === 'GET') {
+                const fmt = (url.parse(req.url, true).query || {}).format || 'json';
+                if (fmt === 'csv') {
+                    const csv = this._exportYieldsCsv();
+                    res.writeHead(200, {
+                        'Content-Type'       : 'text/csv; charset=utf-8',
+                        'Content-Disposition': `attachment; filename="kostalpiko-${this.namespace}-ertrag.csv"`,
+                    });
+                    return res.end('\uFEFF' + csv);
+                }
+                const payload = {
+                    ...this._monthlyYields,
+                    exportedAt: new Date().toISOString(),
+                    namespace : this.namespace,
+                };
+                res.writeHead(200, {
+                    'Content-Type'       : 'application/json; charset=utf-8',
+                    'Content-Disposition': `attachment; filename="kostalpiko-${this.namespace}-ertrag.json"`,
+                });
+                return res.end(JSON.stringify(payload, null, 2));
+            }
             if (p === '/api/yields' && req.method === 'POST') {
                 return this._readPostBody(req).then(async body => {
                     try {
@@ -2009,6 +2211,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .yield-grid tr.sum-row td{background:var(--bg3);font-weight:600}
 .yield-grid tr.sum-row td.ymonth{color:var(--acc)}
 .yield-edit{background:var(--bg);border:1px solid var(--acc);color:var(--txt);width:80px;padding:2px 4px;font-size:11px;border-radius:4px}
+.yield-years{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.yield-years label{font-size:11px;color:var(--mut);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:12px}
+.yield-years label.on{border-color:var(--acc);color:var(--acc)}
+.yield-years input{margin:0}
+.yield-path{font-family:Consolas,monospace;font-size:10px;color:var(--blu);word-break:break-all}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -2226,10 +2433,19 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="loadYields()" title="Tabelle neu laden">&#8635; Aktualisieren</button>
         <button class="btn" onclick="refreshYieldsAuto()" title="Monate aus 15-min-Historie berechnen (manuelle Werte bleiben)">&#9889; Aus Historie</button>
+        <button class="btn" onclick="addYieldYear()" title="Leere Jahres-Spalte hinzuf&uuml;gen">&#43; Jahr</button>
+        <button class="btn" onclick="fillYieldYears()" title="Alle Jahre von Inbetriebnahme bis heute">&#128197; Jahre auff&uuml;llen</button>
+        <button class="btn" onclick="exportYields('json')" title="JSON-Backup herunterladen">&#8595; JSON</button>
+        <button class="btn" onclick="exportYields('csv')" title="CSV f&uuml;r Excel">&#8595; CSV</button>
+        <button class="btn" onclick="document.getElementById('y-import-file').click()" title="JSON oder CSV importieren">&#8593; Import</button>
         <button class="btn a" onclick="saveYieldSettings()" title="Verg&uuml;tung und kWp speichern">&#10003; Einstellungen</button>
       </div>
     </div>
+    <input type="file" id="y-import-file" accept=".json,.csv,.txt" style="display:none" onchange="importYieldsFile(this)">
     <div id="yieldMsg" style="margin-top:8px;font-size:11px;color:var(--mut)"></div>
+    <div style="margin-top:6px;font-size:10px;color:var(--mut)">
+      <strong>Speicherort:</strong> <span class="yield-path" id="y-storage">–</span>
+    </div>
   </div>
 
   <div class="card">
@@ -2248,6 +2464,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div style="font-size:10px;color:var(--mut);line-height:1.6;margin-bottom:8px">
       <strong>Manuell eingeben:</strong> Zelle anklicken &rarr; Monatswert in Wh eintragen (wie in Excel). Blaue Werte = manuell, wei&szlig;e = aus Historie berechnet.
       Gr&uuml;n/Rot = &uuml;ber/unter dem Durchschnitt aller Jahre f&uuml;r diesen Monat.
+      <strong>+ Jahr</strong> = leere Spalte f&uuml;r Vorjahre &middot; <strong>Import/Export</strong> = Backup oder Excel-Migration.
       Regionale Referenz: <a href="https://ertragsdatenbank.de/auswertung/region.html" target="_blank" rel="noopener" style="color:var(--blu)">ertragsdatenbank.de</a>
     </div>
     <div class="kpi-grid" id="y-kpi"></div>
@@ -2260,6 +2477,26 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <thead><tr><th class="ymonth">Monat</th></tr></thead>
         <tbody><tr><td class="ymonth" style="color:var(--mut)">Lade...</td></tr></tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct"><span class="dot"></span>Jahresvergleich (Balkendiagramm)</div>
+    <div class="nav-bar" style="margin-bottom:10px">
+      <div class="nav-seg">
+        <button class="nav-btn active" id="ych-mwh" onclick="setYieldChartUnit('mwh')">MWh</button>
+        <button class="nav-btn" id="ych-kwh" onclick="setYieldChartUnit('kwhkwp')">kWh/kWp</button>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="nav-btn" onclick="selectAllChartYears(true)">Alle</button>
+        <button class="nav-btn" onclick="selectAllChartYears(false)">Keine</button>
+        <button class="nav-btn" onclick="selectRecentChartYears(3)">Letzte 3</button>
+      </div>
+    </div>
+    <div class="yield-years" id="y-chart-years"></div>
+    <div class="chart-box wide" style="min-height:320px">
+      <div class="chart-title"><span>Monatsvergleich nach Jahren</span></div>
+      <div class="chart-wrap" style="height:280px"><canvas id="chart-yields"></canvas></div>
     </div>
   </div>
 </div>

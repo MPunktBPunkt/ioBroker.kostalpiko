@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -94,6 +94,10 @@
       "0.3.20": {
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
+      },
+      "0.5.1": {
+        "de": "NEU: Jahres-Spalten hinzufügen/auffüllen, JSON/CSV Export & Import, Speicherort-Anzeige, Jahresvergleich als Balkendiagramm (MWh / kWh/kWp, Jahre umschaltbar)",
+        "en": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)"
       },
       "0.5.0": {
         "de": "NEU: Tab „Ertrag“ – Monatstabelle (Jahre × Monate) mit manueller Eingabe historischer Wh-Werte, automatischer Berechnung aus Historie, €-Ertrag und kWh/kWp; persistent in monthly-yields.json",
