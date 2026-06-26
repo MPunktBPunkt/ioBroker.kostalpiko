@@ -5,6 +5,9 @@ var liveInvSpecs={enabled:false};
 var histLastCount=0,histStringCount=2;
 var chartInstances={};
 var yieldsData=null;
+var yieldsChartUnit='mwh';
+var yieldsChartYears=null;
+var YIELD_COLORS=['#58a6ff','#3fb950','#e3b341','#f85149','#a371f7','#79c0ff','#56d364','#ffa657','#ff7b72','#d2a8ff','#7ee787','#e6edf3'];
 
 window.showTab=function(n){
   document.querySelectorAll('.tc').forEach(function(e){e.classList.remove('act')});
@@ -712,6 +715,7 @@ function renderYields(){
   document.getElementById('y-tariff').value=String(s.feedInTariff||0.3925).replace('.',',');
   document.getElementById('y-kwp').value=s.installedKwp>0?String(s.installedKwp).replace('.',','):'';
   document.getElementById('y-plz').value=s.plzRegion||'';
+  document.getElementById('y-storage').textContent=yieldsData.storagePath||'iobroker-data/'+window.location.pathname.split('/')[1]+'/monthly-yields.json';
 
   var years=yieldsData.years||[];
   var grid=yieldsData.grid||[];
@@ -762,6 +766,112 @@ function renderYields(){
       '<div class="kpi"><div class="kl">Jahr '+cy+'</div><div class="kv">'+(yieldsData.yearKwp[cy]!=null?fmtNum(yieldsData.yearKwp[cy],1):'–')+'</div><div class="ks">kWh/kWp</div></div>'
     ].join('');
   }
+  renderYieldChartControls();
+  renderYieldChart();
+}
+
+function renderYieldChartControls(){
+  var wrap=document.getElementById('y-chart-years');
+  if(!wrap||!yieldsData) return;
+  var years=yieldsData.years||[];
+  if(!yieldsChartYears) yieldsChartYears={};
+  years.forEach(function(y,i){
+    if(yieldsChartYears[y]===undefined){
+      yieldsChartYears[y]=i>=Math.max(0,years.length-3);
+    }
+  });
+  wrap.innerHTML=years.map(function(y){
+    var checked=!!yieldsChartYears[y];
+    return '<label class="'+(checked?'on':'')+'"><input type="checkbox" '+(checked?'checked':'')+
+      ' onchange="toggleChartYear('+y+',this.checked)"> '+y+'</label>';
+  }).join('');
+}
+
+window.toggleChartYear=function(y,on){
+  yieldsChartYears[y]=!!on;
+  renderYieldChartControls();
+  renderYieldChart();
+};
+
+window.selectAllChartYears=function(on){
+  if(!yieldsData) return;
+  (yieldsData.years||[]).forEach(function(y){ yieldsChartYears[y]=!!on; });
+  renderYieldChartControls();
+  renderYieldChart();
+};
+
+window.selectRecentChartYears=function(n){
+  if(!yieldsData) return;
+  var years=yieldsData.years||[];
+  years.forEach(function(y,i){ yieldsChartYears[y]=i>=years.length-n; });
+  renderYieldChartControls();
+  renderYieldChart();
+};
+
+window.setYieldChartUnit=function(u){
+  yieldsChartUnit=u;
+  document.getElementById('ych-mwh').classList.toggle('active',u==='mwh');
+  document.getElementById('ych-kwh').classList.toggle('active',u==='kwhkwp');
+  renderYieldChart();
+};
+
+function renderYieldChart(){
+  if(typeof Chart==='undefined'||!yieldsData) return;
+  var years=(yieldsData.years||[]).filter(function(y){ return yieldsChartYears&&yieldsChartYears[y]; });
+  if(!years.length){
+    var el=document.getElementById('chart-yields');
+    if(el&&chartInstances['chart-yields']){ chartInstances['chart-yields'].destroy(); chartInstances['chart-yields']=null; }
+    return;
+  }
+  var kwp=yieldsData.settings&&yieldsData.settings.installedKwp||0;
+  var labels=yieldsData.grid.map(function(r){ return r.name.substring(0,3); });
+  var yLabel=yieldsChartUnit==='kwhkwp'?'kWh/kWp':'MWh';
+  var datasets=years.map(function(y,i){
+    return {
+      label:String(y),
+      data:yieldsData.grid.map(function(row){
+        var wh=row.cells[y]&&row.cells[y].wh;
+        if(!wh) return null;
+        if(yieldsChartUnit==='kwhkwp'){
+          return kwp>0?Math.round(wh/1000/kwp*10)/10:null;
+        }
+        return Math.round(wh/10000)/100;
+      }),
+      backgroundColor:YIELD_COLORS[i%YIELD_COLORS.length],
+      borderRadius:3,
+      maxBarThickness:28
+    };
+  });
+  makeChart('chart-yields',{
+    type:'bar',
+    data:{labels:labels,datasets:datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true,position:'right',labels:{boxWidth:12,font:{size:10}}},
+        tooltip:{
+          callbacks:{
+            label:function(ctx){
+              var v=ctx.parsed.y;
+              if(v==null) return ctx.dataset.label+': –';
+              return ctx.dataset.label+': '+v.toLocaleString('de-DE')+' '+yLabel;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(48,54,61,.4)'},ticks:{color:'#8b949e'}},
+        y:{
+          beginAtZero:true,
+          title:{display:true,text:yLabel,color:'#8b949e',font:{size:10}},
+          grid:{color:'rgba(48,54,61,.35)'},
+          ticks:{color:'#8b949e'}
+        }
+      }
+    }
+  });
 }
 
 function bindYieldCells(){
@@ -816,6 +926,51 @@ window.refreshYieldsAuto=function(){
   postYield({action:'refreshAuto'});
 };
 
+window.addYieldYear=function(){
+  var y=prompt('Jahr hinzufügen (z. B. 2010):','');
+  if(!y) return;
+  postYield({action:'addYear',year:parseInt(y)});
+};
+
+window.fillYieldYears=function(){
+  var from=yieldsData&&yieldsData.settings&&yieldsData.settings.pikoEpoch;
+  var hint=from?from.substring(0,4):'2010';
+  if(!confirm('Alle Jahre von Inbetriebnahme ('+hint+') bis heute als Spalten hinzufügen?')) return;
+  postYield({action:'fillYears'});
+};
+
+window.exportYields=function(fmt){
+  var url=window.location.origin+'/api/yields/export?format='+(fmt||'json');
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  yieldMsg('Download gestartet ('+(fmt==='csv'?'CSV':'JSON')+')');
+  setTimeout(function(){yieldMsg('');},3000);
+};
+
+window.importYieldsFile=function(input){
+  var file=input.files&&input.files[0];
+  if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(){
+    var text=reader.result;
+    var mode=confirm('OK = Zusammenführen (bestehende manuelle Werte bleiben)\nAbbrechen = Ersetzen (Vorsicht!)')?'merge':'replace';
+    var body={action:'import',mode:mode};
+    if(file.name.toLowerCase().endsWith('.csv')||text.indexOf(';')>=0||text.indexOf('Monat')===0){
+      body.csv=text;
+    } else {
+      try{ body.data=JSON.parse(text); }catch(e){ yieldMsg('Ungültige Datei: '+e.message); return; }
+    }
+    yieldMsg('Importiere…');
+    postYield(body);
+    input.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+};
+
 /* ── Auto-Refresh ── */
 function tick(){
   var a=document.querySelector('.tc.act');
@@ -831,6 +986,9 @@ setInterval(tick,15000);
 window.addEventListener('resize',function(){
   if(document.getElementById('tab-history')&&document.getElementById('tab-history').classList.contains('act')){
     renderNavView();
+  }
+  if(document.getElementById('tab-yields')&&document.getElementById('tab-yields').classList.contains('act')){
+    renderYieldChart();
   }
 });
 })();

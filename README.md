@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases/tag/v0.5.0)
+[![Version](https://img.shields.io/badge/version-0.5.1-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases/tag/v0.5.1)
 [![License](https://img.shields.io/badge/license-Personal%20Private%20Use-lightgrey.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
@@ -306,6 +306,13 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 ---
 
 ## Changelog
+
+### 0.5.1 (2026-06-26)
+
+* **NEU:** Jahres-Spalten für Vorjahre hinzufügen (`+ Jahr`) oder von Inbetriebnahme bis heute auffüllen
+* **NEU:** Export als **JSON** (Backup) oder **CSV** (Excel) – Import mit Zusammenführen oder Ersetzen
+* **NEU:** Speicherort der Tabelle im Tab angezeigt (`iobroker-data/kostalpiko.N/monthly-yields.json`)
+* **NEU:** Jahresvergleich als **Balkendiagramm** (MWh oder kWh/kWp, Jahre per Checkbox umschaltbar)
 
 ### 0.5.0 (2026-06-26)
 
