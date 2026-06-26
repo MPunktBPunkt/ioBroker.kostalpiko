@@ -3,18 +3,19 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.5.1
+ * Version: 0.5.2
  */
 
 const utils = require('@iobroker/adapter-core');
 const fs    = require('fs');
 const path  = require('path');
 const http  = require('http');
+const https = require('https');
 const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.5.1';
+const ADAPTER_VERSION = '0.5.2';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -118,6 +119,9 @@ class KostalPikoAdapter extends utils.Adapter {
         this._historyCachePath = null;
         this._yieldsCachePath  = null;
         this._monthlyYields    = null;
+        this._lastWeather        = null;
+        this._lastWeatherFetch   = 0;
+        this._weatherGeoCache    = null;
 
         this.on('ready',       this._onReady.bind(this));
         this.on('stateChange', this._onStateChange.bind(this));
@@ -182,7 +186,13 @@ class KostalPikoAdapter extends utils.Adapter {
             string3Modules : parseInt(this.config.string3Modules)   || 0,
             yieldFeedInTariff: parseFloat(this.config.yieldFeedInTariff) || 0.3925,
             yieldInstalledKwp: parseFloat(this.config.yieldInstalledKwp) || 0,
-            yieldPlzRegion   : (this.config.yieldPlzRegion || '').trim(),
+            yieldPlz         : (() => {
+                const plz = String(this.config.yieldPlz || '').trim();
+                const legacy = String(this.config.yieldPlzRegion || '').trim();
+                if (/^\d{5}$/.test(plz)) return plz;
+                if (/^\d{5}$/.test(legacy)) return legacy;
+                return plz || legacy || '87781';
+            })(),
         };
 
         const networkInfo = this._cfg.networkMode === 'fritzwireguard'
@@ -218,6 +228,7 @@ class KostalPikoAdapter extends utils.Adapter {
 
         await this._poll();
         this._pollTimer = setInterval(() => this._poll(), this._cfg.pollInterval * 1000);
+        this._refreshWeather().catch(e => this._log('DEBUG', `Wetter: ${e.message}`));
 
         // Nach Neustart sofort Historie vom PIKO nachladen (Cache zeigt bis dahin alte Daten)
         if (this._cfg.historyFetch) {
@@ -366,6 +377,138 @@ class KostalPikoAdapter extends utils.Adapter {
                     );
                 }, 3000);
             }
+        }
+
+        // 3. Wetter (alle 30 Minuten, wenn PLZ gesetzt)
+        if (this._cfg.yieldPlz && Date.now() - this._lastWeatherFetch >= 30 * 60 * 1000) {
+            this._refreshWeather().catch(e => {
+                if (this._cfg.verbose) this._log('DEBUG', `Wetter: ${e.message}`);
+            });
+        }
+    }
+
+    // ─── Wetter / Sonnenerwartung (Open-Meteo) ───────────────────────────────────
+
+    _fetchHttpsJson(reqUrl, timeoutMs = 12000) {
+        return new Promise((resolve, reject) => {
+            const req = https.get(reqUrl, { timeout: timeoutMs }, (res) => {
+                let data = '';
+                res.on('data', c => { data += c; });
+                res.on('end', () => {
+                    if (res.statusCode !== 200) {
+                        return reject(new Error(`HTTP ${res.statusCode}`));
+                    }
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (e) {
+                        reject(new Error('JSON ungültig'));
+                    }
+                });
+            });
+            req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+            req.on('error', reject);
+        });
+    }
+
+    _wmoLabel(code) {
+        const labels = {
+            0 : 'Klar',
+            1 : 'Überwiegend klar',
+            2 : 'Teilweise bewölkt',
+            3 : 'Bewölkt',
+            45: 'Neblig',
+            48: 'Neblig',
+            51: 'Leichter Nieselregen',
+            53: 'Nieselregen',
+            55: 'Starker Nieselregen',
+            61: 'Leichter Regen',
+            63: 'Regen',
+            65: 'Starker Regen',
+            71: 'Leichter Schneefall',
+            73: 'Schneefall',
+            75: 'Starker Schneefall',
+            80: 'Regenschauer',
+            81: 'Regenschauer',
+            82: 'Starke Regenschauer',
+            95: 'Gewitter',
+            96: 'Gewitter mit Hagel',
+            99: 'Gewitter mit Hagel',
+        };
+        return labels[code] || `Wettercode ${code}`;
+    }
+
+    async _geocodePlz(plz) {
+        if (this._weatherGeoCache && this._weatherGeoCache.plz === plz) {
+            return this._weatherGeoCache;
+        }
+        const zip = await this._fetchHttpsJson(`https://api.zippopotam.us/de/${plz}`);
+        const place = zip.places && zip.places[0];
+        if (!place) throw new Error(`PLZ ${plz} nicht gefunden`);
+        const geo = {
+            plz,
+            lat  : parseFloat(place.latitude),
+            lon  : parseFloat(place.longitude),
+            place: `${place['place name']}`,
+            state: place.state || '',
+        };
+        this._weatherGeoCache = geo;
+        return geo;
+    }
+
+    async _refreshWeather() {
+        const plz = this._cfg.yieldPlz;
+        if (!plz || !/^\d{5}$/.test(plz)) return;
+
+        const geo = await this._geocodePlz(plz);
+        const q = new URLSearchParams({
+            latitude : String(geo.lat),
+            longitude: String(geo.lon),
+            daily    : 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum',
+            hourly   : 'cloud_cover',
+            timezone : 'Europe/Berlin',
+            forecast_days: '1',
+        });
+        const fc = await this._fetchHttpsJson(`https://api.open-meteo.com/v1/forecast?${q}`);
+
+        const sunshineSec = fc.daily?.sunshine_duration?.[0];
+        const weatherCode = fc.daily?.weather_code?.[0];
+        const tempMax     = fc.daily?.temperature_2m_max?.[0];
+        const precip      = fc.daily?.precipitation_sum?.[0];
+
+        let cloudAvg = null;
+        const times = fc.hourly?.time || [];
+        const clouds = fc.hourly?.cloud_cover || [];
+        if (times.length && clouds.length) {
+            const today = new Date().toISOString().substring(0, 10);
+            const dayClouds = [];
+            times.forEach((t, i) => {
+                const h = parseInt(t.substring(11, 13), 10);
+                if (t.startsWith(today) && h >= 7 && h <= 19 && clouds[i] != null) {
+                    dayClouds.push(clouds[i]);
+                }
+            });
+            if (dayClouds.length) {
+                cloudAvg = Math.round(dayClouds.reduce((s, v) => s + v, 0) / dayClouds.length);
+            }
+        }
+
+        this._lastWeather = {
+            plz,
+            place    : geo.place,
+            state    : geo.state,
+            date     : new Date().toISOString().substring(0, 10),
+            sunshineH: sunshineSec != null ? Math.round(sunshineSec / 3600 * 10) / 10 : null,
+            weather  : weatherCode != null ? this._wmoLabel(weatherCode) : null,
+            weatherCode,
+            tempMax  : tempMax != null ? Math.round(tempMax * 10) / 10 : null,
+            precipMm : precip != null ? Math.round(precip * 10) / 10 : null,
+            cloudPct : cloudAvg,
+            source   : 'Open-Meteo',
+            updatedAt: new Date().toISOString(),
+        };
+        this._lastWeatherFetch = Date.now();
+        if (this._cfg.verbose) {
+            this._log('DEBUG', `Wetter ${plz} ${geo.place}: ${this._lastWeather.sunshineH}h Sonne, ${this._lastWeather.weather}`);
         }
     }
 
@@ -709,7 +852,8 @@ class KostalPikoAdapter extends utils.Adapter {
             savedAt       : new Date().toISOString(),
             feedInTariff  : this._cfg.yieldFeedInTariff || 0.3925,
             installedKwp  : kwp || 0,
-            plzRegion     : this._cfg.yieldPlzRegion || '',
+            plzRegion     : (this._cfg.yieldPlz || '').charAt(0) || '',
+            plz           : this._cfg.yieldPlz || '',
             regionalKwpRef: null,
             extraYears    : [],
             months        : {},
@@ -796,7 +940,10 @@ class KostalPikoAdapter extends utils.Adapter {
         const kwp = this._cfg.yieldInstalledKwp || this._getInstalledKwp();
         if (kwp) this._monthlyYields.installedKwp = kwp;
         this._monthlyYields.feedInTariff = this._cfg.yieldFeedInTariff || this._monthlyYields.feedInTariff;
-        if (this._cfg.yieldPlzRegion) this._monthlyYields.plzRegion = this._cfg.yieldPlzRegion;
+        if (this._cfg.yieldPlz) {
+            this._monthlyYields.plzRegion = this._cfg.yieldPlz.charAt(0);
+            this._monthlyYields.plz = this._cfg.yieldPlz;
+        }
 
         const monthSet = {};
         this._lastHistoryRows.forEach(r => {
@@ -889,12 +1036,14 @@ class KostalPikoAdapter extends utils.Adapter {
         let totalWh = 0;
         Object.values(yearTotals).forEach(v => { totalWh += v; });
         const totalEuro = Math.round(totalWh / 1000 * tariff * 100) / 100;
+        const totalKwh  = Math.round(totalWh / 1000 * 10) / 10;
 
         return {
             settings: {
                 feedInTariff : tariff,
                 installedKwp : kwp,
-                plzRegion    : data.plzRegion || '',
+                plzRegion    : data.plzRegion || (data.plz || '').charAt(0) || '',
+                plz          : data.plz || this._cfg.yieldPlz || '',
                 regionalKwpRef: data.regionalKwpRef || null,
                 pikoEpoch    : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10) : null,
             },
@@ -906,6 +1055,7 @@ class KostalPikoAdapter extends utils.Adapter {
             yearEuro,
             yearKwp,
             totalWh,
+            totalKwh,
             totalEuro,
             monthCount: Object.keys(months).length,
         };
@@ -948,7 +1098,20 @@ class KostalPikoAdapter extends utils.Adapter {
                 if (!isNaN(k) && k >= 0) this._monthlyYields.installedKwp = k;
             }
             if (body.plzRegion !== undefined) {
-                this._monthlyYields.plzRegion = String(body.plzRegion).trim();
+                const p = String(body.plzRegion).trim();
+                this._monthlyYields.plzRegion = /^\d{5}$/.test(p) ? p.charAt(0) : p;
+                if (/^\d{5}$/.test(p)) this._monthlyYields.plz = p;
+            }
+            if (body.plz !== undefined) {
+                const p = String(body.plz).trim();
+                if (/^\d{5}$/.test(p)) {
+                    this._monthlyYields.plz = p;
+                    this._monthlyYields.plzRegion = p.charAt(0);
+                    this._cfg.yieldPlz = p;
+                    this._weatherGeoCache = null;
+                    this._lastWeatherFetch = 0;
+                    this._refreshWeather().catch(e => this._log('DEBUG', `Wetter: ${e.message}`));
+                }
             }
             if (body.regionalKwpRef !== undefined) {
                 if (body.regionalKwpRef === null) {
@@ -1994,6 +2157,7 @@ class KostalPikoAdapter extends utils.Adapter {
                     nodes          : this._nodes,
                     stringAnalysis : this._getStringAnalysisConfig(),
                     inverterSpecs  : this._getInverterSpecs(),
+                    weather        : this._lastWeather,
                     ts             : new Date().toISOString(),
                 });
             }
@@ -2251,6 +2415,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div><div class="muted" style="margin-bottom:4px">Betriebsstatus</div><span class="sb" id="sBadge">--</span></div>
     <div style="margin-left:auto;text-align:right"><div class="muted">Modell</div><div style="font-weight:600" id="d-model">--</div></div>
   </div>
+  <div class="card" id="weather-card" style="display:none">
+    <div class="ct"><span class="dot"></span>Wetter &amp; Sonne heute <span class="muted" id="w-loc" style="font-weight:400;text-transform:none"></span></div>
+    <div class="grid g4" id="w-grid">
+      <div class="vc g"><div class="vl">Erwartete Sonnenstunden</div><div class="vv" id="w-sun">--</div><div class="vu">h (heute)</div></div>
+      <div class="vc"><div class="vl">Wetter</div><div class="vv" id="w-desc" style="font-size:15px">--</div><div class="vu" id="w-temp">--</div></div>
+      <div class="vc"><div class="vl">Bew&ouml;lkung (7&ndash;19 Uhr)</div><div class="vv" id="w-cloud">--</div><div class="vu">% im Mittel</div></div>
+      <div class="vc"><div class="vl">Niederschlag</div><div class="vv" id="w-rain">--</div><div class="vu">mm (heute)</div></div>
+    </div>
+    <div class="muted" style="font-size:10px;margin-top:8px" id="w-src">Quelle: Open-Meteo · PLZ in Admin-Einstellungen</div>
+  </div>
   <div class="card">
     <div class="ct"><span class="dot"></span>AC-Leistung &amp; Energie</div>
     <div class="grid g3">
@@ -2334,12 +2508,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <strong>Vom PIKO laden</strong> = LogDaten.dat vom Wechselrichter abrufen &middot;
       <strong>Sync-All</strong> = alle Punkte an InfluxDB (nur wenn aktiviert)
     </div>
-  </div>
-
-  <!-- WR-Grenzwerte -->
-  <div class="card" id="inv-specs-card-h" style="display:none">
-    <div class="ct"><span class="dot"></span>Wechselrichter-Grenzwerte (Kostal-Datenblatt)</div>
-    <div id="inv-specs-body-h"></div>
   </div>
 
   <!-- String-Analyse für gewählten Zeitraum -->
@@ -2426,7 +2594,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <div class="tc" id="tab-yields">
   <div class="card" style="padding:13px 16px">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:14px">
-      <div><div class="muted" style="font-size:10px">Gesamtertrag</div><div style="font-weight:700;font-size:20px" id="y-total-wh">--</div></div>
+      <div><div class="muted" style="font-size:10px">Gesamtertrag</div><div style="font-weight:700;font-size:20px" id="y-total-kwh">--</div></div>
       <div><div class="muted" style="font-size:10px">Gesamt &euro;</div><div style="font-weight:700;font-size:20px;color:var(--grn)" id="y-total-eur">--</div></div>
       <div><div class="muted" style="font-size:10px">Erfasste Monate</div><div style="font-size:13px;font-weight:600" id="y-month-cnt">--</div></div>
       <div><div class="muted" style="font-size:10px">Inbetriebnahme</div><div style="font-size:13px;font-weight:600" id="y-epoch">--</div></div>
@@ -2457,8 +2625,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <label>Installierte Leistung [kWp]
         <input type="text" id="y-kwp" placeholder="auto" title="Leer = aus Modul-Konfiguration">
       </label>
-      <label>PLZ-Region (1. Ziffer)
-        <input type="text" id="y-plz" maxlength="1" placeholder="8" title="F&uuml;r Vergleich mit ertragsdatenbank.de">
+      <label>Postleitzahl
+        <input type="text" id="y-plz" maxlength="5" placeholder="87781" title="5-stellige PLZ (Wetter + regionaler Vergleich)">
       </label>
     </div>
     <div style="font-size:10px;color:var(--mut);line-height:1.6;margin-bottom:8px">
