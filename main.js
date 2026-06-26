@@ -1107,6 +1107,10 @@ class KostalPikoAdapter extends utils.Adapter {
                 if (/^\d{5}$/.test(p)) {
                     this._monthlyYields.plz = p;
                     this._monthlyYields.plzRegion = p.charAt(0);
+                    this._cfg.yieldPlz = p;
+                    this._weatherGeoCache = null;
+                    this._lastWeatherFetch = 0;
+                    this._refreshWeather().catch(e => this._log('DEBUG', `Wetter: ${e.message}`));
                 }
             }
             if (body.regionalKwpRef !== undefined) {
