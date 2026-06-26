@@ -245,7 +245,7 @@ http://IOBROKER-IP:8092/
 | 📄 Logs | Echtzeit-Log mit Level-Filter und Auto-Scroll |
 | ⚙️ System | Adapter-Info, Sync-Status, Aktionen, InfluxDB-Erklärung |
 
-### Screenshots (v0.5.0)
+### Screenshots (v0.5.1)
 
 **Daten-Tab** – Live-Messwerte PIKO 5.5 (3 Strings):
 
