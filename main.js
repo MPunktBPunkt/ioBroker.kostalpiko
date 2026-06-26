@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.0
+ * Version: 0.6.2
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.1';
+const ADAPTER_VERSION = '0.6.2';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -945,20 +945,50 @@ class KostalPikoAdapter extends utils.Adapter {
 
     async _loadMonthlyYields() {
         if (!this._yieldsCachePath) return;
+        const loaded = await this._readYieldsFile(this._yieldsCachePath);
+        if (loaded) {
+            this._monthlyYields = loaded;
+            const n = Object.keys(this._monthlyYields.months).length;
+            this._log('INFO', `Monatserträge geladen: ${n} Monate`);
+            if (n < 3) {
+                const bak = await this._readYieldsFile(`${this._yieldsCachePath}.bak`);
+                if (bak && Object.keys(bak.months).length > n) {
+                    this._log('WARN',
+                        `Monatserträge wirken unvollständig (${n} Monate) – Backup hat ` +
+                        `${Object.keys(bak.months).length} Monate (Ertrag-Tab: „Backup wiederherstellen“)`
+                    );
+                }
+            }
+            return;
+        }
+        const bak = await this._readYieldsFile(`${this._yieldsCachePath}.bak`);
+        if (bak && Object.keys(bak.months).length) {
+            this._monthlyYields = bak;
+            this._log('WARN',
+                `Monatserträge aus Backup wiederhergestellt: ${Object.keys(bak.months).length} Monate`
+            );
+            await this._saveMonthlyYields();
+            return;
+        }
+        this._monthlyYields = this._defaultMonthlyYields();
+    }
+
+    async _readYieldsFile(filePath) {
         try {
-            const raw = await fs.promises.readFile(this._yieldsCachePath, 'utf-8');
+            const raw = await fs.promises.readFile(filePath, 'utf-8');
             const data = JSON.parse(raw);
-            if (!data.months || typeof data.months !== 'object') throw new Error('ungültiges Format');
-            this._monthlyYields = { ...this._defaultMonthlyYields(), ...data, months: { ...data.months } };
-            if (!Array.isArray(this._monthlyYields.extraYears)) {
-                this._monthlyYields.extraYears = [];
-            }
-            this._log('INFO', `Monatserträge geladen: ${Object.keys(this._monthlyYields.months).length} Monate`);
+            if (!data.months || typeof data.months !== 'object') return null;
+            return {
+                ...this._defaultMonthlyYields(),
+                ...data,
+                months: { ...data.months },
+                extraYears: Array.isArray(data.extraYears) ? [...data.extraYears] : [],
+            };
         } catch (e) {
-            if (e.code !== 'ENOENT') {
-                this._log('WARN', `Monatserträge laden: ${e.message}`);
+            if (e.code !== 'ENOENT' && this._cfg?.verbose) {
+                this._log('DEBUG', `Monatserträge ${filePath}: ${e.message}`);
             }
-            this._monthlyYields = this._defaultMonthlyYields();
+            return null;
         }
     }
 
@@ -1006,9 +1036,15 @@ class KostalPikoAdapter extends utils.Adapter {
         return Math.round(totalKwh * 1000);
     }
 
-    async _refreshAutoYields() {
+    async _refreshAutoYields(options = {}) {
         if (!this._monthlyYields) this._monthlyYields = this._defaultMonthlyYields();
-        if (!this._lastHistoryRows.length) return;
+        if (!this._lastHistoryRows.length) {
+            return { updated: 0, historyFrom: null, historyTo: null, monthsInHistory: 0 };
+        }
+
+        const force     = !!options.force;
+        const fromYear  = options.fromYear ? parseInt(options.fromYear) : null;
+        const fromMonth = options.fromMonth ? parseInt(options.fromMonth) : 1;
 
         const kwp = this._cfg.yieldInstalledKwp || this._getInstalledKwp();
         if (kwp) this._monthlyYields.installedKwp = kwp;
@@ -1018,27 +1054,45 @@ class KostalPikoAdapter extends utils.Adapter {
             this._monthlyYields.plz = this._cfg.yieldPlz;
         }
 
+        if (fromYear) {
+            if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+            const cy = new Date().getFullYear();
+            for (let y = fromYear; y <= cy; y++) {
+                if (!this._monthlyYields.extraYears.includes(y)) {
+                    this._monthlyYields.extraYears.push(y);
+                }
+            }
+            this._monthlyYields.extraYears.sort((a, b) => a - b);
+        }
+
         const monthSet = {};
         this._lastHistoryRows.forEach(r => {
             const d = new Date(r.ts);
-            monthSet[this._monthKey(d.getFullYear(), d.getMonth() + 1)] = {
-                year : d.getFullYear(),
-                month: d.getMonth() + 1,
-            };
+            const year = d.getFullYear();
+            const month = d.getMonth() + 1;
+            if (fromYear) {
+                const beforeStart = year < fromYear || (year === fromYear && month < fromMonth);
+                if (beforeStart) return;
+            }
+            monthSet[this._monthKey(year, month)] = { year, month };
         });
 
         let updated = 0;
+        let skippedManual = 0;
         Object.values(monthSet).forEach(({ year, month }) => {
             const key = this._monthKey(year, month);
             const existing = this._monthlyYields.months[key];
-            if (existing && existing.source === 'manual') return;
+            if (existing && existing.source === 'manual') {
+                skippedManual++;
+                return;
+            }
 
             const wh = this._calcMonthWhFromRows(this._getRowsForMonth(year, month));
             if (wh <= 0) return;
 
             const now = new Date();
             const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-            if (existing && existing.source === 'auto' && existing.wh === wh && !isCurrentMonth) return;
+            if (!force && existing && existing.source === 'auto' && existing.wh === wh && !isCurrentMonth) return;
 
             this._monthlyYields.months[key] = {
                 wh,
@@ -1052,6 +1106,15 @@ class KostalPikoAdapter extends utils.Adapter {
             await this._saveMonthlyYields();
             this._log('INFO', `Monatserträge: ${updated} Monat(e) aus Historie aktualisiert`);
         }
+
+        const sorted = [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts);
+        return {
+            updated,
+            skippedManual,
+            monthsInHistory: Object.keys(monthSet).length,
+            historyFrom    : sorted.length ? sorted[0].date.substring(0, 10) : null,
+            historyTo      : sorted.length ? sorted[sorted.length - 1].date.substring(0, 10) : null,
+        };
     }
 
     _buildYieldsApiResponse() {
@@ -1121,6 +1184,13 @@ class KostalPikoAdapter extends utils.Adapter {
                 pikoEpoch    : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10) : null,
             },
             storagePath: this._yieldsCachePath || null,
+            backupPath : this._yieldsCachePath ? `${this._yieldsCachePath}.bak` : null,
+            historyFrom: this._lastHistoryRows.length
+                ? [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts)[0].date.substring(0, 10)
+                : null,
+            historyTo  : this._lastHistoryRows.length
+                ? [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts).pop().date.substring(0, 10)
+                : null,
             extraYears : data.extraYears || [],
             years,
             grid,
@@ -1200,8 +1270,48 @@ class KostalPikoAdapter extends utils.Adapter {
         }
 
         if (action === 'refreshAuto') {
-            await this._refreshAutoYields();
-            return { ok: true, message: 'Automatische Monate aus Historie aktualisiert' };
+            const result = await this._refreshAutoYields({ force: !!body.force });
+            const range = result.historyFrom && result.historyTo
+                ? ` (Historie: ${result.historyFrom} – ${result.historyTo})`
+                : '';
+            return {
+                ok: true,
+                message: `${result.updated} Monat(e) aus Historie berechnet${range}`,
+                ...result,
+            };
+        }
+
+        if (action === 'rebuildFromHistory') {
+            const fromYear = parseInt(body.fromYear) || 2018;
+            const fromMonth = parseInt(body.fromMonth) || 5;
+            const result = await this._refreshAutoYields({
+                fromYear,
+                fromMonth,
+                force: true,
+            });
+            const range = result.historyFrom && result.historyTo
+                ? `${result.historyFrom} – ${result.historyTo}`
+                : 'keine Historie';
+            let msg = `${result.updated} Monat(e) neu berechnet (ab ${String(fromMonth).padStart(2, '0')}/${fromYear}). ` +
+                `Historie im Cache: ${range}.`;
+            if (result.historyFrom && result.historyFrom > `${fromYear}-${String(fromMonth).padStart(2, '0')}-01`) {
+                msg += ` Ältere Monate fehlen in der Historie – Backup/Import nutzen oder scripts/combine-yields.js auf dem Server.`;
+            }
+            return { ok: true, message: msg, ...result };
+        }
+
+        if (action === 'restoreBackup') {
+            const bak = `${this._yieldsCachePath}.bak`;
+            const data = await this._readYieldsFile(bak);
+            if (!data || !Object.keys(data.months).length) {
+                throw new Error('Kein Backup gefunden oder Backup leer (.bak)');
+            }
+            this._monthlyYields = data;
+            await this._saveMonthlyYields();
+            return {
+                ok: true,
+                message: `${Object.keys(data.months).length} Monate aus Backup wiederhergestellt`,
+            };
         }
 
         if (action === 'clearAuto') {
@@ -2700,6 +2810,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="loadYields()" title="Tabelle neu laden">&#8635; Aktualisieren</button>
         <button class="btn" onclick="refreshYieldsAuto()" title="Monate aus 15-min-Historie berechnen (manuelle Werte bleiben)">&#9889; Aus Historie</button>
+        <button class="btn" onclick="rebuildYieldsFromHistory()" title="Jahre ab 05/2018 auff&uuml;llen und alle Monate aus History-Cache neu berechnen">&#128202; Neu ab 05/2018</button>
+        <button class="btn" onclick="restoreYieldsBackup()" title="monthly-yields.json.bak wiederherstellen">&#9851; Backup</button>
         <button class="btn" onclick="addYieldYear()" title="Leere Jahres-Spalte hinzuf&uuml;gen">&#43; Jahr</button>
         <button class="btn" onclick="fillYieldYears()" title="Alle Jahre von Inbetriebnahme bis heute">&#128197; Jahre auff&uuml;llen</button>
         <button class="btn" onclick="exportYields('json')" title="JSON-Backup herunterladen">&#8595; JSON</button>
@@ -2712,6 +2824,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div id="yieldMsg" style="margin-top:8px;font-size:11px;color:var(--mut)"></div>
     <div style="margin-top:6px;font-size:10px;color:var(--mut)">
       <strong>Speicherort:</strong> <span class="yield-path" id="y-storage">–</span>
+      <span id="y-history-range" style="display:block;margin-top:4px"></span>
     </div>
   </div>
 

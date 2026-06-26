@@ -760,6 +760,15 @@ function renderYields(){
   document.getElementById('y-kwp').value=s.installedKwp>0?String(s.installedKwp).replace('.',','):'';
   document.getElementById('y-plz').value=s.plz||s.plzRegion||'';
   document.getElementById('y-storage').textContent=yieldsData.storagePath||'iobroker-data/'+window.location.pathname.split('/')[1]+'/monthly-yields.json';
+  var hr=document.getElementById('y-history-range');
+  if(hr){
+    if(yieldsData.historyFrom&&yieldsData.historyTo){
+      hr.textContent='History-Cache: '+yieldsData.historyFrom+' – '+yieldsData.historyTo+
+        (yieldsData.backupPath?' · Backup: '+yieldsData.backupPath:'');
+    } else {
+      hr.textContent=yieldsData.backupPath?'Backup: '+yieldsData.backupPath:'';
+    }
+  }
 
   var years=yieldsData.years||[];
   var grid=yieldsData.grid||[];
@@ -967,7 +976,19 @@ window.saveYieldSettings=function(){
 
 window.refreshYieldsAuto=function(){
   yieldMsg('Berechne Monate aus Historie…');
-  postYield({action:'refreshAuto'});
+  postYield({action:'refreshAuto',force:true});
+};
+
+window.rebuildYieldsFromHistory=function(){
+  if(!confirm('Alle Jahre ab Mai 2018 als Spalten anlegen und Monate aus dem History-Cache neu berechnen?\n\nManuelle Werte bleiben erhalten. Monate ohne Historie bleiben leer.')) return;
+  yieldMsg('Berechne Monate ab 05/2018…');
+  postYield({action:'rebuildFromHistory',fromYear:2018,fromMonth:5});
+};
+
+window.restoreYieldsBackup=function(){
+  if(!confirm('monthly-yields.json aus der .bak-Datei wiederherstellen?\n\nAktuelle Tabelle wird überschrieben.')) return;
+  yieldMsg('Stelle Backup wieder her…');
+  postYield({action:'restoreBackup'});
 };
 
 window.addYieldYear=function(){
