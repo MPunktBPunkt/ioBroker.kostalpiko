@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.4.3-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases/tag/v0.4.3)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases/tag/v0.5.0)
 [![License](https://img.shields.io/badge/license-Personal%20Private%20Use-lightgrey.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
@@ -18,7 +18,7 @@ Liest Echtzeit- und Historiendaten vom **Kostal PIKO Solarwechselrichter** direk
 - 🕐 **Korrekter Zeitstempel** – dekodiert den PIKO-internen Uptime-Zähler in echte Unix-Timestamps
 - 📤 **InfluxDB-Integration** – sendet History-Daten via `sendTo()` mit historischem Zeitstempel
 - 🔄 **Sync-All** – überträgt die gesamte gespeicherte Historie auf Knopfdruck
-- 🌐 **Web-UI** – eingebautes Dashboard mit 5 Tabs: Daten, Historie, Nodes, Logs, System
+- 🌐 **Web-UI** – eingebautes Dashboard mit 6 Tabs: Daten, Historie, Ertrag, Nodes, Logs, System
 - 🔢 **Multi-String** – automatische Erkennung von 2 oder 3 PV-Strings (PIKO 8.3 / PIKO 5.5)
 - 📬 **Benachrichtigungen** – Tages-, Wochen- und Monatsberichte per E-Mail, Telegram oder Pushover
 
@@ -240,11 +240,12 @@ http://IOBROKER-IP:8092/
 |---|---|
 | ⚡ Daten | Live-Werte: Status, AC-Leistung, Energie, PV-Strings (2/3), Phasen |
 | 📈 Historie | Chart.js-Dashboard mit KPIs, interaktiven Zeitreihen, Datentabelle |
+| 📊 Ertrag | Monatstabelle (Jahre × Monate) mit manueller Historie, €-Ertrag, kWh/kWp |
 | 🌐 Nodes | Alle ioBroker-Datenpunkte mit Typ, aktuellem Wert, Einheit |
 | 📄 Logs | Echtzeit-Log mit Level-Filter und Auto-Scroll |
 | ⚙️ System | Adapter-Info, Sync-Status, Aktionen, InfluxDB-Erklärung |
 
-### Screenshots (v0.4.3)
+### Screenshots (v0.5.0)
 
 **Daten-Tab** – Live-Messwerte PIKO 5.5 (3 Strings):
 
@@ -305,6 +306,14 @@ sudo ufw allow 8093/tcp   # Instanz 1 (PIKO 5.5)
 ---
 
 ## Changelog
+
+### 0.5.0 (2026-06-26)
+
+* **NEU:** Tab **„Ertrag"** – Monatstabelle wie in Excel (Spalten = Jahre, Zeilen = Monate in Wh)
+* **NEU:** Manuelle Eingabe historischer Monatswerte (persistent in `monthly-yields.json`)
+* **NEU:** Automatische Berechnung der letzten ~6 Monate aus 15-min-Historie (manuelle Werte bleiben erhalten)
+* **NEU:** Zusammenfassungszeilen: Σ Jahr, €/Jahr (konfigurierbare Vergütung), kWh/kWp
+* **NEU:** Einstellungen: Einspeisevergütung, installierte kWp, PLZ-Region
 
 ### 0.4.3 (2026-06-25)
 
