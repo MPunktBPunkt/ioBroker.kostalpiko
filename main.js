@@ -1085,6 +1085,10 @@ class KostalPikoAdapter extends utils.Adapter {
         return Math.round(totalKwh * 1000);
     }
 
+    _isManualYieldEntry(entry) {
+        return !!(entry && entry.source === 'manual' && entry.wh > 0);
+    }
+
     async _refreshAutoYields(options = {}) {
         if (!this._monthlyYields) this._monthlyYields = this._defaultMonthlyYields();
         if (!this._lastHistoryRows.length) {
@@ -1131,7 +1135,7 @@ class KostalPikoAdapter extends utils.Adapter {
         Object.values(monthSet).forEach(({ year, month }) => {
             const key = this._monthKey(year, month);
             const existing = this._monthlyYields.months[key];
-            if (existing && existing.source === 'manual') {
+            if (this._isManualYieldEntry(existing)) {
                 skippedManual++;
                 return;
             }
@@ -1160,9 +1164,12 @@ class KostalPikoAdapter extends utils.Adapter {
             updated++;
         });
 
-        if (updated > 0) {
-            await this._saveMonthlyYields();
-            this._log('INFO', `Monatserträge: ${updated} Monat(e) aus Historie aktualisiert`);
+        if (updated > 0 || skippedManual > 0) {
+            if (updated > 0) await this._saveMonthlyYields();
+            this._log('INFO',
+                `Monatserträge: ${updated} Monat(e) aus Historie aktualisiert` +
+                (skippedManual > 0 ? `, ${skippedManual} manuelle Werte unverändert` : '')
+            );
         }
 
         const sorted = [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts);
@@ -1334,7 +1341,8 @@ class KostalPikoAdapter extends utils.Adapter {
                 : '';
             return {
                 ok: true,
-                message: `${result.updated} Monat(e) aus Historie berechnet${range}`,
+                message: `${result.updated} Monat(e) aus Historie berechnet${range}` +
+                    (result.skippedManual ? `, ${result.skippedManual} manuelle Werte beibehalten` : ''),
                 ...result,
             };
         }
@@ -1352,6 +1360,9 @@ class KostalPikoAdapter extends utils.Adapter {
                 : 'keine Historie';
             let msg = `${result.updated} Monat(e) neu berechnet (ab ${String(fromMonth).padStart(2, '0')}/${fromYear}). ` +
                 `Historie im Cache: ${range}.`;
+            if (result.skippedManual) {
+                msg += ` ${result.skippedManual} manuelle Werte beibehalten.`;
+            }
             if (result.historyFrom && result.historyFrom > `${fromYear}-${String(fromMonth).padStart(2, '0')}-01`) {
                 msg += ` Ältere Monate fehlen in der Historie – Backup/Import nutzen oder scripts/combine-yields.js auf dem Server.`;
             }
@@ -2905,7 +2916,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </label>
     </div>
     <div style="font-size:10px;color:var(--mut);line-height:1.6;margin-bottom:8px">
-      <strong>Manuell eingeben:</strong> Zelle anklicken &rarr; Monatswert in Wh eintragen (wie in Excel). Blaue Werte = manuell, wei&szlig;e = aus History-Cache berechnet.
+      <strong>Regel:</strong> Leere Zellen werden aus dem History-Cache berechnet (wei&szlig;). Deine Eingabe (blau) hat immer Vorrang &ndash; auch bei „Aus Cache“ oder automatischem Sync.
+      Zelle leeren (Inhalt l&ouml;schen + Enter) = wieder automatisch aus Historie f&uuml;llbar.
       <strong>Aus Cache</strong> = Server-Speicher (history-cache.json), <em>nicht</em> direkt vom Wechselrichter &middot; neue Rohdaten: Historie-Tab &rarr; „Vom PIKO laden“.
       Gr&uuml;n/Rot = &uuml;ber/unter dem Durchschnitt aller Jahre f&uuml;r diesen Monat.
       <strong>+ Jahr</strong> = leere Spalte f&uuml;r Vorjahre &middot; <strong>Import/Export</strong> = Backup oder Excel-Migration.
