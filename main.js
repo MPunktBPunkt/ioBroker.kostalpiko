@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.0
+ * Version: 0.6.3
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.1';
+const ADAPTER_VERSION = '0.6.3';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -420,6 +420,22 @@ class KostalPikoAdapter extends utils.Adapter {
         });
     }
 
+    _berlinDateKey(ts = Date.now()) {
+        return new Date(ts).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+    }
+
+    _weatherLabelFromMetrics(cloudPct, sunshineH, weatherCode) {
+        if (cloudPct != null) {
+            if (cloudPct <= 15) return 'Sonnig';
+            if (cloudPct <= 35) return 'Überwiegend sonnig';
+            if (cloudPct <= 60) return 'Teilweise bewölkt';
+            if (cloudPct <= 85) return 'Bewölkt';
+            return 'Stark bewölkt';
+        }
+        if (sunshineH != null && sunshineH >= 10) return 'Sonnig';
+        return weatherCode != null ? this._wmoLabel(weatherCode) : null;
+    }
+
     _wmoLabel(code) {
         const labels = {
             0 : 'Klar',
@@ -488,12 +504,12 @@ class KostalPikoAdapter extends utils.Adapter {
         let cloudAvg = null;
         const times = fc.hourly?.time || [];
         const clouds = fc.hourly?.cloud_cover || [];
+        const todayBerlin = this._berlinDateKey();
         if (times.length && clouds.length) {
-            const today = new Date().toISOString().substring(0, 10);
             const dayClouds = [];
             times.forEach((t, i) => {
                 const h = parseInt(t.substring(11, 13), 10);
-                if (t.startsWith(today) && h >= 7 && h <= 19 && clouds[i] != null) {
+                if (t.startsWith(todayBerlin) && h >= 7 && h <= 19 && clouds[i] != null) {
                     dayClouds.push(clouds[i]);
                 }
             });
@@ -502,13 +518,16 @@ class KostalPikoAdapter extends utils.Adapter {
             }
         }
 
+        const sunshineH = sunshineSec != null ? Math.round(sunshineSec / 3600 * 10) / 10 : null;
+        const weatherLabel = this._weatherLabelFromMetrics(cloudAvg, sunshineH, weatherCode);
+
         this._lastWeather = {
             plz,
             place    : geo.place,
             state    : geo.state,
-            date     : new Date().toISOString().substring(0, 10),
-            sunshineH: sunshineSec != null ? Math.round(sunshineSec / 3600 * 10) / 10 : null,
-            weather  : weatherCode != null ? this._wmoLabel(weatherCode) : null,
+            date     : todayBerlin,
+            sunshineH,
+            weather  : weatherLabel,
             weatherCode,
             tempMax  : tempMax != null ? Math.round(tempMax * 10) / 10 : null,
             precipMm : precip != null ? Math.round(precip * 10) / 10 : null,
@@ -637,7 +656,11 @@ class KostalPikoAdapter extends utils.Adapter {
 
         const merged = this._mergeHistoryRows(prevRows, rows);
         const added  = merged.length - prevRows.length;
+        const removed = (prevRows.length + rows.length) - merged.length;
         this._lastHistoryRows = merged;
+        if (removed > 0) {
+            this._log('INFO', `${removed} doppelte History-Punkte beim Merge entfernt`);
+        }
         if (added > 0) {
             this._log('INFO', `${added} neue Punkte per Merge (gesamt ${merged.length})`);
         }
@@ -781,13 +804,21 @@ class KostalPikoAdapter extends utils.Adapter {
         });
     }
 
+    _dedupeHistoryRows(rows) {
+        const SLOT_MS = 15 * 60 * 1000;
+        const bySlot = new Map();
+        for (const r of rows) {
+            if (!r?.ts) continue;
+            const slot = Math.floor(r.ts / SLOT_MS);
+            bySlot.set(slot, r);
+        }
+        return [...bySlot.values()].sort((a, b) => a.ts - b.ts);
+    }
+
     _mergeHistoryRows(prevRows, newRows) {
-        if (!prevRows.length) return newRows;
-        if (!newRows.length) return prevRows;
-        const byTs = new Map();
-        for (const r of prevRows) byTs.set(r.ts, r);
-        for (const r of newRows) byTs.set(r.ts, r);
-        return [...byTs.values()].sort((a, b) => a.ts - b.ts);
+        if (!prevRows.length) return this._dedupeHistoryRows(newRows);
+        if (!newRows.length) return this._dedupeHistoryRows(prevRows);
+        return this._dedupeHistoryRows([...prevRows, ...newRows]);
     }
 
     _isHistoryParseSuspicious(prevRows, newRows) {
@@ -896,13 +927,20 @@ class KostalPikoAdapter extends utils.Adapter {
                 const raw = await fs.promises.readFile(file, 'utf-8');
                 const data = JSON.parse(raw);
                 if (!data.rows || !Array.isArray(data.rows) || data.rows.length < 10) continue;
-                this._lastHistoryRows = data.rows;
+                this._lastHistoryRows = this._dedupeHistoryRows(data.rows);
                 if (data.pikoEpoch) this._pikoEpoch = data.pikoEpoch;
+                const removed = data.rows.length - this._lastHistoryRows.length;
                 this._log('INFO',
-                    `History-Cache geladen: ${data.rows.length} Punkte` +
+                    `History-Cache geladen: ${this._lastHistoryRows.length} Punkte` +
+                    (removed > 0 ? ` (${removed} Duplikate entfernt)` : '') +
                     (data.savedAt ? ` (Stand ${data.savedAt.substring(0, 19).replace('T', ' ')})` : '') +
                     (file.endsWith('.bak') ? ' [Backup]' : '')
                 );
+                if (removed > 0) {
+                    await this._saveHistoryCache().catch(e =>
+                        this._log('WARN', `History-Cache bereinigen: ${e.message}`)
+                    );
+                }
                 return;
             } catch (e) {
                 if (e.code !== 'ENOENT' && this._cfg.verbose) {
@@ -945,20 +983,50 @@ class KostalPikoAdapter extends utils.Adapter {
 
     async _loadMonthlyYields() {
         if (!this._yieldsCachePath) return;
+        const loaded = await this._readYieldsFile(this._yieldsCachePath);
+        if (loaded) {
+            this._monthlyYields = loaded;
+            const n = Object.keys(this._monthlyYields.months).length;
+            this._log('INFO', `Monatserträge geladen: ${n} Monate`);
+            if (n < 3) {
+                const bak = await this._readYieldsFile(`${this._yieldsCachePath}.bak`);
+                if (bak && Object.keys(bak.months).length > n) {
+                    this._log('WARN',
+                        `Monatserträge wirken unvollständig (${n} Monate) – Backup hat ` +
+                        `${Object.keys(bak.months).length} Monate (Ertrag-Tab: „Backup wiederherstellen“)`
+                    );
+                }
+            }
+            return;
+        }
+        const bak = await this._readYieldsFile(`${this._yieldsCachePath}.bak`);
+        if (bak && Object.keys(bak.months).length) {
+            this._monthlyYields = bak;
+            this._log('WARN',
+                `Monatserträge aus Backup wiederhergestellt: ${Object.keys(bak.months).length} Monate`
+            );
+            await this._saveMonthlyYields();
+            return;
+        }
+        this._monthlyYields = this._defaultMonthlyYields();
+    }
+
+    async _readYieldsFile(filePath) {
         try {
-            const raw = await fs.promises.readFile(this._yieldsCachePath, 'utf-8');
+            const raw = await fs.promises.readFile(filePath, 'utf-8');
             const data = JSON.parse(raw);
-            if (!data.months || typeof data.months !== 'object') throw new Error('ungültiges Format');
-            this._monthlyYields = { ...this._defaultMonthlyYields(), ...data, months: { ...data.months } };
-            if (!Array.isArray(this._monthlyYields.extraYears)) {
-                this._monthlyYields.extraYears = [];
-            }
-            this._log('INFO', `Monatserträge geladen: ${Object.keys(this._monthlyYields.months).length} Monate`);
+            if (!data.months || typeof data.months !== 'object') return null;
+            return {
+                ...this._defaultMonthlyYields(),
+                ...data,
+                months: { ...data.months },
+                extraYears: Array.isArray(data.extraYears) ? [...data.extraYears] : [],
+            };
         } catch (e) {
-            if (e.code !== 'ENOENT') {
-                this._log('WARN', `Monatserträge laden: ${e.message}`);
+            if (e.code !== 'ENOENT' && this._cfg?.verbose) {
+                this._log('DEBUG', `Monatserträge ${filePath}: ${e.message}`);
             }
-            this._monthlyYields = this._defaultMonthlyYields();
+            return null;
         }
     }
 
@@ -985,17 +1053,28 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _getRowsForMonth(year, month) {
-        return this._lastHistoryRows.filter(r => {
-            const d = new Date(r.ts);
-            return d.getFullYear() === year && d.getMonth() + 1 === month;
+        return this._dedupeHistoryRows(this._lastHistoryRows).filter(r => {
+            const parts = new Intl.DateTimeFormat('en', {
+                timeZone: 'Europe/Berlin',
+                year    : 'numeric',
+                month   : 'numeric',
+            }).formatToParts(new Date(r.ts));
+            const y = parseInt(parts.find(p => p.type === 'year').value, 10);
+            const m = parseInt(parts.find(p => p.type === 'month').value, 10);
+            return y === year && m === month;
         });
+    }
+
+    _maxPlausibleMonthWh(kwp) {
+        const k = kwp || this._getInstalledKwp() || 10;
+        return Math.round(k * 220 * 1000);
     }
 
     _calcMonthWhFromRows(rows) {
         if (!rows.length) return 0;
         const byDay = {};
-        rows.forEach(r => {
-            const day = r.date.substring(0, 10);
+        this._dedupeHistoryRows(rows).forEach(r => {
+            const day = this._berlinDateKey(r.ts);
             if (!byDay[day]) byDay[day] = [];
             byDay[day].push(r);
         });
@@ -1006,9 +1085,15 @@ class KostalPikoAdapter extends utils.Adapter {
         return Math.round(totalKwh * 1000);
     }
 
-    async _refreshAutoYields() {
+    async _refreshAutoYields(options = {}) {
         if (!this._monthlyYields) this._monthlyYields = this._defaultMonthlyYields();
-        if (!this._lastHistoryRows.length) return;
+        if (!this._lastHistoryRows.length) {
+            return { updated: 0, historyFrom: null, historyTo: null, monthsInHistory: 0 };
+        }
+
+        const force     = !!options.force;
+        const fromYear  = options.fromYear ? parseInt(options.fromYear) : null;
+        const fromMonth = options.fromMonth ? parseInt(options.fromMonth) : 1;
 
         const kwp = this._cfg.yieldInstalledKwp || this._getInstalledKwp();
         if (kwp) this._monthlyYields.installedKwp = kwp;
@@ -1018,27 +1103,54 @@ class KostalPikoAdapter extends utils.Adapter {
             this._monthlyYields.plz = this._cfg.yieldPlz;
         }
 
+        if (fromYear) {
+            if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+            const cy = new Date().getFullYear();
+            for (let y = fromYear; y <= cy; y++) {
+                if (!this._monthlyYields.extraYears.includes(y)) {
+                    this._monthlyYields.extraYears.push(y);
+                }
+            }
+            this._monthlyYields.extraYears.sort((a, b) => a - b);
+        }
+
         const monthSet = {};
         this._lastHistoryRows.forEach(r => {
             const d = new Date(r.ts);
-            monthSet[this._monthKey(d.getFullYear(), d.getMonth() + 1)] = {
-                year : d.getFullYear(),
-                month: d.getMonth() + 1,
-            };
+            const year = d.getFullYear();
+            const month = d.getMonth() + 1;
+            if (fromYear) {
+                const beforeStart = year < fromYear || (year === fromYear && month < fromMonth);
+                if (beforeStart) return;
+            }
+            monthSet[this._monthKey(year, month)] = { year, month };
         });
 
         let updated = 0;
+        let skippedManual = 0;
         Object.values(monthSet).forEach(({ year, month }) => {
             const key = this._monthKey(year, month);
             const existing = this._monthlyYields.months[key];
-            if (existing && existing.source === 'manual') return;
+            if (existing && existing.source === 'manual') {
+                skippedManual++;
+                return;
+            }
 
             const wh = this._calcMonthWhFromRows(this._getRowsForMonth(year, month));
             if (wh <= 0) return;
 
+            const maxWh = this._maxPlausibleMonthWh(kwp);
+            if (wh > maxWh) {
+                this._log('WARN',
+                    `Monatsertrag ${key}: ${wh} Wh unrealistisch (>${maxWh} Wh) – ` +
+                    `bitte „Auto-Werte löschen“ und erneut aus Historie berechnen`
+                );
+                return;
+            }
+
             const now = new Date();
             const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-            if (existing && existing.source === 'auto' && existing.wh === wh && !isCurrentMonth) return;
+            if (!force && existing && existing.source === 'auto' && existing.wh === wh && !isCurrentMonth) return;
 
             this._monthlyYields.months[key] = {
                 wh,
@@ -1052,6 +1164,15 @@ class KostalPikoAdapter extends utils.Adapter {
             await this._saveMonthlyYields();
             this._log('INFO', `Monatserträge: ${updated} Monat(e) aus Historie aktualisiert`);
         }
+
+        const sorted = [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts);
+        return {
+            updated,
+            skippedManual,
+            monthsInHistory: Object.keys(monthSet).length,
+            historyFrom    : sorted.length ? sorted[0].date.substring(0, 10) : null,
+            historyTo      : sorted.length ? sorted[sorted.length - 1].date.substring(0, 10) : null,
+        };
     }
 
     _buildYieldsApiResponse() {
@@ -1121,6 +1242,13 @@ class KostalPikoAdapter extends utils.Adapter {
                 pikoEpoch    : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10) : null,
             },
             storagePath: this._yieldsCachePath || null,
+            backupPath : this._yieldsCachePath ? `${this._yieldsCachePath}.bak` : null,
+            historyFrom: this._lastHistoryRows.length
+                ? [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts)[0].date.substring(0, 10)
+                : null,
+            historyTo  : this._lastHistoryRows.length
+                ? [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts).pop().date.substring(0, 10)
+                : null,
             extraYears : data.extraYears || [],
             years,
             grid,
@@ -1200,8 +1328,48 @@ class KostalPikoAdapter extends utils.Adapter {
         }
 
         if (action === 'refreshAuto') {
-            await this._refreshAutoYields();
-            return { ok: true, message: 'Automatische Monate aus Historie aktualisiert' };
+            const result = await this._refreshAutoYields({ force: !!body.force });
+            const range = result.historyFrom && result.historyTo
+                ? ` (Historie: ${result.historyFrom} – ${result.historyTo})`
+                : '';
+            return {
+                ok: true,
+                message: `${result.updated} Monat(e) aus Historie berechnet${range}`,
+                ...result,
+            };
+        }
+
+        if (action === 'rebuildFromHistory') {
+            const fromYear = parseInt(body.fromYear) || 2018;
+            const fromMonth = parseInt(body.fromMonth) || 5;
+            const result = await this._refreshAutoYields({
+                fromYear,
+                fromMonth,
+                force: true,
+            });
+            const range = result.historyFrom && result.historyTo
+                ? `${result.historyFrom} – ${result.historyTo}`
+                : 'keine Historie';
+            let msg = `${result.updated} Monat(e) neu berechnet (ab ${String(fromMonth).padStart(2, '0')}/${fromYear}). ` +
+                `Historie im Cache: ${range}.`;
+            if (result.historyFrom && result.historyFrom > `${fromYear}-${String(fromMonth).padStart(2, '0')}-01`) {
+                msg += ` Ältere Monate fehlen in der Historie – Backup/Import nutzen oder scripts/combine-yields.js auf dem Server.`;
+            }
+            return { ok: true, message: msg, ...result };
+        }
+
+        if (action === 'restoreBackup') {
+            const bak = `${this._yieldsCachePath}.bak`;
+            const data = await this._readYieldsFile(bak);
+            if (!data || !Object.keys(data.months).length) {
+                throw new Error('Kein Backup gefunden oder Backup leer (.bak)');
+            }
+            this._monthlyYields = data;
+            await this._saveMonthlyYields();
+            return {
+                ok: true,
+                message: `${Object.keys(data.months).length} Monate aus Backup wiederhergestellt`,
+            };
         }
 
         if (action === 'clearAuto') {
@@ -1822,13 +1990,17 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _calcDailyKwh(rows) {
         if (!rows.length) return 0;
-        const sorted = [...rows].sort((a, b) => a.ts - b.ts);
+        const sorted = this._dedupeHistoryRows(rows);
+        const powerKwh = this._calcDailyKwhFromPower(sorted);
         const withEnergy = sorted.filter(r => r.totalEnergy > 0);
         if (withEnergy.length >= 2) {
             const delta = withEnergy[withEnergy.length - 1].totalEnergy - withEnergy[0].totalEnergy;
-            if (delta > 0 && delta < 500) return Math.round(delta * 100) / 100;
+            const maxKwh = Math.min(150, Math.max(powerKwh * 1.25, 8));
+            if (delta > 0 && delta <= maxKwh) {
+                return Math.round(delta * 100) / 100;
+            }
         }
-        return this._calcDailyKwhFromPower(sorted);
+        return powerKwh;
     }
 
     _calcDayStats(rows) {
@@ -2699,7 +2871,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div><div class="muted" style="font-size:10px">Inbetriebnahme</div><div style="font-size:13px;font-weight:600" id="y-epoch">--</div></div>
       <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="loadYields()" title="Tabelle neu laden">&#8635; Aktualisieren</button>
-        <button class="btn" onclick="refreshYieldsAuto()" title="Monate aus 15-min-Historie berechnen (manuelle Werte bleiben)">&#9889; Aus Historie</button>
+        <button class="btn" onclick="refreshYieldsAuto()" title="Monate aus dem lokalen History-Cache berechnen (nicht vom PIKO)">&#9889; Aus Cache</button>
+        <button class="btn" onclick="rebuildYieldsFromHistory()" title="Jahre ab 05/2018 auff&uuml;llen und alle Monate aus History-Cache neu berechnen">&#128202; Neu ab 05/2018</button>
+        <button class="btn" onclick="restoreYieldsBackup()" title="monthly-yields.json.bak wiederherstellen">&#9851; Backup</button>
+        <button class="btn" onclick="clearYieldsAuto()" title="Automatisch berechnete Monatswerte entfernen">&#128465; Auto l&ouml;schen</button>
         <button class="btn" onclick="addYieldYear()" title="Leere Jahres-Spalte hinzuf&uuml;gen">&#43; Jahr</button>
         <button class="btn" onclick="fillYieldYears()" title="Alle Jahre von Inbetriebnahme bis heute">&#128197; Jahre auff&uuml;llen</button>
         <button class="btn" onclick="exportYields('json')" title="JSON-Backup herunterladen">&#8595; JSON</button>
@@ -2712,6 +2887,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div id="yieldMsg" style="margin-top:8px;font-size:11px;color:var(--mut)"></div>
     <div style="margin-top:6px;font-size:10px;color:var(--mut)">
       <strong>Speicherort:</strong> <span class="yield-path" id="y-storage">–</span>
+      <span id="y-history-range" style="display:block;margin-top:4px"></span>
     </div>
   </div>
 
@@ -2729,7 +2905,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </label>
     </div>
     <div style="font-size:10px;color:var(--mut);line-height:1.6;margin-bottom:8px">
-      <strong>Manuell eingeben:</strong> Zelle anklicken &rarr; Monatswert in Wh eintragen (wie in Excel). Blaue Werte = manuell, wei&szlig;e = aus Historie berechnet.
+      <strong>Manuell eingeben:</strong> Zelle anklicken &rarr; Monatswert in Wh eintragen (wie in Excel). Blaue Werte = manuell, wei&szlig;e = aus History-Cache berechnet.
+      <strong>Aus Cache</strong> = Server-Speicher (history-cache.json), <em>nicht</em> direkt vom Wechselrichter &middot; neue Rohdaten: Historie-Tab &rarr; „Vom PIKO laden“.
       Gr&uuml;n/Rot = &uuml;ber/unter dem Durchschnitt aller Jahre f&uuml;r diesen Monat.
       <strong>+ Jahr</strong> = leere Spalte f&uuml;r Vorjahre &middot; <strong>Import/Export</strong> = Backup oder Excel-Migration.
       Regionale Referenz: <a href="https://ertragsdatenbank.de/auswertung/region.html" target="_blank" rel="noopener" style="color:var(--blu)">ertragsdatenbank.de</a>
