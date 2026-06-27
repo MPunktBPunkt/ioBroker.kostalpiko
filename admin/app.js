@@ -488,10 +488,10 @@ function updateStaleHint(filtered){
   var sorted=filtered.slice().sort(function(a,b){return rowTs(a)-rowTs(b);});
   var lastTs=rowTs(sorted[sorted.length-1]);
   var ageMin=Math.round((Date.now()-lastTs)/60000);
-  if(ageMin>45){
+  if(ageMin>20){
     var lastTime=new Date(lastTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
     cacheHint.style.display='';
-    cacheHint.textContent='\u26a0 Letzter Messpunkt um '+lastTime+' (vor '+ageMin+' Min) – Kurve kann abgeschnitten wirken. „Vom PIKO laden“ holt frische LogDaten.dat.';
+    cacheHint.textContent='\u26a0 Letzter Messpunkt um '+lastTime+' (vor '+ageMin+' Min) – Nachhol-Abruf vom PIKO läuft automatisch.';
   } else if(!cacheHint.dataset.loading){
     cacheHint.style.display='none';
   }
@@ -504,6 +504,7 @@ function toggleDc3Columns(show){
 }
 
 var histLoadTimer=null;
+var histStaleFetchTimer=null;
 window.loadHistory=function(keepNav){
   var li=document.getElementById('h-li');
   if(li&&(!keepNav||li.textContent==='--')) li.textContent='Lade…';
@@ -548,6 +549,16 @@ window.loadHistory=function(keepNav){
       });
     }
     renderNavView();
+    if(j.todayStale && !j.loading && navOffset===0 && navViewMode==='day' && !histStaleFetchTimer){
+      histStaleFetchTimer=setTimeout(function(){
+        histStaleFetchTimer=null;
+        var msg=document.getElementById('histSyncMsg');
+        if(msg) msg.textContent='\u23f3 Tagesdaten veraltet – hole LogDaten.dat vom PIKO…';
+        fetch(window.location.origin+'/api/trigger-history').then(function(){
+          setTimeout(function(){loadHistory(true);},6000);
+        }).catch(function(){});
+      },1500);
+    }
     if(dataChanged&&keepNav){
       var msg=document.getElementById('histSyncMsg');
       if(msg) msg.textContent='✓ Neue Daten geladen ('+newCount+' Punkte)';
@@ -977,12 +988,6 @@ window.saveYieldSettings=function(){
 window.refreshYieldsAuto=function(){
   yieldMsg('Berechne Monate aus Historie…');
   postYield({action:'refreshAuto',force:true});
-};
-
-window.rebuildYieldsFromHistory=function(){
-  if(!confirm('Alle Jahre ab Mai 2018 als Spalten anlegen und Monate aus dem History-Cache neu berechnen?\n\nManuelle Werte bleiben erhalten. Monate ohne Historie bleiben leer.')) return;
-  yieldMsg('Berechne Monate ab 05/2018…');
-  postYield({action:'rebuildFromHistory',fromYear:2018,fromMonth:5});
 };
 
 window.restoreYieldsBackup=function(){

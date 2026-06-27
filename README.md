@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.6.3-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
+[![Version](https://img.shields.io/badge/version-0.6.4-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
@@ -79,7 +79,7 @@ Ersatz für die Excel-Tabelle – persistent gespeichert in:
 - **Spalten** = Jahre, **Zeilen** = Monate (Wh) + Σ Jahr, €/Jahr, kWh/kWp
 - **Manuelle Eingabe** (blau) hat Vorrang – z. B. unvollständige Monate selbst eintragen
 - **Automatisch** (weiß) – aus lokalem History-Cache (`history-cache.json`), nicht direkt vom PIKO
-- **Aus Cache / Neu ab 05/2018 / Backup / Auto löschen** – Neuberechnung, Wiederherstellung aus `.bak`
+- **Aus Cache / Backup / Auto löschen** – Neuberechnung, Wiederherstellung aus `.bak`
 - **+ Jahr / Jahre auffüllen** – leere Vorjahres-Spalten
 - **Export** JSON (Backup) oder CSV (Excel) · **Import** mit Zusammenführen
 - **Balkendiagramm** – Monatsvergleich nach Jahren (MWh / kWh/kWp)
