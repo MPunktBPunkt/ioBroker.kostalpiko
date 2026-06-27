@@ -59,34 +59,50 @@ function monthKey(year, month) {
     return `${year}-${String(month).padStart(2, '0')}`;
 }
 
+function dedupeRows(rows) {
+    const SLOT_MS = 15 * 60 * 1000;
+    const bySlot = new Map();
+    for (const r of rows) {
+        if (!r?.ts) continue;
+        bySlot.set(Math.floor(r.ts / SLOT_MS), r);
+    }
+    return [...bySlot.values()].sort((a, b) => a.ts - b.ts);
+}
+
+function berlinDateKey(ts) {
+    return new Date(ts).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+}
+
 function calcDailyKwh(rows) {
-    if (!rows.length) return 0;
-    const sorted = [...rows].sort((a, b) => a.ts - b.ts);
+    const sorted = dedupeRows(rows);
+    const powerKwh = sorted.reduce((sum, r) => sum + (r.acTotalPower || 0) * 0.25, 0) / 1000;
     const withEnergy = sorted.filter(r => r.totalEnergy > 0);
     if (withEnergy.length >= 2) {
         const delta = withEnergy[withEnergy.length - 1].totalEnergy - withEnergy[0].totalEnergy;
-        if (delta > 0 && delta < 500) return Math.round(delta * 100) / 100;
+        const maxKwh = Math.min(150, Math.max(powerKwh * 1.25, 8));
+        if (delta > 0 && delta <= maxKwh) return Math.round(delta * 100) / 100;
     }
-    const totalWh = sorted.reduce((sum, r) => sum + (r.acTotalPower || 0) * 0.25, 0);
-    return Math.round(totalWh) / 1000;
+    return Math.round(powerKwh * 100) / 100;
 }
 
 function calcMonthWh(rows, year, month) {
-    const monthRows = rows.filter(r => {
-        const d = new Date(r.ts || r.date);
-        return d.getFullYear() === year && d.getMonth() + 1 === month;
+    const monthRows = dedupeRows(rows).filter(r => {
+        const parts = new Intl.DateTimeFormat('en', {
+            timeZone: 'Europe/Berlin', year: 'numeric', month: 'numeric',
+        }).formatToParts(new Date(r.ts));
+        const y = parseInt(parts.find(p => p.type === 'year').value, 10);
+        const m = parseInt(parts.find(p => p.type === 'month').value, 10);
+        return y === year && m === month;
     });
     if (!monthRows.length) return 0;
     const byDay = {};
     monthRows.forEach(r => {
-        const day = (r.date || new Date(r.ts).toISOString()).substring(0, 10);
+        const day = berlinDateKey(r.ts);
         if (!byDay[day]) byDay[day] = [];
         byDay[day].push(r);
     });
     let totalKwh = 0;
-    Object.values(byDay).forEach(dayRows => {
-        totalKwh += calcDailyKwh(dayRows);
-    });
+    Object.values(byDay).forEach(dayRows => { totalKwh += calcDailyKwh(dayRows); });
     return Math.round(totalKwh * 1000);
 }
 
@@ -102,7 +118,8 @@ function loadHistoryRows(instanceDir) {
     for (const file of ['history-cache.json', 'history-cache.json.bak']) {
         const data = loadJson(path.join(instanceDir, file));
         if (data?.rows?.length) {
-            return { rows: data.rows, file, count: data.rows.length };
+            const rows = dedupeRows(data.rows);
+            return { rows, file, count: rows.length, rawCount: data.rows.length };
         }
     }
     return { rows: [], file: null, count: 0 };

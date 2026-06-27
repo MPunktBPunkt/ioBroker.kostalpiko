@@ -991,6 +991,12 @@ window.restoreYieldsBackup=function(){
   postYield({action:'restoreBackup'});
 };
 
+window.clearYieldsAuto=function(){
+  if(!confirm('Alle automatisch berechneten Monatswerte löschen?\n\nManuelle (blaue) Werte bleiben erhalten.')) return;
+  yieldMsg('Lösche Auto-Werte…');
+  postYield({action:'clearAuto'});
+};
+
 window.addYieldYear=function(){
   var y=prompt('Jahr hinzufügen (z. B. 2010):','');
   if(!y) return;
