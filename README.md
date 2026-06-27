@@ -5,7 +5,102 @@
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
 
-Liest Echtzeit- und Historiendaten vom **Kostal PIKO Solarwechselrichter** direkt über den eingebauten HTTP-Webserver. Messwerte werden als ioBroker-Datenpunkte bereitgestellt; optional synchronisiert der Adapter 15-Minuten-Historie und Live-Werte mit **InfluxDB** (für Grafana).
+**Live-Monitoring, 15-Minuten-Historie und Langzeit-Ertrag** für Kostal PIKO-Wechselrichter – direkt über den eingebauten HTTP-Webserver, ohne Portal-Zwang.  
+Messwerte als ioBroker-Datenpunkte, optionale **InfluxDB**-Anbindung für Grafana, eingebautes **Engineer-Dashboard** im Browser.
+
+```
+http://IOBROKER-IP:8092/     ← kostalpiko.0
+http://IOBROKER-IP:8093/     ← kostalpiko.1 (weitere Instanzen +1 Port)
+```
+
+---
+
+## Dashboard im Überblick
+
+| Tab | Was du siehst |
+|---|---|
+| ⚡ **Daten** | Live AC/DC, Phasen, Wirkungsgrad, String-Werte, Wetter (unten) |
+| 📈 **Historie** | KPIs, Chart.js-Kurven, 15-min-Tabelle, String-Analyse |
+| 📊 **Ertrag** | Monatstabelle Jahre × Monate, €/kWh, Export/Import, Jahresvergleich |
+| 🌐 **Nodes** | Alle ioBroker-States der Instanz |
+| 📄 **Logs** | Adapter-Log (Sync, PIKO-Abruf, Fehler) |
+| ⚙️ **System** | Verbindung, InfluxDB, manueller Sync |
+
+---
+
+## Screenshots
+
+### ⚡ Daten – Live vom Wechselrichter
+
+AC-Leistung, Tages- und Gesamtenergie, DC-Summe und Wirkungsgrad – alle 30 Sekunden aktualisiert.
+
+![Daten-Tab – AC & Energie](docs/screenshots/screenshot-daten.png)
+
+PV-Strings mit Spannung und Strom pro String (2 oder 3 Strings je nach PIKO-Modell). Wetter & Sonne erscheint **unterhalb** der PV-Daten.
+
+![Daten-Tab – PV-Generator](docs/screenshots/screenshot-daten-pv.png)
+
+---
+
+### 📈 Historie – 15-Minuten-Archiv
+
+Rohdaten aus `LogDaten.dat` (~6 Monate), lokal gecacht. Tag/Woche/Monat umschaltbar, KPI-Leiste mit Spitzenleistung und Tagesertrag.
+
+![Historie – Übersicht & KPIs](docs/screenshots/screenshot-historie.png)
+
+Interaktive Kurven: AC/DC-Leistung, Phasen, String-Leistung und MPP-Spannungen. Abends Nachhol-Sync, wenn die Tageskurve hängen bleibt.
+
+![Historie – Charts](docs/screenshots/screenshot-historie-charts.png)
+
+Messwert-Tabelle mit allen Spalten (filterbar nach gewähltem Zeitraum).
+
+![Historie – Tabelle](docs/screenshots/screenshot-historie-tabelle.png)
+
+---
+
+### 📊 Ertrag – Langzeitauswertung
+
+Ersatz für die Excel-Monatstabelle – persistent in `iobroker-data/kostalpiko.N/monthly-yields.json`.
+
+![Ertrag – Monatstabelle](docs/screenshots/screenshot-ertrag.png)
+
+Toolbar mit Cache-Berechnung, Backup (`.bak`), Import/Export und Vergütungs-Einstellungen. **Blaue Zellen** = manuell, **weiße** = aus History-Cache.
+
+![Ertrag – Einstellungen & Toolbar](docs/screenshots/screenshot-ertrag-tools.png)
+
+| Funktion | Beschreibung |
+|---|---|
+| **Aus Cache** | Monate aus `history-cache.json` berechnen (nicht direkt vom PIKO) |
+| **Backup** | `monthly-yields.json.bak` wiederherstellen |
+| **+ Jahr / Jahre auffüllen** | Leere Jahres-Spalten anlegen |
+| **Manuell** | Zelle anklicken → Wh eintragen; dein Wert hat immer Vorrang |
+| **Vom PIKO laden** | Auf dem **Historie-Tab** – holt frische `LogDaten.dat` |
+
+Beide Wechselrichter kombinieren:
+
+```bash
+node /opt/iobroker/node_modules/iobroker.kostalpiko/scripts/combine-yields.js \
+  /opt/iobroker/iobroker-data kostalpiko.0 kostalpiko.1 --from 2018-05 --csv ertrag.csv
+```
+
+---
+
+### 📄 Logs & System
+
+Sync-Status, PIKO-Abrufe und Warnungen auf einen Blick.
+
+![Logs-Tab](docs/screenshots/screenshot-logs.png)
+
+<details>
+<summary>Weitere Tabs (Nodes, System)</summary>
+
+![Nodes-Tab](docs/screenshots/screenshot-nodes.png)
+
+![System-Tab](docs/screenshots/screenshot-system.png)
+
+</details>
+
+> Screenshots aktualisieren: siehe [docs/screenshots/README.md](docs/screenshots/README.md)
 
 ---
 
@@ -13,15 +108,14 @@ Liest Echtzeit- und Historiendaten vom **Kostal PIKO Solarwechselrichter** direk
 
 | Bereich | Funktion |
 |---|---|
-| **Live-Daten** | AC/DC-Leistung, String-Spannungen & Ströme, Phasen, Energie, Status |
-| **Historie** | LogDaten.dat (~6 Monate, 15-min), Chart.js-Dashboard, lokaler Cache |
-| **Ertrag** | Monatstabelle (Jahre × Monate), manuelle Historie, €/kWh, Export/Import |
-| **Wetter** | Sonnenstunden, Temperatur, Bewölkung, Niederschlag (Open-Meteo, PLZ-basiert) |
-| **Analyse** | Wirkungsgrad DC→AC, String-Analyse, Kostal-Datenblatt-Grenzwerte |
-| **InfluxDB** | Live **und** History mit korrektem Zeitstempel via `sendTo()` |
-| **Web-UI** | 6 Tabs: Daten, Historie, Ertrag, Nodes, Logs, System |
-| **Multi-Instanz** | Mehrere PIKOs parallel (z. B. `kostalpiko.0` + `kostalpiko.1`) |
-| **Benachrichtigungen** | Tages-/Wochen-/Monatsberichte per E-Mail, Telegram, Pushover |
+| **Live-Daten** | AC/DC, Phasen, Energie, Status, Wirkungsgrad |
+| **Historie** | LogDaten.dat, Chart.js, Cache, Nachhol-Abruf |
+| **Ertrag** | Jahre × Monate, manuell + auto, €, kWh/kWp, CSV/JSON |
+| **Wetter** | Open-Meteo: Sonnenstunden, Bewölkung, Temperatur (PLZ) |
+| **Analyse** | String-Analyse, Kostal-Datenblatt-Grenzwerte |
+| **InfluxDB** | Live + History mit historischem Zeitstempel |
+| **Multi-Instanz** | `kostalpiko.0` + `kostalpiko.1` parallel |
+| **Benachrichtigungen** | Tages-/Wochen-/Monatsberichte (E-Mail, Telegram, Pushover) |
 
 ---
 
@@ -34,7 +128,7 @@ Liest Echtzeit- und Historiendaten vom **Kostal PIKO Solarwechselrichter** direk
 | PIKO 7.0 – 8.3 | 2 | ✅ Getestet (8.3) |
 | PIKO 10.1 | 3 | Unterstützt |
 
-Firmware: ver 3.62 · PIKO-Modell in den Einstellungen wählbar oder Auto-Erkennung.
+Firmware: ver 3.62 · Modell in den Einstellungen wählbar oder Auto-Erkennung.
 
 ---
 
@@ -43,60 +137,13 @@ Firmware: ver 3.62 · PIKO-Modell in den Einstellungen wählbar oder Auto-Erkenn
 ```bash
 iobroker url https://github.com/MPunktBPunkt/iobroker.kostalpiko
 iobroker add kostalpiko          # nur bei Erstinstallation
-iobroker update kostalpiko       # Update
+iobroker update kostalpiko
 iobroker restart kostalpiko
 ```
 
-**GitHub-Release:** [Releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
+**Releases:** [github.com/MPunktBPunkt/iobroker.kostalpiko/releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
 
----
-
-## Web-UI
-
-```
-http://IOBROKER-IP:8092/
-```
-
-| Tab | Inhalt |
-|---|---|
-| ⚡ **Daten** | Live-Werte, Wetter & Sonne, String-Analyse, Wirkungsgrad |
-| 📈 **Historie** | KPIs, interaktive Charts, 15-min-Tabelle |
-| 📊 **Ertrag** | Langzeit-Monatstabelle, Jahresvergleich, Import/Export |
-| 🌐 **Nodes** | Alle ioBroker-Datenpunkte |
-| 📄 **Logs** | Adapter-Log mit Filter |
-| ⚙️ **System** | Sync-Status, InfluxDB-Aktionen |
-
-### Ertrag-Tab (Langzeitauswertung)
-
-Ersatz für die Excel-Tabelle – persistent gespeichert in:
-
-```
-/opt/iobroker/iobroker-data/kostalpiko.0/monthly-yields.json
-```
-
-![Ertrag-Tab – Monatstabelle und Jahresvergleich](docs/screenshots/screenshot-ertrag.png)
-
-- **Spalten** = Jahre, **Zeilen** = Monate (Wh) + Σ Jahr, €/Jahr, kWh/kWp
-- **Manuelle Eingabe** (blau) hat Vorrang – z. B. unvollständige Monate selbst eintragen
-- **Automatisch** (weiß) – aus lokalem History-Cache (`history-cache.json`), nicht direkt vom PIKO
-- **Aus Cache / Backup / Auto löschen** – Neuberechnung, Wiederherstellung aus `.bak`
-- **+ Jahr / Jahre auffüllen** – leere Vorjahres-Spalten
-- **Export** JSON (Backup) oder CSV (Excel) · **Import** mit Zusammenführen
-- **Balkendiagramm** – Monatsvergleich nach Jahren (MWh / kWh/kWp)
-- **Beide WR kombinieren:** `node scripts/combine-yields.js iobroker-data kostalpiko.0 kostalpiko.1 --from 2018-05`
-
-### Weitere Screenshots
-
-<details>
-<summary>Daten, Historie, Nodes, Logs, System</summary>
-
-![Daten-Tab](docs/screenshots/screenshot-daten.png)
-![Historie-Tab](docs/screenshots/screenshot-historie.png)
-![Nodes-Tab](docs/screenshots/screenshot-nodes.png)
-![Logs-Tab](docs/screenshots/screenshot-logs.png)
-![System-Tab](docs/screenshots/screenshot-system.png)
-
-</details>
+Details: [INSTALLATION.md](./INSTALLATION.md) · [Schnittstellen.md](./Schnittstellen.md)
 
 ---
 
@@ -104,50 +151,26 @@ Ersatz für die Excel-Tabelle – persistent gespeichert in:
 
 | Einstellung | Standard | Beschreibung |
 |---|---|---|
-| IP / Port / Auth | – | PIKO-Webserver-Zugang |
+| IP / Port / Auth | – | PIKO-Webserver |
 | Poll-Intervall | 30 s | Live-Abfrage |
-| Historiendaten laden | aus | LogDaten.dat abrufen |
-| InfluxDB-Sync | aus | Live + History an `influxdb.0` |
-| Web-UI Port | 8092 | Dashboard pro Instanz |
-| PIKO Modell | Auto | 3.0 – 10.1 |
-| **Postleitzahl** | 87781 | Wetter + regionaler Vergleich |
-| **Einspeisevergütung** | 0,3925 €/kWh | €-Berechnung im Ertrag-Tab |
-| Modul-Konfiguration | optional | String-Analyse, kWh/kWp |
+| Historiendaten laden | aus | `LogDaten.dat` |
+| Sync-Intervall | 15 min | History + optional InfluxDB |
+| Web-UI Port | 8092 | pro Instanz +1 |
+| Postleitzahl | 87781 | Wetter + regionaler Vergleich |
+| Einspeisevergütung | 0,3925 €/kWh | Ertrag-Tab |
+| Modul-Konfiguration | optional | String-Analyse, kWp |
 
-InfluxDB-Verbindung (Host, Token, DB) wird im **InfluxDB-Adapter** konfiguriert – dieser Adapter kennt nur den Instanznamen (`influxdb.0`).
-
-Details: [INSTALLATION.md](./INSTALLATION.md) · [Schnittstellen.md](./Schnittstellen.md)
+InfluxDB (Host, Token, DB) wird im **InfluxDB-Adapter** konfiguriert.
 
 ---
 
-## Datenpunkte
+## Datenpunkte (Auswahl)
 
-Namespace `kostalpiko.0.*` (pro Instanz):
+**Live:** `ac.power`, `energy.today/total`, `pv.string1/2/3.*`, `dc.totalPower`, `efficiency.ratio`, `weather.*`, `status`, `online`
 
-### Live (Poll)
+**History (15-min):** `history.dc1/2/3.*`, `history.ac.*`, `history.ac.totalPower`, `history.energy.total`, `history.efficiency.ratio`
 
-```
-ac.power, energy.total, energy.today
-ac.l1/l2/l3.voltage, ac.l1/l2/l3.power
-pv.string1/2/3.voltage, pv.string1/2/3.current   (String 3 nur bei PIKO 5.5/10.1)
-dc.totalPower                                     (berechnet: Σ U×I)
-efficiency.ratio, efficiency.expected             (Wirkungsgrad %, temp.-korrigiert)
-weather.sunshineHours, weather.tempMax, weather.cloudCover, weather.precipitation
-weather.description, weather.plz, weather.place
-status, online, device.model, device.strings
-```
-
-### History (15-min, historischer Zeitstempel → InfluxDB)
-
-```
-history.dc1/2/3.voltage, current, power
-history.dc.totalPower, history.efficiency.ratio
-history.ac1/2/3.voltage, current, power, history.ac.totalPower
-history.ac.frequency, history.energy.total
-history.acStatus, history.errorCode
-```
-
-**InfluxDB Live-Sync** (bei aktiviertem Sync): alle Live-Messwerte oben inkl. DC-Strings, Wirkungsgrad und Wetter.
+Vollständige Liste: Web-UI → Tab **Nodes** oder [Schnittstellen.md](./Schnittstellen.md)
 
 ---
 
@@ -155,8 +178,8 @@ history.acStatus, history.errorCode
 
 | Instanz | Web-UI | Daten |
 |---|---|---|
-| `kostalpiko.0` | Port 8092 | eigene `monthly-yields.json` |
-| `kostalpiko.1` | Port 8093 | eigene Datei |
+| `kostalpiko.0` | :8092 | eigene `monthly-yields.json`, `history-cache.json` |
+| `kostalpiko.1` | :8093 | eigene Dateien |
 
 ---
 
@@ -164,18 +187,18 @@ history.acStatus, history.errorCode
 
 | Quelle | Zeitraum |
 |---|---|
-| LogDaten.dat / Cache | ~6 Monate |
-| InfluxDB (nach Sync) | unbegrenzt* |
+| History-Cache | ~6 Monate (wächst mit Merge) |
+| InfluxDB nach Sync | unbegrenzt* |
 
 \*Sofern keine kürzere Retention gesetzt wird.
 
-Empfehlung: einmal **Sync-All** pro WR, danach automatischer 15-min-Sync. Wetter- und Wirkungsgrad-Datenpunkte erlauben in Grafana den Abgleich mit dem Tagesertrag.
+Empfehlung: einmal **Sync-All** pro WR, danach automatischer 15-min-Sync.
 
 ---
 
-## Versionen & Changelog
+## Changelog
 
-Aktuelle Version und Änderungshistorie: **[GitHub Releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)**
+**[GitHub Releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)**
 
 ---
 
@@ -187,5 +210,5 @@ Aktuelle Version und Änderungshistorie: **[GitHub Releases](https://github.com/
 
 ## Lizenz
 
-**GNU General Public License v3.0** – siehe [LICENSE](./LICENSE).  
+**GNU General Public License v3.0** – [LICENSE](./LICENSE)  
 © 2026 MPunktBPunkt
