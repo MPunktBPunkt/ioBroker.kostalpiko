@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.3
+ * Version: 0.6.4
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.3';
+const ADAPTER_VERSION = '0.6.4';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -126,6 +126,7 @@ class KostalPikoAdapter extends utils.Adapter {
         this._lastImportedTs  = 0;     // ms - zuletzt importierter Timestamp
         this._lastImportIso   = null;  // ISO-Zeitpunkt des letzten History-Imports
         this._lastHistoryFetch= 0;
+        this._lastStaleHistoryFetch = 0;
         this._historyCachePath = null;
         this._yieldsCachePath  = null;
         this._monthlyYields    = null;
@@ -345,6 +346,32 @@ class KostalPikoAdapter extends utils.Adapter {
         }
     }
 
+    _getTodayHistoryMeta() {
+        const rows = this._lastHistoryRows;
+        if (!rows.length) {
+            return { todayNewest: null, todayStale: false, ageMin: null };
+        }
+        const today = this._berlinDateKey();
+        const todayRows = rows.filter(r => this._berlinDateKey(r.ts) === today);
+        if (!todayRows.length) {
+            return { todayNewest: null, todayStale: false, ageMin: null };
+        }
+        const newestTs = Math.max(...todayRows.map(r => r.ts));
+        const ageMin   = Math.round((Date.now() - newestTs) / 60000);
+        const hour = parseInt(new Intl.DateTimeFormat('en', {
+            timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false,
+        }).format(new Date()), 10);
+        const livePower = parseFloat(this._lastData['ac.power']) || 0;
+        const producing = livePower >= 50;
+        const daylight  = hour >= 5 && hour <= 22;
+        const todayStale = daylight && ageMin >= 20 && (producing || ageMin >= 35);
+        return {
+            todayNewest: new Date(newestTs).toISOString(),
+            todayStale,
+            ageMin,
+        };
+    }
+
     // ─── Polling-Hauptschleife ───────────────────────────────────────────────────
 
     async _poll() {
@@ -374,18 +401,29 @@ class KostalPikoAdapter extends utils.Adapter {
             await this.setStateAsync('info.connection', { val: false, ack: true }).catch(() => {});
         }
 
-        // 2. History-Sync (nur alle syncInterval Minuten)
-        // 3s Verzögerung damit PIKO nach dem Live-Poll wieder frei ist
+        // 2. History-Sync (syncInterval) + Nachhol-Abruf wenn Tagesdaten hängen bleiben
+        // 3–5s Verzögerung damit PIKO nach dem Live-Poll wieder frei ist
         if (this._cfg.historyFetch) {
             const now        = Date.now();
             const intervalMs = this._cfg.syncInterval * 60 * 1000;
-            if (now - this._lastHistoryFetch >= intervalMs) {
-                this._lastHistoryFetch = now;
+            const todayMeta  = this._getTodayHistoryMeta();
+            const intervalDue = now - this._lastHistoryFetch >= intervalMs;
+            const staleDue    = todayMeta.todayStale
+                && !this._historyLoading
+                && now - this._lastStaleHistoryFetch >= 5 * 60 * 1000;
+            if (intervalDue || staleDue) {
+                if (intervalDue) this._lastHistoryFetch = now;
+                if (staleDue) {
+                    this._lastStaleHistoryFetch = now;
+                    this._log('INFO',
+                        `Tages-Historie hängt (${todayMeta.ageMin} Min seit letztem Punkt) → PIKO-Abruf`
+                    );
+                }
                 setTimeout(() => {
                     this._fetchAndImportHistory(false).catch(e =>
                         this._log('WARN', `History-Sync: ${e.message}`)
                     );
-                }, 3000);
+                }, staleDue ? 5000 : 3000);
             }
         }
 
@@ -604,10 +642,10 @@ class KostalPikoAdapter extends utils.Adapter {
         if (!m) {
             const preview = raw.substring(0, 300).replace(/\r/g, '').split('\n').slice(0,5).join(' | ');
             const isBusy  = /service.*busy|nicht.*verf.gbar/i.test(raw.substring(0, 200));
-            if (isBusy && retryCount < 2) {
+            if (isBusy && retryCount < 3) {
                 // PIKO ist beschäftigt → in 30s nochmal versuchen
                 this._historyLoading = false;
-                this._log('WARN', `History-Sync: PIKO meldet "service busy" → Retry in 30s (Versuch ${retryCount + 1}/2)`);
+                this._log('WARN', `History-Sync: PIKO meldet "service busy" → Retry in 30s (Versuch ${retryCount + 1}/3)`);
                 setTimeout(() => this._fetchAndImportHistory(syncAll, retryCount + 1).catch(e =>
                     this._log('WARN', `History-Sync Retry: ${e.message}`)
                 ), 30000);
@@ -2432,12 +2470,16 @@ class KostalPikoAdapter extends utils.Adapter {
                 const newest = this._lastHistoryRows.length
                     ? this._lastHistoryRows[this._lastHistoryRows.length - 1].date
                     : null;
+                const todayMeta = this._getTodayHistoryMeta();
                 return this._json(res, {
                     rows,
                     pikoEpoch      : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
                     recordCount    : this._lastHistoryRows.length,
                     lastImported   : this._lastImportIso,
                     newestRecord   : newest,
+                    todayNewest    : todayMeta.todayNewest,
+                    todayStale     : todayMeta.todayStale,
+                    todayAgeMin    : todayMeta.ageMin,
                     loading        : this._historyLoading || false,
                     stringAnalysis : this._getStringAnalysisConfig(),
                     stringCount    : this._getStringCount(),
@@ -2684,16 +2726,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div><div class="muted" style="margin-bottom:4px">Betriebsstatus</div><span class="sb" id="sBadge">--</span></div>
     <div style="margin-left:auto;text-align:right"><div class="muted">Modell</div><div style="font-weight:600" id="d-model">--</div></div>
   </div>
-  <div class="card" id="weather-card" style="display:none">
-    <div class="ct"><span class="dot"></span>Wetter &amp; Sonne heute <span class="muted" id="w-loc" style="font-weight:400;text-transform:none"></span></div>
-    <div class="grid g4" id="w-grid">
-      <div class="vc g"><div class="vl">Erwartete Sonnenstunden</div><div class="vv" id="w-sun">--</div><div class="vu">h (heute)</div></div>
-      <div class="vc"><div class="vl">Wetter</div><div class="vv" id="w-desc" style="font-size:15px">--</div><div class="vu" id="w-temp">--</div></div>
-      <div class="vc"><div class="vl">Bew&ouml;lkung (7&ndash;19 Uhr)</div><div class="vv" id="w-cloud">--</div><div class="vu">% im Mittel</div></div>
-      <div class="vc"><div class="vl">Niederschlag</div><div class="vv" id="w-rain">--</div><div class="vu">mm (heute)</div></div>
-    </div>
-    <div class="muted" style="font-size:10px;margin-top:8px" id="w-src">Quelle: Open-Meteo · PLZ in Admin-Einstellungen</div>
-  </div>
   <div class="card">
     <div class="ct"><span class="dot"></span>AC-Leistung &amp; Energie</div>
     <div class="grid g3">
@@ -2756,6 +2788,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="ii"><div class="il">Portal</div><div class="iv" id="d-portal">--</div></div>
       <div class="ii"><div class="il">S0-Pulse</div><div class="iv" id="d-s0">--</div></div>
     </div>
+  </div>
+  <div class="card" id="weather-card" style="display:none">
+    <div class="ct"><span class="dot"></span>Wetter &amp; Sonne heute <span class="muted" id="w-loc" style="font-weight:400;text-transform:none"></span></div>
+    <div class="grid g4" id="w-grid">
+      <div class="vc g"><div class="vl">Erwartete Sonnenstunden</div><div class="vv" id="w-sun">--</div><div class="vu">h (heute)</div></div>
+      <div class="vc"><div class="vl">Wetter</div><div class="vv" id="w-desc" style="font-size:15px">--</div><div class="vu" id="w-temp">--</div></div>
+      <div class="vc"><div class="vl">Bew&ouml;lkung (7&ndash;19 Uhr)</div><div class="vv" id="w-cloud">--</div><div class="vu">% im Mittel</div></div>
+      <div class="vc"><div class="vl">Niederschlag</div><div class="vv" id="w-rain">--</div><div class="vu">mm (heute)</div></div>
+    </div>
+    <div class="muted" style="font-size:10px;margin-top:8px" id="w-src">Quelle: Open-Meteo · PLZ in Admin-Einstellungen</div>
   </div>
 </div>
 
@@ -2872,7 +2914,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="loadYields()" title="Tabelle neu laden">&#8635; Aktualisieren</button>
         <button class="btn" onclick="refreshYieldsAuto()" title="Monate aus dem lokalen History-Cache berechnen (nicht vom PIKO)">&#9889; Aus Cache</button>
-        <button class="btn" onclick="rebuildYieldsFromHistory()" title="Jahre ab 05/2018 auff&uuml;llen und alle Monate aus History-Cache neu berechnen">&#128202; Neu ab 05/2018</button>
         <button class="btn" onclick="restoreYieldsBackup()" title="monthly-yields.json.bak wiederherstellen">&#9851; Backup</button>
         <button class="btn" onclick="clearYieldsAuto()" title="Automatisch berechnete Monatswerte entfernen">&#128465; Auto l&ouml;schen</button>
         <button class="btn" onclick="addYieldYear()" title="Leere Jahres-Spalte hinzuf&uuml;gen">&#43; Jahr</button>
