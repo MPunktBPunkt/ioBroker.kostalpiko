@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.7",
+    "version": "0.6.8",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -94,6 +94,10 @@
       "0.3.20": {
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
+      },
+      "0.6.8": {
+        "de": "Bugfix: Header size≤5 in jsonConfig (Test-Buttons); nur noch E-Mail-Benachrichtigungen (Telegram/Pushover entfernt)",
+        "en": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)"
       },
       "0.6.7": {
         "de": "Bugfix: Passwortfeld type=password (jsonConfig gültig, Test-Buttons funktionieren); Niederschlag bisher/aktuell/Prognose getrennt",
@@ -233,7 +237,6 @@
     "pikoModel": "auto",
     "influxSync": false,
     "notifyEnabled": false,
-    "notifyAdapter": "email",
     "notifyRecipient": "",
     "notifyRecipientWeekly": "",
     "notifyRecipientMonthly": "",
@@ -246,9 +249,7 @@
     "notifyAlert": false,
     "notifyAlertTime": "07:00",
     "notifyThresholdKwh": 0,
-    "notifyInstanceTelegram": "telegram.0",
-    "notifyInstanceEmail": "email.0",
-    "notifyInstancePushover": "pushover.0"
+    "notifyInstanceEmail": "email.0"
   },
   "objects": [],
   "instanceObjects": [
