@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.4';
+const ADAPTER_VERSION = '0.6.5';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -178,6 +178,8 @@ class KostalPikoAdapter extends utils.Adapter {
                 return (this.config.notifyInstanceEmail || legacy || 'email.0').trim();
             })(),
             notifyRecipient    : (this.config.notifyRecipient || '').trim(),
+            notifyRecipientWeekly  : (this.config.notifyRecipientWeekly  || '').trim(),
+            notifyRecipientMonthly : (this.config.notifyRecipientMonthly || '').trim(),
             notifyDaily        : !!this.config.notifyDaily,
             notifyDailyTime    : (this.config.notifyDailyTime  || '07:00').trim(),
             notifyWeekly       : !!this.config.notifyWeekly,
@@ -269,7 +271,36 @@ class KostalPikoAdapter extends utils.Adapter {
     // ─── Admin-Nachrichten (Verbindungstest) ────────────────────────────────────
 
     _onMessage(obj) {
-        if (!obj || obj.command !== 'test') return;
+        if (!obj) return;
+
+        if (obj.command === 'testReportDaily' || obj.command === 'testReportWeekly' || obj.command === 'testReportMonthly') {
+            const kind = obj.command.replace('testReport', '').toLowerCase();
+            const reply = (result, error) => {
+                this.sendTo(obj.from, obj.command, { result, error }, obj.callback);
+            };
+            if (!this._cfg.notifyEnabled) {
+                reply(null, 'Benachrichtigungen sind deaktiviert – bitte zuerst aktivieren und speichern.');
+                return;
+            }
+            if (!this._cfg.notifyInstance) {
+                reply(null, 'Kein Benachrichtigungs-Adapter konfiguriert.');
+                return;
+            }
+            const recipients = this._getRecipientsForReport(kind);
+            if (!recipients.length && this._cfg.notifyAdapter === 'email') {
+                reply(null, 'Kein E-Mail-Empfänger eingetragen.');
+                return;
+            }
+            const sendFn = kind === 'daily'   ? () => this._sendDailyReport({ test: true })
+                           : kind === 'weekly'  ? () => this._sendWeeklyReport({ test: true })
+                           :                      () => this._sendMonthlyReport({ test: true });
+            sendFn()
+                .then(() => reply(`✅ Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht gesendet`, null))
+                .catch(e => reply(null, `❌ ${e.message}`));
+            return;
+        }
+
+        if (obj.command !== 'test') return;
         const { ip, port, user, password } = obj.message || {};
         const testIp   = (ip   || this._cfg.ip).trim();
         const testPort = parseInt(port) || this._cfg.port;
@@ -2013,6 +2044,474 @@ class KostalPikoAdapter extends utils.Adapter {
         return `📐 Spez. Ertrag: ${(kwh / kwp).toFixed(2)} kWh/kWp (Anlage: ${kwp.toFixed(2)} kWp)\n`;
     }
 
+    _escHtml(s) {
+        return String(s ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    _parseRecipients(raw) {
+        if (!raw) return [];
+        return [...new Set(String(raw).split(/[,;]+/).map(s => s.trim()).filter(Boolean))];
+    }
+
+    _getRecipientsForReport(kind) {
+        const primary = this._parseRecipients(this._cfg.notifyRecipient);
+        if (kind === 'weekly') {
+            return [...new Set([
+                ...primary,
+                ...this._parseRecipients(this._cfg.notifyRecipientWeekly),
+            ])];
+        }
+        if (kind === 'monthly') {
+            return [...new Set([
+                ...primary,
+                ...this._parseRecipients(this._cfg.notifyRecipientMonthly),
+            ])];
+        }
+        return primary;
+    }
+
+    _reportBaseCss() {
+        return `
+body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1a1a1a;margin:0;padding:0;background:#f4f4f4;}
+.page{max-width:210mm;margin:0 auto;background:#fff;padding:14px 16px;box-sizing:border-box;}
+.hdr{border-bottom:3px solid #1565c0;padding-bottom:8px;margin-bottom:12px;}
+.hdr h1{font-size:18px;margin:0 0 4px;color:#1565c0;}
+.hdr .sub{font-size:12px;color:#555;}
+.kpis{display:table;width:100%;border-collapse:separate;border-spacing:6px;margin:10px 0 14px;}
+.kpi{display:table-cell;background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:8px 10px;text-align:center;vertical-align:top;}
+.kpi .v{font-size:16px;font-weight:bold;color:#0d47a1;}
+.kpi .l{font-size:9px;color:#555;margin-top:2px;}
+.sec{margin:14px 0 8px;}
+.sec h2{font-size:13px;margin:0 0 6px;color:#1565c0;border-left:4px solid #1565c0;padding-left:8px;}
+.chart{margin:6px 0 12px;text-align:center;}
+.tbl{width:100%;border-collapse:collapse;font-size:10px;margin:8px 0;}
+.tbl th{background:#1565c0;color:#fff;padding:5px 6px;text-align:left;}
+.tbl td{border-bottom:1px solid #e0e0e0;padding:4px 6px;}
+.tbl tr:nth-child(even) td{background:#f5f5f5;}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums;}
+.tbl tfoot td{font-weight:bold;background:#e8eaf6;}
+.weather{background:#fff8e1;border:1px solid #ffcc80;border-radius:6px;padding:10px 12px;margin-top:12px;}
+.weather h3{margin:0 0 6px;font-size:12px;color:#e65100;}
+.cmp{background:#f1f8e9;border:1px solid #aed581;border-radius:6px;padding:10px 12px;margin-top:10px;}
+.cmp h3{margin:0 0 6px;font-size:12px;color:#33691e;}
+.foot{margin-top:14px;padding-top:8px;border-top:1px solid #ddd;font-size:9px;color:#888;text-align:center;}
+.warn{color:#c62828;font-weight:bold;}
+@media print{body{background:#fff;}.page{max-width:none;padding:10mm;}}
+`;
+    }
+
+    _reportPageHtml(title, subtitle, bodyHtml, testMode) {
+        const testBanner = testMode
+            ? '<p class="warn" style="margin:0 0 10px;">⚠️ TESTBERICHT – Vorschau, nicht der geplante Versand</p>'
+            : '';
+        return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${this._escHtml(title)}</title><style>${this._reportBaseCss()}</style></head><body>
+<div class="page">${testBanner}
+<div class="hdr"><h1>${this._escHtml(title)}</h1><div class="sub">${this._escHtml(subtitle)}</div></div>
+${bodyHtml}
+<div class="foot">Kostal PIKO Adapter v${ADAPTER_VERSION} · ioBroker</div>
+</div></body></html>`;
+    }
+
+    _kpiHtml(items) {
+        const cells = items.map(i =>
+            `<div class="kpi"><div class="v">${this._escHtml(i.value)}</div><div class="l">${this._escHtml(i.label)}</div></div>`
+        ).join('');
+        return `<div class="kpis">${cells}</div>`;
+    }
+
+    _berlinTimeLabel(ts) {
+        return new Intl.DateTimeFormat('de-DE', {
+            timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit',
+        }).format(new Date(ts));
+    }
+
+    _chartXLabels(n, sortedRows) {
+        const labels = [];
+        if (!sortedRows.length) return labels;
+        const step = Math.max(1, Math.floor(n / 8));
+        for (let i = 0; i < n; i += step) {
+            labels.push({ i, label: this._berlinTimeLabel(sortedRows[i].ts) });
+        }
+        if (n > 1 && labels[labels.length - 1]?.i !== n - 1) {
+            labels.push({ i: n - 1, label: this._berlinTimeLabel(sortedRows[n - 1].ts) });
+        }
+        return labels;
+    }
+
+    _svgLineChart(width, height, series, opts = {}) {
+        const pad = { top: 22, right: 10, bottom: 26, left: 42 };
+        const plotW = width - pad.left - pad.right;
+        const plotH = height - pad.top - pad.bottom;
+        const allVals = series.flatMap(s => s.points.filter(v => v != null && !isNaN(v)));
+        const yMax = opts.yMax || Math.max(...allVals, 1);
+        const n = Math.max(...series.map(s => s.points.length), 1);
+        const xAt = i => pad.left + (n <= 1 ? 0 : (i / (n - 1)) * plotW);
+        const yAt = v => pad.top + plotH - (v / yMax) * plotH;
+
+        let paths = '';
+        series.forEach(s => {
+            const pts = [];
+            s.points.forEach((v, i) => {
+                if (v != null && !isNaN(v)) pts.push(`${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`);
+            });
+            if (pts.length >= 2) {
+                paths += `<polyline fill="none" stroke="${s.color}" stroke-width="1.4" points="${pts.join(' ')}" />`;
+            }
+        });
+
+        let yLabels = '';
+        for (let i = 0; i <= 4; i++) {
+            const v = Math.round(yMax * (4 - i) / 4);
+            const y = pad.top + plotH * i / 4;
+            yLabels += `<text x="${pad.left - 4}" y="${y + 3}" text-anchor="end" font-size="8" fill="#666">${v}</text>`;
+        }
+        let xLabels = '';
+        (opts.xLabels || []).forEach(({ i, label }) => {
+            xLabels += `<text x="${xAt(i).toFixed(1)}" y="${height - 5}" text-anchor="middle" font-size="7" fill="#666">${this._escHtml(label)}</text>`;
+        });
+        let legend = '';
+        series.forEach((s, idx) => {
+            const lx = pad.left + idx * 88;
+            legend += `<rect x="${lx}" y="4" width="9" height="9" fill="${s.color}"/>`;
+            legend += `<text x="${lx + 13}" y="12" font-size="8" fill="#333">${this._escHtml(s.label)}</text>`;
+        });
+
+        return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;display:block;margin:0 auto;">
+<rect x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#e0e0e0"/>
+${yLabels}${paths}${xLabels}${legend}
+<text x="${pad.left}" y="${height - 1}" font-size="7" fill="#999">${this._escHtml(opts.unit || 'W')}</text>
+</svg>`;
+    }
+
+    _svgBarChart(width, height, bars) {
+        const pad = { top: 16, right: 10, bottom: 32, left: 36 };
+        const plotW = width - pad.left - pad.right;
+        const plotH = height - pad.top - pad.bottom;
+        const maxV = Math.max(...bars.map(b => b.value), 0.1);
+        const barW = Math.min(48, plotW / Math.max(bars.length, 1) - 6);
+        let rects = '';
+        let xLabels = '';
+        bars.forEach((b, i) => {
+            const cx = pad.left + (i + 0.5) * (plotW / bars.length);
+            const bh = (b.value / maxV) * plotH;
+            const x = cx - barW / 2;
+            const y = pad.top + plotH - bh;
+            rects += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${b.color || '#42a5f5'}" rx="2"/>`;
+            rects += `<text x="${cx.toFixed(1)}" y="${(y - 3).toFixed(1)}" text-anchor="middle" font-size="8" fill="#333">${b.value > 0 ? b.value.toFixed(1) : ''}</text>`;
+            xLabels += `<text x="${cx.toFixed(1)}" y="${height - 8}" text-anchor="middle" font-size="8" fill="#555">${this._escHtml(b.label)}</text>`;
+        });
+        return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;display:block;margin:0 auto;">
+<rect x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#e0e0e0"/>
+${rects}${xLabels}
+<text x="${pad.left - 4}" y="${pad.top + 8}" text-anchor="end" font-size="8" fill="#666">${maxV.toFixed(0)}</text>
+<text x="${pad.left}" y="${height - 1}" font-size="7" fill="#999">kWh</text>
+</svg>`;
+    }
+
+    _weatherReportHtml(reportDateKey) {
+        const w = this._lastWeather;
+        if (!w) {
+            return `<div class="weather"><h3>🌤 Wetter</h3><p>Keine Wetterdaten – PLZ in der Konfiguration hinterlegen.</p></div>`;
+        }
+        const dateNote = w.date === reportDateKey
+            ? `Stand ${w.date}`
+            : `Region ${w.place || w.plz} (aktuelle Vorhersage, Berichtstag: ${reportDateKey})`;
+        const parts = [
+            w.weather && `Bedingungen: ${w.weather}`,
+            w.sunshineH != null && `Sonnenschein: ${w.sunshineH} h`,
+            w.tempMax != null && `Max-Temp.: ${w.tempMax} °C`,
+            w.cloudPct != null && `Bewölkung: ${w.cloudPct} %`,
+            w.precipMm != null && `Niederschlag: ${w.precipMm} mm`,
+        ].filter(Boolean);
+        return `<div class="weather"><h3>🌤 Wetter (${this._escHtml(dateNote)})</h3>
+<p style="margin:0;">${this._escHtml(parts.join(' · '))}</p>
+<p style="margin:4px 0 0;font-size:9px;color:#888;">Quelle: ${this._escHtml(w.source || 'Open-Meteo')}</p></div>`;
+    }
+
+    _monthlyComparisonHtml(year, month, totalKwh) {
+        const kwp = this._getInstalledKwp();
+        const lines = [];
+        const spec = kwp > 0 ? totalKwh / kwp : null;
+        if (spec != null) lines.push(`Spez. Monatsertrag: <strong>${spec.toFixed(1)} kWh/kWp</strong> (Anlage ${kwp.toFixed(2)} kWp)`);
+
+        const prev = [];
+        for (let y = year - 1; y >= year - 8; y--) {
+            const entry = this._monthlyYields?.months?.[this._monthKey(y, month)];
+            if (entry?.wh > 0) prev.push({ year: y, kwh: entry.wh / 1000 });
+        }
+        if (prev.length) {
+            const avgPrev = prev.reduce((s, p) => s + p.kwh, 0) / prev.length;
+            const diff = totalKwh - avgPrev;
+            const diffPct = avgPrev > 0 ? (diff / avgPrev * 100) : 0;
+            const rows = prev.map(p => `<tr><td>${p.year}</td><td class="num">${p.kwh.toFixed(1)} kWh</td><td class="num">${kwp ? (p.kwh / kwp).toFixed(1) : '–'} kWh/kWp</td></tr>`).join('');
+            lines.push(`<table class="tbl"><thead><tr><th>Vorjahr</th><th>Ertrag</th><th>kWh/kWp</th></tr></thead><tbody>${rows}</tbody>
+<tfoot><tr><td>Ø Vorjahre (${prev.length})</td><td class="num">${avgPrev.toFixed(1)} kWh</td><td class="num">${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(0)} %)</td></tr></tfoot></table>`);
+        }
+
+        const regional = this._monthlyYields?.regionalKwpRef;
+        if (regional && regional[month - 1] > 0 && kwp > 0) {
+            const refKwhKwp = regional[month - 1];
+            const refTotal = refKwhKwp * kwp;
+            const delta = spec != null ? spec - refKwhKwp : null;
+            lines.push(`Regionaler Referenzwert (PLZ ${this._escHtml(this._monthlyYields.plz || this._cfg.yieldPlz || '')}): ` +
+                `<strong>${refKwhKwp.toFixed(1)} kWh/kWp</strong> ≈ ${refTotal.toFixed(0)} kWh` +
+                (delta != null ? ` · Abweichung: ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} kWh/kWp` : ''));
+        }
+
+        if (!lines.length) return '';
+        return `<div class="cmp"><h3>📊 Vergleich &amp; Durchschnitt</h3>${lines.join('')}</div>`;
+    }
+
+    _buildDailyReport(date, opts = {}) {
+        const rows = this._getRowsForDate(date);
+        const dateStr = date.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const dateKey = this._berlinDateKey(date.getTime());
+        const model = this._lastData['device.model'] || 'PIKO';
+        const kwp = this._getInstalledKwp();
+        const testPrefix = opts.test ? '[TEST] ' : '';
+        const subject = `${testPrefix}Kostal PIKO – Tagesbericht ${dateStr}`;
+
+        if (!rows.length) {
+            const text = `☀️ Kostal PIKO (${model}) – Tagesbericht\n📅 ${dateStr}\n\n⚠️ Keine Historiendaten vorhanden.\n` +
+                `Bitte „Historiendaten laden“ aktivieren und Sync-Intervall prüfen.`;
+            const html = this._reportPageHtml('Tagesbericht', `${model} · ${dateStr}`,
+                '<p class="warn">Keine Historiendaten für diesen Tag. „Historiendaten laden“ aktivieren.</p>', opts.test);
+            return { subject, text, html };
+        }
+
+        const stats = this._calcDayStats(rows);
+        const sorted = [...rows].sort((a, b) => a.ts - b.ts);
+        const stringCount = this._getStringCount();
+        const prodWindow = stats.firstProd && stats.lastProd
+            ? `${stats.firstProd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}–` +
+              `${stats.lastProd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
+            : '–';
+
+        const acSeries = [{ label: 'AC gesamt', color: '#1565c0', points: sorted.map(r => r.acTotalPower || 0) }];
+        const dcSeries = [
+            { label: 'DC gesamt', color: '#2e7d32', points: sorted.map(r =>
+                (r.dc1?.power || 0) + (r.dc2?.power || 0) + (r.dc3?.power || 0)) },
+        ];
+        if (stringCount >= 1) dcSeries.push({ label: 'String 1', color: '#66bb6a', points: sorted.map(r => r.dc1?.power || 0) });
+        if (stringCount >= 2) dcSeries.push({ label: 'String 2', color: '#43a047', points: sorted.map(r => r.dc2?.power || 0) });
+        if (stringCount >= 3) dcSeries.push({ label: 'String 3', color: '#1b5e20', points: sorted.map(r => r.dc3?.power || 0) });
+
+        const phaseSeries = [
+            { label: 'L1', color: '#ef6c00', points: sorted.map(r => r.ac1?.power || 0) },
+            { label: 'L2', color: '#f57c00', points: sorted.map(r => r.ac2?.power || 0) },
+            { label: 'L3', color: '#e65100', points: sorted.map(r => r.ac3?.power || 0) },
+        ];
+        const xLabels = this._chartXLabels(sorted.length, sorted);
+
+        const kpiItems = [
+            { value: `${stats.kwh.toFixed(2)} kWh`, label: 'Tagesertrag' },
+            { value: `${stats.maxW} W`, label: `Spitze (${stats.peakTime})` },
+            { value: `${stats.maxDc} W`, label: 'DC-Spitze' },
+            { value: this._formatDuration(stats.prodMinutes), label: `Erzeugung (${prodWindow})` },
+            { value: `${stats.avgW} W`, label: 'Ø-Leistung' },
+        ];
+        if (kwp) kpiItems.push({ value: `${(stats.kwh / kwp).toFixed(2)}`, label: 'kWh/kWp' });
+
+        let body = this._kpiHtml(kpiItems);
+        body += `<div class="sec"><h2>AC-Leistung (15-min)</h2><div class="chart">${this._svgLineChart(680, 140, acSeries, { xLabels, unit: 'W' })}</div></div>`;
+        body += `<div class="sec"><h2>DC-Leistung Strings</h2><div class="chart">${this._svgLineChart(680, 150, dcSeries, { xLabels, unit: 'W' })}</div></div>`;
+        body += `<div class="sec"><h2>AC-Phasen</h2><div class="chart">${this._svgLineChart(680, 130, phaseSeries, { xLabels, unit: 'W' })}</div></div>`;
+        if (stats.errorCodes.length) {
+            body += `<p class="warn">⚠️ Fehlercodes: ${this._escHtml(stats.errorCodes.join(', '))}</p>`;
+        }
+        body += this._weatherReportHtml(dateKey);
+        const html = this._reportPageHtml('Tagesbericht', `${model} · ${dateStr} · ${stats.dataPoints} Messpunkte`, body, opts.test);
+
+        const hourly = [];
+        for (let h = 0; h < 24; h++) {
+            const hr = rows.filter(r => new Date(r.date).getHours() === h);
+            hourly.push(hr.length ? Math.max(...hr.map(r => r.acTotalPower)) : 0);
+        }
+        const spark = this._sparkline(hourly.filter((_, i) => i >= 5 && i <= 21));
+        const lines = [
+            `☀️ Kostal PIKO (${model}) – Tagesbericht`,
+            `📅 ${dateStr}`,
+            ``,
+            `⚡ Tagesertrag:       ${stats.kwh.toFixed(2)} kWh`,
+            this._formatKwpLine(stats.kwh, kwp).trimEnd(),
+            `📈 Spitzenleistung:   ${stats.maxW} W (um ${stats.peakTime})`,
+            `🔆 DC-Spitze:         ${stats.maxDc} W`,
+            `⏱️ Erzeugungszeit:    ${this._formatDuration(stats.prodMinutes)} (${prodWindow})`,
+            `📊 Ø-Leistung (Tag):  ${stats.avgW} W`,
+            `📡 Messpunkte:        ${stats.dataPoints} (15-min)`,
+        ].filter(Boolean);
+        if (stats.errorCodes.length) lines.push(`⚠️ Fehlercodes:       ${stats.errorCodes.join(', ')}`);
+        lines.push('', `Leistungskurve AC (5–21 Uhr):`, spark);
+        return { subject, text: lines.join('\n'), html };
+    }
+
+    _buildWeeklyReport(opts = {}) {
+        const { days, weekNum, start } = this._getPreviousCalendarWeek();
+        const model = this._lastData['device.model'] || 'PIKO';
+        const kwp = this._getInstalledKwp();
+        const rangeStr = `${start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} – ` +
+            `${days[6].toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+        const testPrefix = opts.test ? '[TEST] ' : '';
+        const subject = `${testPrefix}Kostal PIKO – Wochenbericht KW ${weekNum}`;
+
+        const dayStats = days.map(date => {
+            const rows = this._getRowsForDate(date);
+            return { date, rows, stats: rows.length ? this._calcDayStats(rows) : null };
+        });
+
+        let totalKwh = 0;
+        let bestDay = null;
+        let worstDay = null;
+        let peakW = 0;
+        let daysWithData = 0;
+        const bars = [];
+        const tableRows = [];
+
+        dayStats.forEach(d => {
+            const kwh = d.stats ? d.stats.kwh : 0;
+            totalKwh += kwh;
+            if (d.rows.length) daysWithData++;
+            if (d.stats && d.stats.maxW > peakW) peakW = d.stats.maxW;
+            if (d.stats && kwh > 0) {
+                if (!bestDay || kwh > bestDay.kwh) bestDay = { date: d.date, kwh };
+                if (!worstDay || kwh < worstDay.kwh) worstDay = { date: d.date, kwh };
+            }
+            const label = d.date.toLocaleDateString('de-DE', { weekday: 'short' });
+            bars.push({ label, value: kwh, color: kwh > 0 ? '#42a5f5' : '#bdbdbd' });
+            const dayLabel = d.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+            tableRows.push(`<tr>
+<td>${this._escHtml(dayLabel)}</td>
+<td class="num">${kwh.toFixed(1)}</td>
+<td class="num">${d.stats ? d.stats.maxW : '–'}</td>
+<td class="num">${d.stats ? this._formatDuration(d.stats.prodMinutes) : '–'}</td>
+<td>${d.rows.length ? this._escHtml(this._barForKwh(kwh)) : '–'}</td>
+</tr>`);
+        });
+
+        const avgKwh = daysWithData ? totalKwh / daysWithData : 0;
+        const kpiItems = [
+            { value: `${totalKwh.toFixed(1)} kWh`, label: 'Wochensumme' },
+            { value: `${avgKwh.toFixed(1)} kWh`, label: `Ø/Tag (${daysWithData} Tage)` },
+            { value: peakW ? `${peakW} W` : '–', label: 'Wochenspitze' },
+        ];
+        if (kwp) kpiItems.push({ value: `${(totalKwh / kwp).toFixed(1)}`, label: 'kWh/kWp' });
+
+        let body = this._kpiHtml(kpiItems);
+        body += `<div class="sec"><h2>Tageserträge KW ${weekNum}</h2><div class="chart">${this._svgBarChart(680, 160, bars)}</div></div>`;
+        body += `<table class="tbl"><thead><tr><th>Tag</th><th>kWh</th><th>Spitze</th><th>Erzeugung</th><th>Verlauf</th></tr></thead><tbody>${tableRows.join('')}</tbody></table>`;
+        if (bestDay) {
+            body += `<p>🏆 Bester Tag: <strong>${bestDay.kwh.toFixed(1)} kWh</strong> (${bestDay.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })})`;
+            if (worstDay && worstDay.kwh < bestDay.kwh) {
+                body += ` · 📉 Schwächster: <strong>${worstDay.kwh.toFixed(1)} kWh</strong> (${worstDay.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })})`;
+            }
+            body += '</p>';
+        }
+        const html = this._reportPageHtml('Wochenbericht', `${model} · KW ${weekNum} (${rangeStr})`, body, opts.test);
+
+        const lines = [`📅 Kostal PIKO (${model}) – Wochenbericht`, `KW ${weekNum} (${rangeStr})`, ``];
+        dayStats.forEach(d => {
+            const kwh = d.stats ? d.stats.kwh : 0;
+            const label = d.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+            lines.push(`${label}  ${d.rows.length ? this._barForKwh(kwh) : '–'}  ${kwh.toFixed(1)} kWh`);
+        });
+        lines.push('', `📊 Wochensumme: ${totalKwh.toFixed(1)} kWh`, `📊 Ø pro Tag: ${avgKwh.toFixed(1)} kWh`);
+        if (kwp) lines.push(`📐 Spez. Ertrag: ${(totalKwh / kwp).toFixed(1)} kWh/kWp`);
+        return { subject, text: lines.join('\n'), html };
+    }
+
+    _buildMonthlyReport(opts = {}) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        const monthName = lastMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+        const year = lastMonth.getFullYear();
+        const month = lastMonth.getMonth() + 1;
+        const model = this._lastData['device.model'] || 'PIKO';
+        const kwp = this._getInstalledKwp();
+        const testPrefix = opts.test ? '[TEST] ' : '';
+        const subject = `${testPrefix}Kostal PIKO – Monatsbericht ${monthName}`;
+
+        let totalKwh = 0;
+        let daysWithYield = 0;
+        let daysWithData = 0;
+        let bestDay = null;
+        let worstDay = null;
+        let peakW = 0;
+        const tableRows = [];
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), d);
+            const rows = this._getRowsForDate(date);
+            const stats = rows.length ? this._calcDayStats(rows) : null;
+            const kwh = stats ? stats.kwh : 0;
+            totalKwh += kwh;
+            if (rows.length) daysWithData++;
+            if (kwh > 0.1) daysWithYield++;
+            if (stats && stats.maxW > peakW) peakW = stats.maxW;
+            if (stats && kwh > 0) {
+                if (!bestDay || kwh > bestDay.kwh) bestDay = { date, kwh };
+                if (!worstDay || kwh < worstDay.kwh) worstDay = { date, kwh };
+            }
+            const spec = kwp > 0 && kwh > 0 ? (kwh / kwp).toFixed(2) : '–';
+            const label = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+            const rowClass = kwh <= 0 && !rows.length ? ' style="color:#999;"' : '';
+            tableRows.push(`<tr${rowClass}>
+<td>${this._escHtml(label)}</td>
+<td class="num">${kwh > 0 ? kwh.toFixed(1) : '–'}</td>
+<td class="num">${stats && stats.maxW ? stats.maxW : '–'}</td>
+<td class="num">${spec}</td>
+<td class="num">${stats ? stats.dataPoints : '–'}</td>
+</tr>`);
+        }
+
+        const avgKwh = daysWithYield ? totalKwh / daysWithYield : 0;
+        const kpiItems = [
+            { value: `${totalKwh.toFixed(1)} kWh`, label: 'Monatssumme' },
+            { value: `${avgKwh.toFixed(1)} kWh`, label: `Ø/Ertragstag (${daysWithYield})` },
+            { value: peakW ? `${peakW} W` : '–', label: 'Monatsspitze' },
+        ];
+        if (kwp) kpiItems.push({ value: `${(totalKwh / kwp).toFixed(1)}`, label: 'kWh/kWp Monat' });
+
+        let body = this._kpiHtml(kpiItems);
+        body += `<div class="sec"><h2>Tagesübersicht ${this._escHtml(monthName)}</h2>
+<table class="tbl"><thead><tr><th>Datum</th><th>kWh</th><th>Spitze W</th><th>kWh/kWp</th><th>Punkte</th></tr></thead>
+<tbody>${tableRows.join('')}</tbody>
+<tfoot><tr><td>Summe / Ø</td><td class="num">${totalKwh.toFixed(1)} kWh</td><td class="num">${peakW || '–'}</td>
+<td class="num">${kwp ? (totalKwh / kwp).toFixed(1) : '–'}</td><td>${daysWithData}/${daysInMonth} Tage</td></tr></tfoot></table></div>`;
+        if (bestDay) {
+            body += `<p>🏆 Bester Tag: <strong>${bestDay.kwh.toFixed(1)} kWh</strong> (${bestDay.date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})`;
+            if (worstDay && daysWithYield > 1) {
+                body += ` · Schwächster: <strong>${worstDay.kwh.toFixed(1)} kWh</strong> (${worstDay.date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})`;
+            }
+            body += '</p>';
+        }
+        if (daysWithData < daysInMonth) {
+            body += `<p class="warn">⚠️ ${daysInMonth - daysWithData} Tage ohne Messdaten</p>`;
+        }
+        body += this._monthlyComparisonHtml(year, month, totalKwh);
+        const html = this._reportPageHtml('Monatsbericht', `${model} · ${monthName}`, body, opts.test);
+
+        const lines = [`📅 Kostal PIKO (${model}) – Monatsbericht ${monthName}`, ``];
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), d);
+            const rows = this._getRowsForDate(date);
+            const stats = rows.length ? this._calcDayStats(rows) : null;
+            const kwh = stats ? stats.kwh : 0;
+            if (kwh > 0 || rows.length > 0) {
+                const label = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit' });
+                lines.push(`${label}  ${this._barForKwh(kwh)}  ${kwh.toFixed(1)} kWh`);
+            }
+        }
+        lines.push('', `📊 Monatssumme: ${totalKwh.toFixed(1)} kWh`, `📊 Ø pro Ertragstag: ${avgKwh.toFixed(1)} kWh`);
+        if (kwp) lines.push(`📐 Spez. Ertrag: ${(totalKwh / kwp).toFixed(1)} kWh/kWp`);
+        return { subject, text: lines.join('\n'), html };
+    }
+
     _sparkline(values) {
         // Unicode-Sparkline aus Werten: ▁▂▃▄▅▆▇█
         const blocks = ['▁','▂','▃','▄','▅','▆','▇','█'];
@@ -2077,23 +2576,23 @@ class KostalPikoAdapter extends utils.Adapter {
         return '▓'.repeat(Math.min(20, Math.round(kwh / scale))) || '▁';
     }
 
-    async _sendNotify(text, subject) {
+    async _sendNotify(text, subject, opts = {}) {
         return new Promise((resolve) => {
             const inst = this._cfg.notifyInstance;
             const adp  = this._cfg.notifyAdapter;
-            const recipient = this._cfg.notifyRecipient;
+            const recipients = opts.recipients || this._parseRecipients(this._cfg.notifyRecipient);
             const mailSubject = subject || 'Kostal PIKO Bericht';
             let payload;
             if (adp === 'telegram') {
-                payload = recipient
-                    ? { text, user: recipient }
-                    : { text };
+                const user = recipients[0] || undefined;
+                payload = user ? { text, user } : { text };
             } else if (adp === 'email') {
                 payload = {
-                    to: recipient || undefined,
-                    subject: mailSubject,
+                    to      : recipients.length ? recipients.join(', ') : undefined,
+                    subject : mailSubject,
                     text,
                 };
+                if (opts.html) payload.html = opts.html;
             } else if (adp === 'pushover') {
                 payload = { message: text, title: mailSubject };
             } else {
@@ -2102,190 +2601,50 @@ class KostalPikoAdapter extends utils.Adapter {
             this.sendTo(inst, 'send', payload, (result) => {
                 if (result && result.error) {
                     this._log('WARN', `Benachrichtigung fehlgeschlagen (${inst}): ${result.error}`);
-                } else {
-                    this._log('INFO', `Benachrichtigung gesendet via ${inst}`);
+                    return resolve({ error: result.error });
                 }
-                resolve();
+                this._log('INFO', `Benachrichtigung gesendet via ${inst}` +
+                    (recipients.length ? ` → ${recipients.join(', ')}` : ''));
+                resolve({ ok: true });
             });
         });
     }
 
-    async _sendDailyReport() {
-        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-        const rows = this._getRowsForDate(yesterday);
-        const dateStr = yesterday.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-        const model   = this._lastData['device.model'] || 'PIKO';
-        const kwp     = this._getInstalledKwp();
-        const subject = `Kostal PIKO – Tagesbericht ${dateStr}`;
-
-        if (!rows.length) {
-            await this._sendNotify(
-                `☀️ Kostal PIKO (${model}) – Tagesbericht\n📅 ${dateStr}\n\n⚠️ Keine Historiendaten vorhanden.\n` +
-                `Bitte „Historiendaten laden“ aktivieren und Sync-Intervall prüfen.`,
-                subject
-            );
-            return;
-        }
-
-        const stats = this._calcDayStats(rows);
-        const hourly = [];
-        for (let h = 0; h < 24; h++) {
-            const hr = rows.filter(r => new Date(r.date).getHours() === h);
-            hourly.push(hr.length ? Math.max(...hr.map(r => r.acTotalPower)) : 0);
-        }
-        const spark  = this._sparkline(hourly.filter((_, i) => i >= 5 && i <= 21));
-        const webUrl = `http://${this._cfg.ip}:${this._cfg.webPort}/`;
-        const prodWindow = stats.firstProd && stats.lastProd
-            ? `${stats.firstProd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}–` +
-              `${stats.lastProd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
-            : '–';
-
-        const lines = [
-            `☀️ Kostal PIKO (${model}) – Tagesbericht`,
-            `📅 ${dateStr}`,
-            ``,
-            `⚡ Tagesertrag:       ${stats.kwh.toFixed(2)} kWh`,
-            this._formatKwpLine(stats.kwh, kwp).trimEnd(),
-            `📈 Spitzenleistung:   ${stats.maxW} W (um ${stats.peakTime})`,
-            `🔆 DC-Spitze:         ${stats.maxDc} W`,
-            `⏱️ Erzeugungszeit:    ${this._formatDuration(stats.prodMinutes)} (${prodWindow})`,
-            `📊 Ø-Leistung (Tag):  ${stats.avgW} W`,
-            `📡 Messpunkte:        ${stats.dataPoints} (15-min)`,
-        ].filter(Boolean);
-
-        if (stats.errorCodes.length) {
-            lines.push(`⚠️ Fehlercodes:       ${stats.errorCodes.join(', ')}`);
-        }
-
-        lines.push(
-            ``,
-            `Leistungskurve AC (5–21 Uhr):`,
-            spark,
-            ``,
-            `🔗 Dashboard: ${webUrl}`
-        );
-
-        await this._sendNotify(lines.join('\n'), subject);
-        this._log('INFO', `Tagesbericht gesendet: ${stats.kwh.toFixed(2)} kWh`);
+    async _sendDailyReport(opts = {}) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const built = this._buildDailyReport(yesterday, opts);
+        const result = await this._sendNotify(built.text, built.subject, {
+            html: built.html,
+            recipients: this._getRecipientsForReport('daily'),
+        });
+        if (result?.error) throw new Error(result.error);
+        const stats = this._calcDayStats(this._getRowsForDate(yesterday));
+        if (stats) this._log('INFO', `Tagesbericht gesendet: ${stats.kwh.toFixed(2)} kWh`);
     }
 
-    async _sendWeeklyReport() {
-        const { days, weekNum, start } = this._getPreviousCalendarWeek();
-        const model = this._lastData['device.model'] || 'PIKO';
-        const kwp   = this._getInstalledKwp();
-        const rangeStr = `${start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} – ` +
-            `${days[6].toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
-        const subject = `Kostal PIKO – Wochenbericht KW ${weekNum}`;
-
-        const dayStats = days.map(date => ({
-            date,
-            rows: this._getRowsForDate(date),
-            stats: null,
-        }));
-        dayStats.forEach(d => { d.stats = d.rows.length ? this._calcDayStats(d.rows) : null; });
-
-        let totalKwh = 0;
-        let bestDay = null;
-        let worstDay = null;
-        let peakW = 0;
-        let daysWithData = 0;
-
-        const lines = [
-            `📅 Kostal PIKO (${model}) – Wochenbericht`,
-            `KW ${weekNum} (${rangeStr})`,
-            ``,
-        ];
-
-        for (const d of dayStats) {
-            const kwh = d.stats ? d.stats.kwh : 0;
-            totalKwh += kwh;
-            if (d.rows.length) daysWithData++;
-            if (d.stats && d.stats.maxW > peakW) peakW = d.stats.maxW;
-            if (d.stats && kwh > 0) {
-                if (!bestDay || kwh > bestDay.kwh) bestDay = { date: d.date, kwh };
-                if (!worstDay || kwh < worstDay.kwh) worstDay = { date: d.date, kwh };
-            }
-            const label = d.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-            const bar   = d.rows.length ? this._barForKwh(kwh) : '–';
-            lines.push(`${label}  ${bar}  ${kwh.toFixed(1)} kWh`);
-        }
-
-        const avgKwh = daysWithData ? totalKwh / daysWithData : 0;
-        lines.push(
-            ``,
-            `📊 Wochensumme:     ${totalKwh.toFixed(1)} kWh`,
-            `📊 Ø pro Tag:       ${avgKwh.toFixed(1)} kWh (${daysWithData} Tage mit Daten)`,
-        );
-        if (kwp) lines.push(`📐 Spez. Ertrag:    ${(totalKwh / kwp).toFixed(1)} kWh/kWp`);
-        if (bestDay) {
-            lines.push(`🏆 Bester Tag:      ${bestDay.kwh.toFixed(1)} kWh (${bestDay.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })})`);
-        }
-        if (worstDay && worstDay.kwh < (bestDay?.kwh || Infinity)) {
-            lines.push(`📉 Schwächster Tag: ${worstDay.kwh.toFixed(1)} kWh (${worstDay.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })})`);
-        }
-        if (peakW) lines.push(`📈 Wochenspitze:    ${peakW} W`);
-
-        await this._sendNotify(lines.join('\n'), subject);
-        this._log('INFO', `Wochenbericht gesendet: ${totalKwh.toFixed(1)} kWh (KW ${weekNum})`);
+    async _sendWeeklyReport(opts = {}) {
+        const built = this._buildWeeklyReport(opts);
+        const result = await this._sendNotify(built.text, built.subject, {
+            html: built.html,
+            recipients: this._getRecipientsForReport('weekly'),
+        });
+        if (result?.error) throw new Error(result.error);
+        const { weekNum } = this._getPreviousCalendarWeek();
+        this._log('INFO', `Wochenbericht gesendet (KW ${weekNum})`);
     }
 
-    async _sendMonthlyReport() {
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+    async _sendMonthlyReport(opts = {}) {
+        const built = this._buildMonthlyReport(opts);
+        const result = await this._sendNotify(built.text, built.subject, {
+            html: built.html,
+            recipients: this._getRecipientsForReport('monthly'),
+        });
+        if (result?.error) throw new Error(result.error);
+        const today = new Date();
         const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        const daysInMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
         const monthName = lastMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-        const model = this._lastData['device.model'] || 'PIKO';
-        const kwp   = this._getInstalledKwp();
-        const subject = `Kostal PIKO – Monatsbericht ${monthName}`;
-
-        const lines = [`📅 Kostal PIKO (${model}) – Monatsbericht ${monthName}`, ``];
-        let totalKwh = 0;
-        let daysWithYield = 0;
-        let daysWithData = 0;
-        let bestDay = null;
-        let worstDay = null;
-        let peakW = 0;
-
-        for (let d = 1; d <= daysInMonth; d++) {
-            const date = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), d);
-            const rows = this._getRowsForDate(date);
-            const stats = rows.length ? this._calcDayStats(rows) : null;
-            const kwh = stats ? stats.kwh : 0;
-            totalKwh += kwh;
-            if (rows.length) daysWithData++;
-            if (kwh > 0.1) daysWithYield++;
-            if (stats && stats.maxW > peakW) peakW = stats.maxW;
-            if (stats && kwh > 0) {
-                if (!bestDay || kwh > bestDay.kwh) bestDay = { date, kwh };
-                if (!worstDay || kwh < worstDay.kwh) worstDay = { date, kwh };
-            }
-            if (kwh > 0 || rows.length > 0) {
-                const label = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit' });
-                const bar   = this._barForKwh(kwh);
-                lines.push(`${label}  ${bar}  ${kwh.toFixed(1)} kWh`);
-            }
-        }
-
-        const avgKwh = daysWithYield ? totalKwh / daysWithYield : 0;
-        lines.push(
-            ``,
-            `📊 Monatssumme:     ${totalKwh.toFixed(1)} kWh`,
-            `📊 Ø pro Ertragstag: ${avgKwh.toFixed(1)} kWh (${daysWithYield} von ${daysInMonth} Tagen)`,
-        );
-        if (kwp) lines.push(`📐 Spez. Ertrag:    ${(totalKwh / kwp).toFixed(1)} kWh/kWp`);
-        if (bestDay) {
-            lines.push(`🏆 Bester Tag:      ${bestDay.kwh.toFixed(1)} kWh (${bestDay.date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})`);
-        }
-        if (worstDay && daysWithYield > 1) {
-            lines.push(`📉 Schwächster Tag: ${worstDay.kwh.toFixed(1)} kWh (${worstDay.date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})`);
-        }
-        if (peakW) lines.push(`📈 Monatsspitze:    ${peakW} W`);
-        if (daysWithData < daysInMonth) {
-            lines.push(`⚠️ Datenlücken:     ${daysInMonth - daysWithData} Tage ohne Messdaten`);
-        }
-
-        await this._sendNotify(lines.join('\n'), subject);
-        this._log('INFO', `Monatsbericht gesendet: ${totalKwh.toFixed(1)} kWh (${monthName})`);
+        this._log('INFO', `Monatsbericht gesendet (${monthName})`);
     }
 
     async _checkDayAlert() {

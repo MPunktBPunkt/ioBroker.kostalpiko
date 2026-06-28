@@ -388,11 +388,30 @@
     },
     "notifyRecipient": {
       "type": "text",
-      "label": "Empfänger (E-Mail: Adresse, Telegram: Chat-ID)",
-      "placeholder": "z. B. user@example.com oder 123456789",
+      "label": "Empfänger (Hauptadresse)",
+      "help": "E-Mail: eine oder mehrere Adressen (kommagetrennt). Telegram: Chat-ID. Gilt für Tagesbericht und Alarm; Wochen-/Monatsbericht nutzen diese Adresse plus optionale Zusatzempfänger.",
+      "placeholder": "z. B. user@example.com oder user@a.com, partner@b.com",
       "default": "",
-      "sm": 4,
+      "sm": 12,
       "hidden": "!data.notifyEnabled"
+    },
+    "notifyRecipientWeekly": {
+      "type": "text",
+      "label": "Zusätzliche Empfänger Wochenbericht",
+      "help": "Optional – kommagetrennte E-Mail-Adressen, zusätzlich zur Hauptadresse",
+      "placeholder": "z. B. partner@example.com",
+      "default": "",
+      "sm": 6,
+      "hidden": "!data.notifyEnabled || !data.notifyWeekly"
+    },
+    "notifyRecipientMonthly": {
+      "type": "text",
+      "label": "Zusätzliche Empfänger Monatsbericht",
+      "help": "Optional – kommagetrennte E-Mail-Adressen, zusätzlich zur Hauptadresse",
+      "placeholder": "z. B. buchhaltung@example.com",
+      "default": "",
+      "sm": 6,
+      "hidden": "!data.notifyEnabled || !data.notifyMonthly"
     },
     "_h_notify_daily": {
       "type": "header",
@@ -486,6 +505,42 @@
       "min": 0,
       "sm": 4,
       "hidden": "!data.notifyEnabled || !data.notifyAlert"
+    },
+    "_h_notify_test": {
+      "type": "header",
+      "text": "Testberichte (Vorschau per E-Mail)",
+      "size": 6,
+      "hidden": "!data.notifyEnabled"
+    },
+    "_info_notify_test": {
+      "type": "staticText",
+      "text": "Sendet sofort einen Testbericht an die konfigurierten Empfänger – Betreff mit [TEST]. HTML-Layout im DIN-A4-Format mit Kurven (Tag), Balkendiagramm (Woche) bzw. Tabelle (Monat).",
+      "sm": 12,
+      "hidden": "!data.notifyEnabled"
+    },
+    "_btnTestDaily": {
+      "type": "sendto",
+      "label": "Test Tagesbericht senden",
+      "command": "testReportDaily",
+      "sm": 4,
+      "variant": "outlined",
+      "hidden": "!data.notifyEnabled"
+    },
+    "_btnTestWeekly": {
+      "type": "sendto",
+      "label": "Test Wochenbericht senden",
+      "command": "testReportWeekly",
+      "sm": 4,
+      "variant": "outlined",
+      "hidden": "!data.notifyEnabled"
+    },
+    "_btnTestMonthly": {
+      "type": "sendto",
+      "label": "Test Monatsbericht senden",
+      "command": "testReportMonthly",
+      "sm": 4,
+      "variant": "outlined",
+      "hidden": "!data.notifyEnabled"
     }
   }
 }
