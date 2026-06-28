@@ -438,7 +438,13 @@ function renderWeatherCard(w){
   var cloud=document.getElementById('w-cloud');
   if(cloud) cloud.textContent=w.cloudPct!=null?w.cloudPct:'–';
   var rain=document.getElementById('w-rain');
-  if(rain) rain.textContent=w.precipMm!=null?w.precipMm.toLocaleString('de-DE'):'–';
+  if(rain){
+    var parts=[];
+    if(w.precipMm!=null) parts.push(w.precipMm.toLocaleString('de-DE')+' mm');
+    if(w.precipCurrent!=null&&w.precipCurrent>0) parts.push('jetzt '+w.precipCurrent.toLocaleString('de-DE')+' mm/h');
+    if(w.precipForecast!=null&&w.precipForecast>0) parts.push('Prognose '+w.precipForecast.toLocaleString('de-DE')+' mm');
+    rain.textContent=parts.length?parts.join(' · '):'–';
+  }
   var src=document.getElementById('w-src');
   if(src&&w.updatedAt){
     src.textContent='Quelle: '+w.source+' · Aktualisiert '+new Date(w.updatedAt).toLocaleTimeString('de-DE');
