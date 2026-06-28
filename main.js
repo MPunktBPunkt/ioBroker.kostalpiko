@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.8';
+const ADAPTER_VERSION = '0.6.9';
 
 const POLL_URLS = {
     main : '/index.fhtml',
