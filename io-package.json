@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.4",
+    "version": "0.6.5",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -94,6 +94,10 @@
       "0.3.20": {
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
+      },
+      "0.6.5": {
+        "de": "E-Mail-Berichte als HTML (DIN A4): Kurven Tagesbericht, Balken Wochenbericht, Tabelle Monatsbericht mit Vorjahresvergleich; Test-Buttons; mehrere Empfänger",
+        "en": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients"
       },
       "0.6.4": {
         "de": "Nachhol-Abruf wenn Tages-Historie hängen bleibt; Wetter auf Daten-Tab nach unten; Button „Neu ab 05/2018“ entfernt",
@@ -223,6 +227,8 @@
     "notifyEnabled": false,
     "notifyAdapter": "email",
     "notifyRecipient": "",
+    "notifyRecipientWeekly": "",
+    "notifyRecipientMonthly": "",
     "notifyDaily": false,
     "notifyDailyTime": "07:00",
     "notifyWeekly": false,
