@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.9",
+    "version": "0.6.10",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -94,6 +94,10 @@
       "0.3.20": {
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
+      },
+      "0.6.10": {
+        "de": "Bugfix: Message-Handler für Testberichte und E-Mail-Versand registriert; package.json Version synchronisiert; Bericht-Timer pro Typ; E-Mail-Timeout",
+        "en": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout"
       },
       "0.6.8": {
         "de": "Bugfix: Header size≤5 in jsonConfig (Test-Buttons); nur noch E-Mail-Benachrichtigungen (Telegram/Pushover entfernt)",

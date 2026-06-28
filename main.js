@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.4
+ * Version: 0.6.10
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.9';
+const ADAPTER_VERSION = '0.6.10';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -120,7 +120,7 @@ class KostalPikoAdapter extends utils.Adapter {
         this._maxLogs         = 500;
         this._lastData        = {};
         this._lastHistoryRows = [];
-        this._lastNotifySent  = '';    // verhindert doppeltes Senden
+        this._lastNotifySent  = {};    // pro Berichtstyp, verhindert doppeltes Senden
         this._nodes           = {};
         this._pikoEpoch       = null;  // Unix-Sekunden (Geräteinbetriebnahme)
         this._lastImportedTs  = 0;     // ms - zuletzt importierter Timestamp
@@ -136,6 +136,7 @@ class KostalPikoAdapter extends utils.Adapter {
 
         this.on('ready',       this._onReady.bind(this));
         this.on('stateChange', this._onStateChange.bind(this));
+        this.on('message',      this._onMessage.bind(this));
         this.on('unload',      this._onUnload.bind(this));
     }
 
@@ -250,8 +251,28 @@ class KostalPikoAdapter extends utils.Adapter {
             if (!this._cfg.historyFetch) {
                 this._log('WARN', 'Benachrichtigungen aktiv, aber Historiendaten laden ist deaktiviert – Berichte haben keine Daten');
             }
+            this._logNotifyConfig();
             this._startNotifyTimer();
         }
+    }
+
+    _logNotifyConfig() {
+        const inst = this._cfg.notifyInstance;
+        const dailyRcpt = this._getRecipientsForReport('daily');
+        this._log('SYSTEM',
+            `Berichte: E-Mail via ${inst || '(nicht gesetzt!)'} → ${dailyRcpt.join(', ') || '(kein Empfänger!)'}`
+        );
+        if (this.config.notifyAdapter || (this.config.notifyInstance && this.config.notifyInstance !== inst)) {
+            this._log('INFO', 'Legacy-Felder notifyAdapter/notifyInstance in der Instanz-Konfiguration werden ignoriert (nur notifyInstanceEmail)');
+        }
+        if (!inst) this._log('WARN', 'E-Mail-Instanz fehlt – bitte „E-Mail-Instanz“ in Admin setzen (z. B. email.0)');
+        if (!dailyRcpt.length) this._log('WARN', 'Kein Empfänger für Tagesbericht – bitte „Empfänger (Hauptadresse)“ setzen');
+        const parts = [];
+        if (this._cfg.notifyDaily)   parts.push(`Tagesbericht ${this._cfg.notifyDailyTime}`);
+        if (this._cfg.notifyWeekly)  parts.push(`Wochenbericht Mo ${this._cfg.notifyWeeklyTime}`);
+        if (this._cfg.notifyMonthly) parts.push(`Monatsbericht 1. ${this._cfg.notifyMonthlyTime}`);
+        if (this._cfg.notifyAlert)   parts.push(`Alarm ${this._cfg.notifyAlertTime}`);
+        if (parts.length) this._log('SYSTEM', `Zeitplan: ${parts.join(' · ')}`);
     }
 
     _onStateChange(id, state) {
@@ -2018,29 +2039,33 @@ class KostalPikoAdapter extends utils.Adapter {
 
         // Tagesbericht
         if (this._cfg.notifyDaily && hhmm === this._cfg.notifyDailyTime) {
-            if (this._lastNotifySent !== `daily-${now.toDateString()}`) {
-                this._lastNotifySent = `daily-${now.toDateString()}`;
+            const key = `daily-${now.toDateString()}`;
+            if (this._lastNotifySent.daily !== key) {
+                this._lastNotifySent.daily = key;
                 this._sendDailyReport().catch(e => this._log('WARN', `Tagesbericht: ${e.message}`));
             }
         }
         // Wochenbericht (Montag)
         if (this._cfg.notifyWeekly && dow === 1 && hhmm === this._cfg.notifyWeeklyTime) {
-            if (this._lastNotifySent !== `weekly-${now.toDateString()}`) {
-                this._lastNotifySent = `weekly-${now.toDateString()}`;
+            const key = `weekly-${now.toDateString()}`;
+            if (this._lastNotifySent.weekly !== key) {
+                this._lastNotifySent.weekly = key;
                 this._sendWeeklyReport().catch(e => this._log('WARN', `Wochenbericht: ${e.message}`));
             }
         }
         // Monatsbericht (1. des Monats)
         if (this._cfg.notifyMonthly && dom === 1 && hhmm === this._cfg.notifyMonthlyTime) {
-            if (this._lastNotifySent !== `monthly-${now.toDateString()}`) {
-                this._lastNotifySent = `monthly-${now.toDateString()}`;
+            const key = `monthly-${now.toDateString()}`;
+            if (this._lastNotifySent.monthly !== key) {
+                this._lastNotifySent.monthly = key;
                 this._sendMonthlyReport().catch(e => this._log('WARN', `Monatsbericht: ${e.message}`));
             }
         }
         // Alarm
         if (this._cfg.notifyAlert && hhmm === this._cfg.notifyAlertTime) {
-            if (this._lastNotifySent !== `alert-${now.toDateString()}`) {
-                this._lastNotifySent = `alert-${now.toDateString()}`;
+            const key = `alert-${now.toDateString()}`;
+            if (this._lastNotifySent.alert !== key) {
+                this._lastNotifySent.alert = key;
                 this._checkDayAlert().catch(e => this._log('WARN', `Alarm-Check: ${e.message}`));
             }
         }
@@ -2634,21 +2659,37 @@ ${rects}${xLabels}
         return new Promise((resolve) => {
             const inst = this._cfg.notifyInstance;
             const recipients = opts.recipients || this._parseRecipients(this._cfg.notifyRecipient);
+            if (!inst) {
+                return resolve({ error: 'Keine E-Mail-Instanz konfiguriert' });
+            }
+            if (!recipients.length) {
+                return resolve({ error: 'Kein Empfänger konfiguriert' });
+            }
             const mailSubject = subject || 'Kostal PIKO Bericht';
             const payload = {
-                to      : recipients.length ? recipients.join(', ') : undefined,
+                to      : recipients.join(', '),
                 subject : mailSubject,
                 text,
             };
             if (opts.html) payload.html = opts.html;
+            let settled = false;
+            const finish = (result) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(result);
+            };
+            const timer = setTimeout(() => {
+                this._log('WARN', `Benachrichtigung: Timeout (30s) via ${inst}`);
+                finish({ error: 'Timeout beim E-Mail-Versand (email-Adapter antwortet nicht)' });
+            }, 30000);
             this.sendTo(inst, 'send', payload, (result) => {
                 if (result && result.error) {
                     this._log('WARN', `Benachrichtigung fehlgeschlagen (${inst}): ${result.error}`);
-                    return resolve({ error: result.error });
+                    return finish({ error: result.error });
                 }
-                this._log('INFO', `Benachrichtigung gesendet via ${inst}` +
-                    (recipients.length ? ` → ${recipients.join(', ')}` : ''));
-                resolve({ ok: true });
+                this._log('INFO', `Benachrichtigung gesendet via ${inst} → ${recipients.join(', ')}`);
+                finish({ ok: true });
             });
         });
     }
