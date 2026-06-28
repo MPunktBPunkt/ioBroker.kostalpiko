@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.7';
+const ADAPTER_VERSION = '0.6.8';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -168,15 +168,7 @@ class KostalPikoAdapter extends utils.Adapter {
             pikoModel      : (this.config.pikoModel || 'auto').trim(),
             // Benachrichtigungen
             notifyEnabled      : !!this.config.notifyEnabled,
-            notifyAdapter      : (this.config.notifyAdapter   || 'email').trim(),
-            // Instanz je nach gewähltem Adapter (Fallback auf altes notifyInstance-Feld)
-            notifyInstance     : (() => {
-                const adp = (this.config.notifyAdapter || 'email').trim();
-                const legacy = (this.config.notifyInstance || '').trim();
-                if (adp === 'telegram') return (this.config.notifyInstanceTelegram || legacy || 'telegram.0').trim();
-                if (adp === 'pushover') return (this.config.notifyInstancePushover || legacy || 'pushover.0').trim();
-                return (this.config.notifyInstanceEmail || legacy || 'email.0').trim();
-            })(),
+            notifyInstance     : (this.config.notifyInstanceEmail || this.config.notifyInstance || 'email.0').trim(),
             notifyRecipient    : (this.config.notifyRecipient || '').trim(),
             notifyRecipientWeekly  : (this.config.notifyRecipientWeekly  || '').trim(),
             notifyRecipientMonthly : (this.config.notifyRecipientMonthly || '').trim(),
@@ -287,7 +279,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 return;
             }
             const recipients = this._getRecipientsForReport(kind);
-            if (!recipients.length && this._cfg.notifyAdapter === 'email') {
+            if (!recipients.length) {
                 reply(null, 'Kein E-Mail-Empfänger eingetragen.');
                 return;
             }
@@ -2641,25 +2633,14 @@ ${rects}${xLabels}
     async _sendNotify(text, subject, opts = {}) {
         return new Promise((resolve) => {
             const inst = this._cfg.notifyInstance;
-            const adp  = this._cfg.notifyAdapter;
             const recipients = opts.recipients || this._parseRecipients(this._cfg.notifyRecipient);
             const mailSubject = subject || 'Kostal PIKO Bericht';
-            let payload;
-            if (adp === 'telegram') {
-                const user = recipients[0] || undefined;
-                payload = user ? { text, user } : { text };
-            } else if (adp === 'email') {
-                payload = {
-                    to      : recipients.length ? recipients.join(', ') : undefined,
-                    subject : mailSubject,
-                    text,
-                };
-                if (opts.html) payload.html = opts.html;
-            } else if (adp === 'pushover') {
-                payload = { message: text, title: mailSubject };
-            } else {
-                payload = { text };
-            }
+            const payload = {
+                to      : recipients.length ? recipients.join(', ') : undefined,
+                subject : mailSubject,
+                text,
+            };
+            if (opts.html) payload.html = opts.html;
             this.sendTo(inst, 'send', payload, (result) => {
                 if (result && result.error) {
                     this._log('WARN', `Benachrichtigung fehlgeschlagen (${inst}): ${result.error}`);

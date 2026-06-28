@@ -331,7 +331,7 @@
     },
     "_info_notify": {
       "type": "staticText",
-      "text": "Berichte basieren auf LogDaten.dat – „Historiendaten laden“ muss aktiviert sein. SMTP-Zugangsdaten (Server, Benutzer, Passwort) werden im ioBroker E-Mail-Adapter konfiguriert, nicht hier. Telegram/Pushover-Token ebenfalls im jeweiligen Adapter.",
+      "text": "Berichte per E-Mail (HTML). Basis: LogDaten.dat – „Historiendaten laden“ muss aktiv sein. SMTP-Zugangsdaten werden im ioBroker E-Mail-Adapter konfiguriert, nicht hier.",
       "sm": 12,
       "hidden": "!data.notifyEnabled"
     },
@@ -341,27 +341,6 @@
       "default": false,
       "sm": 12
     },
-    "notifyAdapter": {
-      "type": "select",
-      "label": "Benachrichtigungs-Adapter",
-      "options": [
-        {
-          "value": "email",
-          "label": "E-Mail"
-        },
-        {
-          "value": "telegram",
-          "label": "Telegram"
-        },
-        {
-          "value": "pushover",
-          "label": "Pushover"
-        }
-      ],
-      "default": "email",
-      "sm": 4,
-      "hidden": "!data.notifyEnabled"
-    },
     "notifyInstanceEmail": {
       "type": "text",
       "label": "E-Mail-Instanz",
@@ -370,26 +349,10 @@
       "sm": 4,
       "hidden": "!data.notifyEnabled"
     },
-    "notifyInstanceTelegram": {
-      "type": "text",
-      "label": "Telegram-Instanz",
-      "help": "Name der ioBroker Telegram-Adapter-Instanz, z. B. telegram.0",
-      "default": "telegram.0",
-      "sm": 4,
-      "hidden": "!data.notifyEnabled"
-    },
-    "notifyInstancePushover": {
-      "type": "text",
-      "label": "Pushover-Instanz",
-      "help": "Name der ioBroker Pushover-Adapter-Instanz, z. B. pushover.0",
-      "default": "pushover.0",
-      "sm": 4,
-      "hidden": "!data.notifyEnabled"
-    },
     "notifyRecipient": {
       "type": "text",
       "label": "Empfänger (Hauptadresse)",
-      "help": "E-Mail: eine oder mehrere Adressen (kommagetrennt). Telegram: Chat-ID. Gilt für Tagesbericht und Alarm; Wochen-/Monatsbericht nutzen diese Adresse plus optionale Zusatzempfänger.",
+      "help": "Eine oder mehrere E-Mail-Adressen, kommagetrennt. Gilt für Tagesbericht und Alarm; Wochen-/Monatsbericht zusätzlich zu optionalen Zusatzempfängern.",
       "placeholder": "z. B. user@example.com oder user@a.com, partner@b.com",
       "default": "",
       "sm": 12,
@@ -416,7 +379,7 @@
     "_h_notify_daily": {
       "type": "header",
       "text": "Tagesbericht",
-      "size": 6,
+      "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "notifyDaily": {
@@ -437,7 +400,7 @@
     "_h_notify_weekly": {
       "type": "header",
       "text": "Wochenbericht",
-      "size": 6,
+      "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "notifyWeekly": {
@@ -458,7 +421,7 @@
     "_h_notify_monthly": {
       "type": "header",
       "text": "Monatsbericht",
-      "size": 6,
+      "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "notifyMonthly": {
@@ -479,7 +442,7 @@
     "_h_notify_alert": {
       "type": "header",
       "text": "Alarm",
-      "size": 6,
+      "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "notifyAlert": {
@@ -509,7 +472,7 @@
     "_h_notify_test": {
       "type": "header",
       "text": "Testberichte (Vorschau per E-Mail)",
-      "size": 6,
+      "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "_info_notify_test": {
