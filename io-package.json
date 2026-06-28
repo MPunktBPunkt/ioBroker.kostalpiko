@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.11",
+    "version": "0.6.12",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -94,6 +94,10 @@
       "0.3.20": {
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
+      },
+      "0.6.12": {
+        "de": "Berichte: Wetter-Archiv für Berichtstag; Fehlercode-Erklärungen (z. B. 240 Netzstörung); E-Mail-Tabellen mit Inline-Styles; Berichts-Kennung im Betreff (reportLabel)",
+        "en": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)"
       },
       "0.6.11": {
         "de": "Bugfix: ioBroker-CLI sendet Testberichte als command send – wird korrekt erkannt",
@@ -245,6 +249,7 @@
     "pikoModel": "auto",
     "influxSync": false,
     "notifyEnabled": false,
+    "reportLabel": "",
     "notifyRecipient": "",
     "notifyRecipientWeekly": "",
     "notifyRecipientMonthly": "",

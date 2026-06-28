@@ -340,6 +340,15 @@
       "default": false,
       "sm": 12
     },
+    "reportLabel": {
+      "type": "text",
+      "label": "Berichts-Kennung (Betreff)",
+      "help": "Optionaler Name für E-Mail-Betreffzeilen, z. B. „Kleiner“ oder „Grosser“. Leer = Instanz-Titel aus ioBroker.",
+      "placeholder": "z. B. Kleiner",
+      "default": "",
+      "sm": 4,
+      "hidden": "!data.notifyEnabled"
+    },
     "notifyInstanceEmail": {
       "type": "text",
       "label": "E-Mail-Instanz",

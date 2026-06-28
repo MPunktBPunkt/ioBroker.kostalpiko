@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.11';
+const ADAPTER_VERSION = '0.6.12';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -110,6 +110,20 @@ const PIKO_SPECS = {
 };
 const GRID_LIMITS_DE = { acMaxV:264.5, acMinV:184, fMax:51.5, fMin:47.5 };
 
+// Kostal PIKO Ereignis-/Fehlercodes (LogDaten Spalte Err, dezimal)
+const PIKO_ERROR_HINTS = {
+    0  : 'Kein Fehler',
+    240: 'Netzstörung – Netzspannung kurzzeitig außerhalb des zulässigen Bereichs (häufig morgens/abends oder bei Wolken; bei Wiederholung Netzbetreiber/AC-Verkabelung prüfen)',
+    241: 'Netzunterspannung',
+    242: 'Netzüberspannung',
+    243: 'Netzunterfrequenz',
+    244: 'Netzüberfrequenz',
+    301: 'Isolationsfehler',
+    302: 'Isolationsfehler (String)',
+    401: 'Übertemperatur',
+    402: 'Interne Kommunikationsstörung',
+};
+
 // ─── Adapter-Klasse ────────────────────────────────────────────────────────────
 class KostalPikoAdapter extends utils.Adapter {
     constructor(options) {
@@ -133,6 +147,8 @@ class KostalPikoAdapter extends utils.Adapter {
         this._lastWeather        = null;
         this._lastWeatherFetch   = 0;
         this._weatherGeoCache    = null;
+        this._weatherHistoryCache = new Map();
+        this._instanceDisplayName = '';
 
         this.on('ready',       this._onReady.bind(this));
         this.on('stateChange', this._onStateChange.bind(this));
@@ -170,6 +186,7 @@ class KostalPikoAdapter extends utils.Adapter {
             // Benachrichtigungen
             notifyEnabled      : !!this.config.notifyEnabled,
             notifyInstance     : (this.config.notifyInstanceEmail || this.config.notifyInstance || 'email.0').trim(),
+            reportLabel        : (this.config.reportLabel || '').trim(),
             notifyRecipient    : (this.config.notifyRecipient || '').trim(),
             notifyRecipientWeekly  : (this.config.notifyRecipientWeekly  || '').trim(),
             notifyRecipientMonthly : (this.config.notifyRecipientMonthly || '').trim(),
@@ -218,6 +235,8 @@ class KostalPikoAdapter extends utils.Adapter {
         this._yieldsCachePath  = this._getYieldsCachePath();
         await this._loadHistoryCache();
         await this._loadMonthlyYields();
+
+        await this._loadInstanceDisplayName();
 
         // Letzten importierten Timestamp aus State laden
         try {
@@ -597,6 +616,156 @@ class KostalPikoAdapter extends utils.Adapter {
     _formatPrecipMm(mm) {
         if (mm == null || isNaN(mm)) return null;
         return Math.round(mm * 10) / 10;
+    }
+
+    async _loadInstanceDisplayName() {
+        try {
+            const obj = await this.getObjectAsync(`system.adapter.${this.namespace}`);
+            const title = (obj?.common?.title || '').trim();
+            if (title && title !== 'Kostal PIKO' && title.length <= 40) {
+                this._instanceDisplayName = title;
+                return;
+            }
+            const tl = obj?.common?.titleLang;
+            let raw = typeof tl === 'string' ? tl : (tl?.de || tl?.en || '');
+            raw = raw.replace(/^Kostal\s+PIKO\s*/i, '').replace(/\s*Wechselrichter.*/i, '').trim();
+            if (raw) this._instanceDisplayName = raw;
+        } catch (_) {}
+    }
+
+    _getReportSubjectTag() {
+        const model = this._lastData['device.model'] ||
+            PIKO_SPECS[this._cfg.pikoModel]?.name ||
+            (this._cfg.pikoModel !== 'auto' ? this._cfg.pikoModel : 'PIKO');
+        const label = (this._cfg.reportLabel || this._instanceDisplayName || '').trim();
+        if (label) return `${model} · ${label} – `;
+        return `${model} – `;
+    }
+
+    _explainErrorCode(code) {
+        return PIKO_ERROR_HINTS[code] || `Ereigniscode ${code} (Details: Kostal PIKO Dokumentation)`;
+    }
+
+    _formatErrorCodesHtml(codes) {
+        if (!codes?.length) return '';
+        const items = codes.map(c =>
+            `<li><strong>${c}</strong>: ${this._escHtml(this._explainErrorCode(c))}</li>`
+        ).join('');
+        return `<p class="warn" style="margin:8px 0 4px;">⚠️ Fehlercodes im Tagesverlauf</p>` +
+            `<ul style="margin:0 0 12px 18px;padding:0;font-size:10px;">${items}</ul>`;
+    }
+
+    _formatErrorCodesText(codes) {
+        if (!codes?.length) return '';
+        return codes.map(c => `⚠️ ${c}: ${this._explainErrorCode(c)}`).join('\n');
+    }
+
+    _tdCell(content, num = false) {
+        const style = num
+            ? 'border-bottom:1px solid #e0e0e0;padding:4px 6px;text-align:right;'
+            : 'border-bottom:1px solid #e0e0e0;padding:4px 6px;';
+        return `<td style="${style}">${content}</td>`;
+    }
+
+    _thCell(label, num = false) {
+        const align = num ? 'right' : 'left';
+        return `<th style="background:#1565c0;color:#fff;padding:5px 6px;text-align:${align};">${this._escHtml(label)}</th>`;
+    }
+
+    _reportTableOpen() {
+        return '<table style="width:100%;border-collapse:collapse;font-size:10px;margin:8px 0;" cellpadding="0" cellspacing="0">';
+    }
+
+    _weatherFromArchiveDay(data, geo, dateKey) {
+        const sunshineSec = data.daily?.sunshine_duration?.[0];
+        const weatherCode = data.daily?.weather_code?.[0];
+        const tempMax     = data.daily?.temperature_2m_max?.[0];
+        const dailyPrecip = Math.max(data.daily?.precipitation_sum?.[0] ?? 0, data.daily?.rain_sum?.[0] ?? 0);
+
+        const times  = data.hourly?.time || [];
+        const clouds = data.hourly?.cloud_cover || [];
+        let cloudAvg = null;
+        if (times.length && clouds.length) {
+            const dayClouds = [];
+            times.forEach((t, i) => {
+                const h = parseInt(t.substring(11, 13), 10);
+                if (t.startsWith(dateKey) && h >= 7 && h <= 19 && clouds[i] != null) {
+                    dayClouds.push(clouds[i]);
+                }
+            });
+            if (dayClouds.length) {
+                cloudAvg = Math.round(dayClouds.reduce((s, v) => s + v, 0) / dayClouds.length);
+            }
+        }
+
+        const sunshineH = sunshineSec != null ? Math.round(sunshineSec / 3600 * 10) / 10 : null;
+        const weatherLabel = this._weatherLabelFromMetrics(cloudAvg, sunshineH, weatherCode) ||
+            (weatherCode != null ? this._wmoLabel(weatherCode) : null);
+
+        return {
+            plz         : geo.plz,
+            place       : geo.place,
+            date        : dateKey,
+            sunshineH,
+            weather     : weatherLabel || '–',
+            weatherCode,
+            tempMax     : tempMax != null ? Math.round(tempMax * 10) / 10 : null,
+            precipMm    : this._formatPrecipMm(dailyPrecip > 0 ? dailyPrecip : 0),
+            precipSoFar : null,
+            precipCurrent: null,
+            precipForecast: null,
+            cloudPct    : cloudAvg,
+            source      : 'Open-Meteo Archiv',
+            historical  : true,
+            updatedAt   : new Date().toISOString(),
+        };
+    }
+
+    async _getWeatherForDate(dateKey) {
+        if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null;
+        const today = this._berlinDateKey();
+        if (dateKey === today) {
+            if (!this._lastWeather || this._lastWeather.date !== today) {
+                await this._refreshWeather();
+            }
+            return this._lastWeather;
+        }
+        if (this._weatherHistoryCache.has(dateKey)) {
+            return this._weatherHistoryCache.get(dateKey);
+        }
+        const plz = this._cfg.yieldPlz;
+        if (!plz || !/^\d{5}$/.test(plz)) return null;
+        try {
+            const geo = await this._geocodePlz(plz);
+            const q = new URLSearchParams({
+                latitude  : String(geo.lat),
+                longitude : String(geo.lon),
+                start_date: dateKey,
+                end_date  : dateKey,
+                daily     : 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum,rain_sum',
+                hourly    : 'cloud_cover,precipitation,rain',
+                timezone  : 'Europe/Berlin',
+            });
+            const ar = await this._fetchHttpsJson(`https://archive-api.open-meteo.com/v1/archive?${q}`);
+            const w  = this._weatherFromArchiveDay(ar, geo, dateKey);
+            this._weatherHistoryCache.set(dateKey, w);
+            return w;
+        } catch (e) {
+            this._log('DEBUG', `Wetter-Archiv ${dateKey}: ${e.message}`);
+            return null;
+        }
+    }
+
+    _weatherSummaryText(w) {
+        if (!w) return '';
+        const parts = [
+            w.weather && `Bedingungen: ${w.weather}`,
+            w.sunshineH != null && `Sonnenschein: ${w.sunshineH} h`,
+            w.tempMax != null && `Max-Temp.: ${w.tempMax} °C`,
+            w.cloudPct != null && `Bewölkung: ${w.cloudPct} %`,
+            w.precipMm != null && w.precipMm > 0 && `Niederschlag: ${w.precipMm} mm`,
+        ].filter(Boolean);
+        return parts.join(' · ');
     }
 
     async _refreshWeather() {
@@ -2297,21 +2466,28 @@ ${rects}${xLabels}
 </svg>`;
     }
 
-    _weatherReportHtml(reportDateKey) {
-        const w = this._lastWeather;
+    _weatherReportHtml(reportDateKey, weatherOverride) {
+        const w = weatherOverride ||
+            (this._lastWeather?.date === reportDateKey ? this._lastWeather : null);
         if (!w) {
-            return `<div class="weather"><h3>🌤 Wetter</h3><p>Keine Wetterdaten – PLZ in der Konfiguration hinterlegen.</p></div>`;
+            return `<div class="weather"><h3>🌤 Wetter</h3><p>Keine Wetterdaten für ${this._escHtml(reportDateKey)} – PLZ in der Konfiguration hinterlegen.</p></div>`;
         }
-        const dateNote = w.date === reportDateKey
-            ? `Stand ${w.date}`
-            : `Region ${w.place || w.plz} (aktuelle Vorhersage, Berichtstag: ${reportDateKey})`;
+        const dateNote = w.historical
+            ? `${reportDateKey}${w.place ? ` · ${w.place}` : ''} (Archiv)`
+            : (w.date === reportDateKey
+                ? `Stand ${w.date}${w.place ? ` · ${w.place}` : ''}`
+                : `Region ${w.place || w.plz} (Vorschau, Berichtstag: ${reportDateKey})`);
         const precipParts = [];
-        if (w.precipMm != null) precipParts.push(`${w.precipMm} mm bisher`);
-        if (w.precipCurrent != null && w.precipCurrent > 0) {
-            precipParts.push(`aktuell ${w.precipCurrent} mm/h`);
-        }
-        if (w.precipForecast != null && w.precipForecast > 0) {
-            precipParts.push(`Prognose Tag ${w.precipForecast} mm`);
+        if (w.historical) {
+            if (w.precipMm != null && w.precipMm > 0) precipParts.push(`${w.precipMm} mm`);
+        } else {
+            if (w.precipMm != null) precipParts.push(`${w.precipMm} mm bisher`);
+            if (w.precipCurrent != null && w.precipCurrent > 0) {
+                precipParts.push(`aktuell ${w.precipCurrent} mm/h`);
+            }
+            if (w.precipForecast != null && w.precipForecast > 0) {
+                precipParts.push(`Prognose Tag ${w.precipForecast} mm`);
+            }
         }
         const parts = [
             w.weather && `Bedingungen: ${w.weather}`,
@@ -2340,9 +2516,19 @@ ${rects}${xLabels}
             const avgPrev = prev.reduce((s, p) => s + p.kwh, 0) / prev.length;
             const diff = totalKwh - avgPrev;
             const diffPct = avgPrev > 0 ? (diff / avgPrev * 100) : 0;
-            const rows = prev.map(p => `<tr><td>${p.year}</td><td class="num">${p.kwh.toFixed(1)} kWh</td><td class="num">${kwp ? (p.kwh / kwp).toFixed(1) : '–'} kWh/kWp</td></tr>`).join('');
-            lines.push(`<table class="tbl"><thead><tr><th>Vorjahr</th><th>Ertrag</th><th>kWh/kWp</th></tr></thead><tbody>${rows}</tbody>
-<tfoot><tr><td>Ø Vorjahre (${prev.length})</td><td class="num">${avgPrev.toFixed(1)} kWh</td><td class="num">${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(0)} %)</td></tr></tfoot></table>`);
+            const rows = prev.map(p => `<tr>
+${this._tdCell(String(p.year))}
+${this._tdCell(`${p.kwh.toFixed(1)} kWh`, true)}
+${this._tdCell(kwp ? `${(p.kwh / kwp).toFixed(1)}` : '–', true)}
+</tr>`).join('');
+            lines.push(`${this._reportTableOpen()}<thead><tr>
+${this._thCell('Vorjahr')}${this._thCell('Ertrag', true)}${this._thCell('kWh/kWp', true)}
+</tr></thead><tbody>${rows}</tbody>
+<tfoot><tr>
+${this._tdCell(`Ø Vorjahre (${prev.length})`)}
+${this._tdCell(`${avgPrev.toFixed(1)} kWh`, true)}
+${this._tdCell(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(0)} %)`, true)}
+</tr></tfoot></table>`);
         }
 
         const regional = this._monthlyYields?.regionalKwpRef;
@@ -2359,14 +2545,15 @@ ${rects}${xLabels}
         return `<div class="cmp"><h3>📊 Vergleich &amp; Durchschnitt</h3>${lines.join('')}</div>`;
     }
 
-    _buildDailyReport(date, opts = {}) {
+    async _buildDailyReport(date, opts = {}) {
         const rows = this._getRowsForDate(date);
         const dateStr = date.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
         const dateKey = this._berlinDateKey(date.getTime());
         const model = this._lastData['device.model'] || 'PIKO';
         const kwp = this._getInstalledKwp();
         const testPrefix = opts.test ? '[TEST] ' : '';
-        const subject = `${testPrefix}Kostal PIKO – Tagesbericht ${dateStr}`;
+        const subject = `${testPrefix}${this._getReportSubjectTag()}Tagesbericht ${dateStr}`;
+        const weatherData = await this._getWeatherForDate(dateKey);
 
         if (!rows.length) {
             const text = `☀️ Kostal PIKO (${model}) – Tagesbericht\n📅 ${dateStr}\n\n⚠️ Keine Historiendaten vorhanden.\n` +
@@ -2414,9 +2601,9 @@ ${rects}${xLabels}
         body += `<div class="sec"><h2>DC-Leistung Strings</h2><div class="chart">${this._svgLineChart(680, 150, dcSeries, { xLabels, unit: 'W' })}</div></div>`;
         body += `<div class="sec"><h2>AC-Phasen</h2><div class="chart">${this._svgLineChart(680, 130, phaseSeries, { xLabels, unit: 'W' })}</div></div>`;
         if (stats.errorCodes.length) {
-            body += `<p class="warn">⚠️ Fehlercodes: ${this._escHtml(stats.errorCodes.join(', '))}</p>`;
+            body += this._formatErrorCodesHtml(stats.errorCodes);
         }
-        body += this._weatherReportHtml(dateKey);
+        body += this._weatherReportHtml(dateKey, weatherData);
         const html = this._reportPageHtml('Tagesbericht', `${model} · ${dateStr} · ${stats.dataPoints} Messpunkte`, body, opts.test);
 
         const hourly = [];
@@ -2437,7 +2624,9 @@ ${rects}${xLabels}
             `📊 Ø-Leistung (Tag):  ${stats.avgW} W`,
             `📡 Messpunkte:        ${stats.dataPoints} (15-min)`,
         ].filter(Boolean);
-        if (stats.errorCodes.length) lines.push(`⚠️ Fehlercodes:       ${stats.errorCodes.join(', ')}`);
+        if (stats.errorCodes.length) lines.push(this._formatErrorCodesText(stats.errorCodes));
+        const weatherLine = this._weatherSummaryText(weatherData);
+        if (weatherLine) lines.push(`🌤 Wetter: ${weatherLine}`);
         lines.push('', `Leistungskurve AC (5–21 Uhr):`, spark);
         return { subject, text: lines.join('\n'), html };
     }
@@ -2449,7 +2638,7 @@ ${rects}${xLabels}
         const rangeStr = `${start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} – ` +
             `${days[6].toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
         const testPrefix = opts.test ? '[TEST] ' : '';
-        const subject = `${testPrefix}Kostal PIKO – Wochenbericht KW ${weekNum}`;
+        const subject = `${testPrefix}${this._getReportSubjectTag()}Wochenbericht KW ${weekNum}`;
 
         const dayStats = days.map(date => {
             const rows = this._getRowsForDate(date);
@@ -2477,11 +2666,11 @@ ${rects}${xLabels}
             bars.push({ label, value: kwh, color: kwh > 0 ? '#42a5f5' : '#bdbdbd' });
             const dayLabel = d.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
             tableRows.push(`<tr>
-<td>${this._escHtml(dayLabel)}</td>
-<td class="num">${kwh.toFixed(1)}</td>
-<td class="num">${d.stats ? d.stats.maxW : '–'}</td>
-<td class="num">${d.stats ? this._formatDuration(d.stats.prodMinutes) : '–'}</td>
-<td>${d.rows.length ? this._escHtml(this._barForKwh(kwh)) : '–'}</td>
+${this._tdCell(this._escHtml(dayLabel))}
+${this._tdCell(kwh.toFixed(1), true)}
+${this._tdCell(d.stats ? String(d.stats.maxW) : '–', true)}
+${this._tdCell(d.stats ? this._formatDuration(d.stats.prodMinutes) : '–', true)}
+${this._tdCell(d.rows.length ? this._escHtml(this._barForKwh(kwh)) : '–')}
 </tr>`);
         });
 
@@ -2495,7 +2684,9 @@ ${rects}${xLabels}
 
         let body = this._kpiHtml(kpiItems);
         body += `<div class="sec"><h2>Tageserträge KW ${weekNum}</h2><div class="chart">${this._svgBarChart(680, 160, bars)}</div></div>`;
-        body += `<table class="tbl"><thead><tr><th>Tag</th><th>kWh</th><th>Spitze</th><th>Erzeugung</th><th>Verlauf</th></tr></thead><tbody>${tableRows.join('')}</tbody></table>`;
+        body += `${this._reportTableOpen()}<thead><tr>
+${this._thCell('Tag')}${this._thCell('kWh', true)}${this._thCell('Spitze', true)}${this._thCell('Erzeugung', true)}${this._thCell('Verlauf')}
+</tr></thead><tbody>${tableRows.join('')}</tbody></table>`;
         if (bestDay) {
             body += `<p>🏆 Bester Tag: <strong>${bestDay.kwh.toFixed(1)} kWh</strong> (${bestDay.date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })})`;
             if (worstDay && worstDay.kwh < bestDay.kwh) {
@@ -2526,7 +2717,7 @@ ${rects}${xLabels}
         const model = this._lastData['device.model'] || 'PIKO';
         const kwp = this._getInstalledKwp();
         const testPrefix = opts.test ? '[TEST] ' : '';
-        const subject = `${testPrefix}Kostal PIKO – Monatsbericht ${monthName}`;
+        const subject = `${testPrefix}${this._getReportSubjectTag()}Monatsbericht ${monthName}`;
 
         let totalKwh = 0;
         let daysWithYield = 0;
@@ -2551,13 +2742,13 @@ ${rects}${xLabels}
             }
             const spec = kwp > 0 && kwh > 0 ? (kwh / kwp).toFixed(2) : '–';
             const label = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-            const rowClass = kwh <= 0 && !rows.length ? ' style="color:#999;"' : '';
-            tableRows.push(`<tr${rowClass}>
-<td>${this._escHtml(label)}</td>
-<td class="num">${kwh > 0 ? kwh.toFixed(1) : '–'}</td>
-<td class="num">${stats && stats.maxW ? stats.maxW : '–'}</td>
-<td class="num">${spec}</td>
-<td class="num">${stats ? stats.dataPoints : '–'}</td>
+            const rowStyle = kwh <= 0 && !rows.length ? ' style="color:#999;"' : '';
+            tableRows.push(`<tr${rowStyle}>
+${this._tdCell(this._escHtml(label))}
+${this._tdCell(kwh > 0 ? kwh.toFixed(1) : '–', true)}
+${this._tdCell(stats && stats.maxW ? String(stats.maxW) : '–', true)}
+${this._tdCell(spec, true)}
+${this._tdCell(stats ? String(stats.dataPoints) : '–', true)}
 </tr>`);
         }
 
@@ -2571,10 +2762,17 @@ ${rects}${xLabels}
 
         let body = this._kpiHtml(kpiItems);
         body += `<div class="sec"><h2>Tagesübersicht ${this._escHtml(monthName)}</h2>
-<table class="tbl"><thead><tr><th>Datum</th><th>kWh</th><th>Spitze W</th><th>kWh/kWp</th><th>Punkte</th></tr></thead>
+${this._reportTableOpen()}<thead><tr>
+${this._thCell('Datum')}${this._thCell('kWh', true)}${this._thCell('Spitze W', true)}${this._thCell('kWh/kWp', true)}${this._thCell('Punkte', true)}
+</tr></thead>
 <tbody>${tableRows.join('')}</tbody>
-<tfoot><tr><td>Summe / Ø</td><td class="num">${totalKwh.toFixed(1)} kWh</td><td class="num">${peakW || '–'}</td>
-<td class="num">${kwp ? (totalKwh / kwp).toFixed(1) : '–'}</td><td>${daysWithData}/${daysInMonth} Tage</td></tr></tfoot></table></div>`;
+<tfoot><tr>
+${this._tdCell('Summe / Ø')}
+${this._tdCell(`${totalKwh.toFixed(1)} kWh`, true)}
+${this._tdCell(peakW ? String(peakW) : '–', true)}
+${this._tdCell(kwp ? (totalKwh / kwp).toFixed(1) : '–', true)}
+${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
+</tr></tfoot></table></div>`;
         if (bestDay) {
             body += `<p>🏆 Bester Tag: <strong>${bestDay.kwh.toFixed(1)} kWh</strong> (${bestDay.date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })})`;
             if (worstDay && daysWithYield > 1) {
@@ -2710,7 +2908,7 @@ ${rects}${xLabels}
     async _sendDailyReport(opts = {}) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const built = this._buildDailyReport(yesterday, opts);
+        const built = await this._buildDailyReport(yesterday, opts);
         const result = await this._sendNotify(built.text, built.subject, {
             html: built.html,
             recipients: this._getRecipientsForReport('daily'),
