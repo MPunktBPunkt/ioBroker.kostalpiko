@@ -125,8 +125,7 @@
       "sm": 4
     },
     "password": {
-      "type": "text",
-      "inputType": "password",
+      "type": "password",
       "label": "Passwort",
       "help": "HTTP Basic Auth Passwort des PIKO-Webservers (Standard: pvwr)",
       "default": "pvwr",

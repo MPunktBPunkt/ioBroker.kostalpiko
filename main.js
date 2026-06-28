@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.6';
+const ADAPTER_VERSION = '0.6.7';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -556,13 +556,21 @@ class KostalPikoAdapter extends utils.Adapter {
             (code >= 80 && code <= 82) || code >= 95;
     }
 
-    _sumHourlyPrecipToday(times, values, todayBerlin) {
+    _sumHourlyPrecipToday(times, values, todayBerlin, onlyElapsed = false) {
         if (!times.length || !values.length) return 0;
+        const now = Date.now();
         let sum = 0;
         times.forEach((t, i) => {
-            if (t.startsWith(todayBerlin) && values[i] != null) sum += values[i];
+            if (!t.startsWith(todayBerlin) || values[i] == null) return;
+            if (onlyElapsed && new Date(t).getTime() > now) return;
+            sum += values[i];
         });
         return sum;
+    }
+
+    _formatPrecipMm(mm) {
+        if (mm == null || isNaN(mm)) return null;
+        return Math.round(mm * 10) / 10;
     }
 
     async _refreshWeather() {
@@ -573,9 +581,9 @@ class KostalPikoAdapter extends utils.Adapter {
         const q = new URLSearchParams({
             latitude : String(geo.lat),
             longitude: String(geo.lon),
-            daily    : 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum',
-            hourly   : 'cloud_cover,precipitation,weather_code',
-            current  : 'precipitation,weather_code',
+            daily    : 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum,rain_sum',
+            hourly   : 'cloud_cover,precipitation,rain,weather_code',
+            current  : 'precipitation,rain,weather_code',
             timezone : 'Europe/Berlin',
             forecast_days: '1',
         });
@@ -585,12 +593,15 @@ class KostalPikoAdapter extends utils.Adapter {
         const weatherCode = fc.daily?.weather_code?.[0];
         const tempMax     = fc.daily?.temperature_2m_max?.[0];
         const dailyPrecip = fc.daily?.precipitation_sum?.[0];
+        const dailyRain   = fc.daily?.rain_sum?.[0];
         const currentCode = fc.current?.weather_code;
         const currentPrecip = fc.current?.precipitation;
+        const currentRain   = fc.current?.rain;
 
         const times = fc.hourly?.time || [];
         const clouds = fc.hourly?.cloud_cover || [];
         const hourlyPrecip = fc.hourly?.precipitation || [];
+        const hourlyRain = fc.hourly?.rain || [];
         const todayBerlin = this._berlinDateKey();
 
         let cloudAvg = null;
@@ -607,12 +618,19 @@ class KostalPikoAdapter extends utils.Adapter {
             }
         }
 
-        const precipHourly = this._sumHourlyPrecipToday(times, hourlyPrecip, todayBerlin);
-        let precipMm = precipHourly;
-        if (dailyPrecip != null) precipMm = Math.max(precipMm, dailyPrecip);
-        if (currentPrecip != null) precipMm = Math.max(precipMm, currentPrecip);
-        if (precipMm < 0.05 && this._isPrecipWeatherCode(currentCode) && currentPrecip != null) {
-            precipMm = currentPrecip;
+        const precipSoFar = Math.max(
+            this._sumHourlyPrecipToday(times, hourlyPrecip, todayBerlin, true),
+            this._sumHourlyPrecipToday(times, hourlyRain, todayBerlin, true),
+        );
+        const precipCurrent = Math.max(currentPrecip ?? 0, currentRain ?? 0);
+        const precipForecast = Math.max(dailyPrecip ?? 0, dailyRain ?? 0);
+
+        let precipMm = precipSoFar;
+        if (this._isPrecipWeatherCode(currentCode) && precipCurrent > 0) {
+            precipMm = Math.max(precipMm, precipSoFar + precipCurrent);
+        }
+        if (precipMm < 0.05 && precipForecast > 0) {
+            precipMm = precipForecast;
         }
 
         const sunshineH = sunshineSec != null ? Math.round(sunshineSec / 3600 * 10) / 10 : null;
@@ -632,7 +650,10 @@ class KostalPikoAdapter extends utils.Adapter {
             weather  : weatherLabel,
             weatherCode: labelCode ?? weatherCode,
             tempMax  : tempMax != null ? Math.round(tempMax * 10) / 10 : null,
-            precipMm : precipMm != null ? Math.round(precipMm * 10) / 10 : null,
+            precipMm : this._formatPrecipMm(precipMm),
+            precipSoFar: this._formatPrecipMm(precipSoFar),
+            precipCurrent: this._formatPrecipMm(precipCurrent > 0 ? precipCurrent : null),
+            precipForecast: this._formatPrecipMm(precipForecast > 0 ? precipForecast : null),
             cloudPct : cloudAvg,
             source   : 'Open-Meteo',
             updatedAt: new Date().toISOString(),
@@ -2254,12 +2275,20 @@ ${rects}${xLabels}
         const dateNote = w.date === reportDateKey
             ? `Stand ${w.date}`
             : `Region ${w.place || w.plz} (aktuelle Vorhersage, Berichtstag: ${reportDateKey})`;
+        const precipParts = [];
+        if (w.precipMm != null) precipParts.push(`${w.precipMm} mm bisher`);
+        if (w.precipCurrent != null && w.precipCurrent > 0) {
+            precipParts.push(`aktuell ${w.precipCurrent} mm/h`);
+        }
+        if (w.precipForecast != null && w.precipForecast > 0) {
+            precipParts.push(`Prognose Tag ${w.precipForecast} mm`);
+        }
         const parts = [
             w.weather && `Bedingungen: ${w.weather}`,
             w.sunshineH != null && `Sonnenschein: ${w.sunshineH} h`,
             w.tempMax != null && `Max-Temp.: ${w.tempMax} °C`,
             w.cloudPct != null && `Bewölkung: ${w.cloudPct} %`,
-            w.precipMm != null && `Niederschlag: ${w.precipMm} mm`,
+            precipParts.length && `Niederschlag: ${precipParts.join(', ')}`,
         ].filter(Boolean);
         return `<div class="weather"><h3>🌤 Wetter (${this._escHtml(dateNote)})</h3>
 <p style="margin:0;">${this._escHtml(parts.join(' · '))}</p>
