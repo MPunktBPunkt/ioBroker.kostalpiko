@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.6.10-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
+[![Version](https://img.shields.io/badge/version-0.6.11-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)

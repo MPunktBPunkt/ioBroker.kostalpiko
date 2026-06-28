@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.10
+ * Version: 0.6.11
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.10';
+const ADAPTER_VERSION = '0.6.11';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -283,14 +283,27 @@ class KostalPikoAdapter extends utils.Adapter {
 
     // ─── Admin-Nachrichten (Verbindungstest) ────────────────────────────────────
 
+    _resolveMessageCommand(obj) {
+        let cmd = obj.command;
+        if (cmd === 'send') {
+            if (typeof obj.message === 'string') return obj.message;
+            if (obj.message && typeof obj.message === 'object' && obj.message.command) {
+                return obj.message.command;
+            }
+        }
+        return cmd;
+    }
+
     _onMessage(obj) {
         if (!obj) return;
+        const cmd = this._resolveMessageCommand(obj);
 
-        if (obj.command === 'testReportDaily' || obj.command === 'testReportWeekly' || obj.command === 'testReportMonthly') {
-            const kind = obj.command.replace('testReport', '').toLowerCase();
+        if (cmd === 'testReportDaily' || cmd === 'testReportWeekly' || cmd === 'testReportMonthly') {
+            const kind = cmd.replace('testReport', '').toLowerCase();
             const reply = (result, error) => {
-                this.sendTo(obj.from, obj.command, { result, error }, obj.callback);
+                this.sendTo(obj.from, cmd, { result, error }, obj.callback);
             };
+            this._log('INFO', `Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht angefordert`);
             if (!this._cfg.notifyEnabled) {
                 reply(null, 'Benachrichtigungen sind deaktiviert – bitte zuerst aktivieren und speichern.');
                 return;
@@ -313,7 +326,7 @@ class KostalPikoAdapter extends utils.Adapter {
             return;
         }
 
-        if (obj.command !== 'test') return;
+        if (cmd !== 'test') return;
         const { ip, port, user, password } = obj.message || {};
         const testIp   = (ip   || this._cfg.ip).trim();
         const testPort = parseInt(port) || this._cfg.port;
