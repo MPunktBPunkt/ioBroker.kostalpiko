@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.5';
+const ADAPTER_VERSION = '0.6.6';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -550,6 +550,21 @@ class KostalPikoAdapter extends utils.Adapter {
         return geo;
     }
 
+    _isPrecipWeatherCode(code) {
+        if (code == null) return false;
+        return (code >= 51 && code <= 67) || (code >= 71 && code <= 77) ||
+            (code >= 80 && code <= 82) || code >= 95;
+    }
+
+    _sumHourlyPrecipToday(times, values, todayBerlin) {
+        if (!times.length || !values.length) return 0;
+        let sum = 0;
+        times.forEach((t, i) => {
+            if (t.startsWith(todayBerlin) && values[i] != null) sum += values[i];
+        });
+        return sum;
+    }
+
     async _refreshWeather() {
         const plz = this._cfg.yieldPlz;
         if (!plz || !/^\d{5}$/.test(plz)) return;
@@ -559,7 +574,8 @@ class KostalPikoAdapter extends utils.Adapter {
             latitude : String(geo.lat),
             longitude: String(geo.lon),
             daily    : 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum',
-            hourly   : 'cloud_cover',
+            hourly   : 'cloud_cover,precipitation,weather_code',
+            current  : 'precipitation,weather_code',
             timezone : 'Europe/Berlin',
             forecast_days: '1',
         });
@@ -568,12 +584,16 @@ class KostalPikoAdapter extends utils.Adapter {
         const sunshineSec = fc.daily?.sunshine_duration?.[0];
         const weatherCode = fc.daily?.weather_code?.[0];
         const tempMax     = fc.daily?.temperature_2m_max?.[0];
-        const precip      = fc.daily?.precipitation_sum?.[0];
+        const dailyPrecip = fc.daily?.precipitation_sum?.[0];
+        const currentCode = fc.current?.weather_code;
+        const currentPrecip = fc.current?.precipitation;
 
-        let cloudAvg = null;
         const times = fc.hourly?.time || [];
         const clouds = fc.hourly?.cloud_cover || [];
+        const hourlyPrecip = fc.hourly?.precipitation || [];
         const todayBerlin = this._berlinDateKey();
+
+        let cloudAvg = null;
         if (times.length && clouds.length) {
             const dayClouds = [];
             times.forEach((t, i) => {
@@ -587,8 +607,21 @@ class KostalPikoAdapter extends utils.Adapter {
             }
         }
 
+        const precipHourly = this._sumHourlyPrecipToday(times, hourlyPrecip, todayBerlin);
+        let precipMm = precipHourly;
+        if (dailyPrecip != null) precipMm = Math.max(precipMm, dailyPrecip);
+        if (currentPrecip != null) precipMm = Math.max(precipMm, currentPrecip);
+        if (precipMm < 0.05 && this._isPrecipWeatherCode(currentCode) && currentPrecip != null) {
+            precipMm = currentPrecip;
+        }
+
         const sunshineH = sunshineSec != null ? Math.round(sunshineSec / 3600 * 10) / 10 : null;
-        const weatherLabel = this._weatherLabelFromMetrics(cloudAvg, sunshineH, weatherCode);
+        const labelCode = (currentCode != null && this._isPrecipWeatherCode(currentCode))
+            ? currentCode
+            : weatherCode;
+        const weatherLabel = this._isPrecipWeatherCode(labelCode)
+            ? this._wmoLabel(labelCode)
+            : this._weatherLabelFromMetrics(cloudAvg, sunshineH, weatherCode);
 
         this._lastWeather = {
             plz,
@@ -597,9 +630,9 @@ class KostalPikoAdapter extends utils.Adapter {
             date     : todayBerlin,
             sunshineH,
             weather  : weatherLabel,
-            weatherCode,
+            weatherCode: labelCode ?? weatherCode,
             tempMax  : tempMax != null ? Math.round(tempMax * 10) / 10 : null,
-            precipMm : precip != null ? Math.round(precip * 10) / 10 : null,
+            precipMm : precipMm != null ? Math.round(precipMm * 10) / 10 : null,
             cloudPct : cloudAvg,
             source   : 'Open-Meteo',
             updatedAt: new Date().toISOString(),

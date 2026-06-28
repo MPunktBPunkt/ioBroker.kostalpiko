@@ -104,12 +104,13 @@
       "sm": 3
     },
     "_btnTest": {
-      "type": "sendto",
+      "type": "sendTo",
       "label": "Verbindung testen",
       "command": "test",
       "jsonData": "{\"ip\": \"${data.ip}\", \"port\": ${data.port}, \"user\": \"${data.user}\", \"password\": \"${data.password}\"}",
       "sm": 12,
-      "variant": "outlined"
+      "variant": "outlined",
+      "showProcess": true
     },
     "_h2": {
       "type": "header",
@@ -519,27 +520,30 @@
       "hidden": "!data.notifyEnabled"
     },
     "_btnTestDaily": {
-      "type": "sendto",
+      "type": "sendTo",
       "label": "Test Tagesbericht senden",
       "command": "testReportDaily",
       "sm": 4,
       "variant": "outlined",
+      "showProcess": true,
       "hidden": "!data.notifyEnabled"
     },
     "_btnTestWeekly": {
-      "type": "sendto",
+      "type": "sendTo",
       "label": "Test Wochenbericht senden",
       "command": "testReportWeekly",
       "sm": 4,
       "variant": "outlined",
+      "showProcess": true,
       "hidden": "!data.notifyEnabled"
     },
     "_btnTestMonthly": {
-      "type": "sendto",
+      "type": "sendTo",
       "label": "Test Monatsbericht senden",
       "command": "testReportMonthly",
       "sm": 4,
       "variant": "outlined",
+      "showProcess": true,
       "hidden": "!data.notifyEnabled"
     }
   }
