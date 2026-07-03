@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.6.12-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
+[![Version](https://img.shields.io/badge/version-0.6.15-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org)
@@ -19,8 +19,8 @@ http://IOBROKER-IP:8093/     ← kostalpiko.1 (weitere Instanzen +1 Port)
 
 | Tab | Was du siehst |
 |---|---|
-| ⚡ **Daten** | Live AC/DC, Phasen, Wirkungsgrad, String-Werte, Wetter (unten) |
-| 📈 **Historie** | KPIs, Chart.js-Kurven, 15-min-Tabelle, String-Analyse |
+| ⚡ **Daten** | Live AC/DC, Phasen, Wirkungsgrad, String-Werte, **Vmpp-Temperatur**, Wetter (unten) |
+| 📈 **Historie** | KPIs, Chart.js-Kurven, 15-min-Tabelle, String-Analyse, **Temperaturverlauf** |
 | 📊 **Ertrag** | Monatstabelle Jahre × Monate, €/kWh, Export/Import, Jahresvergleich |
 | 🌐 **Nodes** | Alle ioBroker-States der Instanz |
 | 📄 **Logs** | Adapter-Log (Sync, PIKO-Abruf, Fehler) |
@@ -197,6 +197,19 @@ Empfehlung: einmal **Sync-All** pro WR, danach automatischer 15-min-Sync.
 ---
 
 ## Changelog
+
+### v0.6.15
+- Fix PIKO 5.5: kühle Module (MPP ≥ 97 %) werden nicht mehr als ungültig verworfen — Temperatur auch bei T &lt; T<sub>Luft</sub>
+
+### v0.6.14
+- Temperatur-Kacheln: °C immer anzeigen (absolut / eingeschränkt / ungültig)
+- ΔT String 1↔2 ab 50 W Stringleistung
+- Historie-Chart filtert Low-G-Ausreißer
+
+### v0.6.13
+- **Vmpp-basierte Modultemperatur** pro String (ioBroker-States, Daten-Tab, Historie-Chart)
+- Temperaturverlust, MPP-Ausnutzung, System-ΔT
+- Konzept: [`docs/KonzeptPikoTemperatur.md`](docs/KonzeptPikoTemperatur.md)
 
 **[GitHub Releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)**
 

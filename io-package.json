@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.12",
+    "version": "0.6.15",
     "news": {
       "0.1.0": {
         "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
@@ -94,6 +94,18 @@
       "0.3.20": {
         "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
         "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
+      },
+      "0.6.15": {
+        "de": "Fix PIKO 5.5: kühle Module (Vmpp ≥ STC) nicht mehr als ungültig verworfen — Temperatur auch bei T < T_Luft anzeigen",
+        "en": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient"
+      },
+      "0.6.14": {
+        "de": "Temperatur-Kacheln: °C immer anzeigen (absolut/eingeschränkt/ungültig); ΔT String 1↔2 ab 50 W Stringleistung; Historie-Chart filtert Low-G-Punkte",
+        "en": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points"
+      },
+      "0.6.13": {
+        "de": "NEU: Vmpp-basierte Modultemperatur pro String (States, Kacheln, Historie-Chart); Temperaturverlust und MPP-Ausnutzung; Konzept in docs/KonzeptPikoTemperatur.md",
+        "en": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md"
       },
       "0.6.12": {
         "de": "Berichte: Wetter-Archiv für Berichtstag; Fehlercode-Erklärungen (z. B. 240 Netzstörung); E-Mail-Tabellen mit Inline-Styles; Berichts-Kennung im Betreff (reportLabel)",

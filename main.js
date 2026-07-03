@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.11
+ * Version: 0.6.15
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -15,7 +15,7 @@ const url   = require('url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.12';
+const ADAPTER_VERSION = '0.6.15';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -74,6 +74,8 @@ const LIVE_INFLUX_STATES = [
     'pv.string2.voltage', 'pv.string2.current',
     'pv.string3.voltage', 'pv.string3.current',
     'dc.totalPower', 'efficiency.ratio', 'efficiency.expected',
+    'string1.tempEquivalentC', 'string2.tempEquivalentC', 'string3.tempEquivalentC',
+    'string1.tempLossW', 'string2.tempLossW', 'temperature.totalLossW',
     'weather.sunshineHours', 'weather.tempMax', 'weather.cloudCover', 'weather.precipitation',
 ];
 
@@ -86,6 +88,9 @@ const MODULE_PRESETS = {
         vmpp    : 29.5,
         vmppNoct: 26.5,
         impp    : 7.63,
+        betaVmpp: 0.0045,
+        betaPmax: 0.0045,
+        noct    : 46,
     },
     sw225mono: {
         name    : 'Solarworld SW 225 mono',
@@ -94,9 +99,90 @@ const MODULE_PRESETS = {
         vmpp    : 29.7,
         vmppNoct: 26.8,
         impp    : 7.63,
+        betaVmpp: 0.0043,
+        betaPmax: 0.0043,
+        noct    : 45,
     },
 };
 const VMPP_VOC_RATIO = 29.5 / 36.8; // typisch poly 225 Wp
+const DEFAULT_BETA_VMPP = 0.0045;
+
+// ─── Vmpp-basierte Modultemperatur (siehe docs/KonzeptPikoTemperatur.md) ───────
+function calcStringTemp(vString, nMod, vmppStc, betaVmpp) {
+    if (!vString || !nMod) return null;
+    const vmpp = vmppStc || 29.5;
+    const beta = Math.abs(betaVmpp || DEFAULT_BETA_VMPP);
+    const vmppMod = vString / nMod;
+    return Math.round((25 + (vmpp - vmppMod) / (vmpp * beta)) * 10) / 10;
+}
+
+function calcTempUncertainty(nMod, vmppStc, betaVmpp) {
+    const vmpp = vmppStc || 29.5;
+    const beta = Math.abs(betaVmpp || DEFAULT_BETA_VMPP);
+    const sigmaV    = 1 / nMod;
+    const sigmaBeta = 0.0002;
+    const sigmaVstc = vmpp * 0.005;
+    const s1 = Math.pow(sigmaV / (vmpp * beta), 2);
+    const s2 = Math.pow(sigmaBeta / (beta * beta), 2);
+    const s3 = Math.pow(sigmaVstc / (vmpp * beta), 2);
+    return Math.round(Math.sqrt(s1 + s2 + s3) * 10) / 10;
+}
+
+function isTempValidRelative(iString, imppString) {
+    return iString > 0 && imppString > 0 && (iString / imppString) > 0.10;
+}
+
+function isTempValidAbsolute(iString, imppString, tEquiv, tAmbient) {
+    const gSufficient = imppString > 0 && (iString / imppString) > 0.45;
+    const physPlaus   = tAmbient != null ? (tEquiv > tAmbient) : true;
+    return gSufficient && physPlaus;
+}
+
+/** Qualitätsstufe für Anzeige: absolute | limited | invalid */
+function getTempQuality(tempC, iString, imppString, pMeasured, tAmbient, validAbs, validRel, mppUtil) {
+    if (tempC === null || iString < 0.05) return 'invalid';
+
+    const coolModule = mppUtil != null && mppUtil >= 97; // Vmpp ≥ STC → Module kühl
+    const iFrac      = imppString > 0 ? iString / imppString : 0;
+    const hasSignal  = pMeasured >= 50
+        || (pMeasured >= 15 && iString >= 0.1)
+        || (coolModule && pMeasured >= 10 && iString >= 0.05);
+
+    if (!hasSignal) return 'invalid';
+
+    // Low-G-Artefakt: nur bei warmen Strings (Vmpp unter STC) + wenig Strom
+    const lowGArtifact = !coolModule
+        && tAmbient != null
+        && tempC < tAmbient - 2
+        && iFrac < 0.25;
+    if (lowGArtifact) return 'invalid';
+
+    if (validAbs) return 'absolute';
+    // Kühle Module (5.5-Dach): T < T_Luft ist plausibel → eingeschränkt anzeigen
+    if (pMeasured >= 50 || validRel || coolModule) return 'limited';
+    return 'invalid';
+}
+
+function calcTempLoss(pMeasured, tMod, betaPmax) {
+    if (!tMod || tMod <= 25 || !pMeasured) return 0;
+    return Math.round(pMeasured * (betaPmax || DEFAULT_BETA_VMPP) * (tMod - 25));
+}
+
+function calcMppUtilization(vString, nMod, vmppStc) {
+    if (!vString || !nMod || !vmppStc) return null;
+    return Math.round((vString / nMod) / vmppStc * 1000) / 10;
+}
+
+function getTempAlert(tMod) {
+    if (tMod === null || tMod === undefined) return 'UNBEKANNT';
+    if (tMod < 35) return 'NORMAL';
+    if (tMod < 50) return 'WARM';
+    if (tMod < 60) return 'HEISS';
+    if (tMod < 70) return 'WARNUNG';
+    return 'KRITISCH';
+}
+
+const TEMP_ALERT_RANK = { UNBEKANNT: -1, NORMAL: 0, WARM: 1, HEISS: 2, WARNUNG: 3, KRITISCH: 4 };
 
 // Kostal PIKO Grenzwerte laut Datenblatt (PIKO 4.2–10.1)
 const PIKO_SPECS = {
@@ -149,6 +235,8 @@ class KostalPikoAdapter extends utils.Adapter {
         this._weatherGeoCache    = null;
         this._weatherHistoryCache = new Map();
         this._instanceDisplayName = '';
+        this._tempLossKwhDay    = 0;
+        this._tempLossDayDate   = '';
 
         this.on('ready',       this._onReady.bind(this));
         this.on('stateChange', this._onStateChange.bind(this));
@@ -875,6 +963,103 @@ class KostalPikoAdapter extends utils.Adapter {
         }, { skipDerived: true });
     }
 
+    _calcTemperatureStates(data) {
+        const { wp, voc, vmpp, betaVmpp, betaPmax, impp } = this._getModuleParams();
+        if (!voc || !wp || !vmpp) return {};
+
+        const tAmbient    = this._lastWeather?.tempMax ?? null;
+        const stringCount = this._getStringCount();
+        const results     = {};
+        let totalLossW    = 0;
+        let hottestId     = '';
+        let hottestTemp   = -Infinity;
+        let worstAlert    = 'UNBEKANNT';
+
+        for (const s of [
+            { id: 1, count: this._cfg.string1Modules },
+            { id: 2, count: this._cfg.string2Modules },
+            { id: 3, count: this._cfg.string3Modules },
+        ]) {
+            if (!s.count || s.id > stringCount) continue;
+
+            const v         = parseFloat(data[`pv.string${s.id}.voltage`]) || 0;
+            const i         = parseFloat(data[`pv.string${s.id}.current`]) || 0;
+            const prefix    = `string${s.id}`;
+            const imppString = impp * s.count;
+            const pMeasured = v * i;
+            const tempC     = calcStringTemp(v, s.count, vmpp, betaVmpp);
+            const uncertainty = s.count ? calcTempUncertainty(s.count, vmpp, betaVmpp) : 0;
+            const validRel  = tempC !== null && isTempValidRelative(i, imppString);
+            const validAbs  = tempC !== null && isTempValidAbsolute(i, imppString, tempC, tAmbient);
+            const mppUtil   = calcMppUtilization(v, s.count, vmpp);
+            const quality   = getTempQuality(tempC, i, imppString, pMeasured, tAmbient, validAbs, validRel, mppUtil);
+            const deltaK    = tempC !== null ? Math.round((tempC - 25) * 10) / 10 : 0;
+            const lossW     = tempC !== null && quality !== 'invalid'
+                ? calcTempLoss(pMeasured, tempC, betaPmax) : 0;
+            const powerAt25 = tempC !== null && tempC > 25 && betaPmax > 0 && pMeasured > 0
+                ? Math.round(pMeasured / (1 - betaPmax * (tempC - 25)))
+                : Math.round(pMeasured);
+            const alert     = quality !== 'invalid' ? getTempAlert(tempC) : 'UNBEKANNT';
+            const vmppMod   = v && s.count ? Math.round(v / s.count * 10) / 10 : 0;
+            const qualityLabel = quality === 'absolute' ? 'ABSOLUT'
+                : quality === 'limited' ? 'EINGESCHRAENKT' : 'UNGUELTIG';
+
+            results[`${prefix}.vmppPerModule`]     = vmppMod;
+            results[`${prefix}.tempEquivalentC`]   = tempC !== null ? tempC : 0;
+            results[`${prefix}.tempQuality`]       = qualityLabel;
+            results[`${prefix}.tempValidRelative`] = validRel;
+            results[`${prefix}.tempValidAbsolute`] = validAbs;
+            results[`${prefix}.tempUncertaintyK`]  = uncertainty;
+            results[`${prefix}.tempDeltaK`]        = deltaK;
+            results[`${prefix}.tempLossW`]          = lossW;
+            results[`${prefix}.powerAt25C`]        = powerAt25;
+            results[`${prefix}.mppUtilization`]     = mppUtil !== null ? mppUtil : 0;
+            results[`${prefix}.tempAlert`]          = alert;
+
+            totalLossW += lossW;
+            if (quality !== 'invalid' && tempC !== null && tempC > hottestTemp) {
+                hottestTemp = tempC;
+                hottestId   = prefix;
+            }
+            if ((TEMP_ALERT_RANK[alert] ?? -1) > (TEMP_ALERT_RANK[worstAlert] ?? -1)) {
+                worstAlert = alert;
+            }
+        }
+
+        const s1q = results['string1.tempQuality'];
+        const s2q = results['string2.tempQuality'];
+        const s1p = (parseFloat(data['pv.string1.voltage']) || 0) * (parseFloat(data['pv.string1.current']) || 0);
+        const s2p = (parseFloat(data['pv.string2.voltage']) || 0) * (parseFloat(data['pv.string2.current']) || 0);
+        let deltaStrings = 0;
+        let deltaValid   = false;
+        if (s1q && s1q !== 'UNGUELTIG' && s2q && s2q !== 'UNGUELTIG' && s1p >= 50 && s2p >= 50) {
+            deltaStrings = Math.round(
+                ((results['string1.tempEquivalentC'] || 0) - (results['string2.tempEquivalentC'] || 0)) * 10
+            ) / 10;
+            deltaValid = true;
+        }
+
+        const today = new Date().toDateString();
+        if (this._tempLossDayDate !== today) {
+            this._tempLossDayDate = today;
+            this._tempLossKwhDay  = 0;
+        }
+        const acPower = parseFloat(data['ac.power']) || 0;
+        if (totalLossW > 0 && acPower >= 50) {
+            this._tempLossKwhDay += totalLossW * (this._cfg.pollInterval || 30) / 3600000;
+            this._tempLossKwhDay  = Math.round(this._tempLossKwhDay * 10000) / 10000;
+        }
+
+        results['temperature.deltaStrings']    = deltaStrings;
+        results['temperature.deltaValid']      = deltaValid;
+        results['temperature.totalLossW']        = totalLossW;
+        results['temperature.totalLossKwhDay']   = this._tempLossKwhDay || 0;
+        results['temperature.hottest']           = hottestId;
+        results['temperature.systemAlert']       = worstAlert;
+
+        return results;
+    }
+
     _calcDerivedStates(data) {
         const str = n => ({
             v: parseFloat(data[`pv.string${n}.voltage`]) || 0,
@@ -901,6 +1086,7 @@ class KostalPikoAdapter extends utils.Adapter {
             'dc.totalPower'      : dcTotal,
             'efficiency.ratio'   : ratio,
             'efficiency.expected': expected,
+            ...this._calcTemperatureStates(data),
         };
     }
 
@@ -2141,11 +2327,14 @@ class KostalPikoAdapter extends utils.Adapter {
         }
         if (!vmpp && voc) vmpp = Math.round(voc * VMPP_VOC_RATIO * 100) / 100;
         const vmppNoct = preset?.vmppNoct || (vmpp ? Math.round(vmpp * 0.898 * 100) / 100 : 0);
-        return { wp, voc, vmpp, vmppNoct, presetName: preset?.name || null };
+        const betaVmpp = preset?.betaVmpp ?? DEFAULT_BETA_VMPP;
+        const betaPmax = preset?.betaPmax ?? betaVmpp;
+        const impp     = preset?.impp ?? 7.63;
+        return { wp, voc, vmpp, vmppNoct, betaVmpp, betaPmax, impp, presetName: preset?.name || null };
     }
 
     _getStringAnalysisConfig() {
-        const { wp, voc, vmpp, vmppNoct } = this._getModuleParams();
+        const { wp, voc, vmpp, vmppNoct, betaVmpp, impp } = this._getModuleParams();
         if (!voc || !wp || !vmpp) return { enabled: false, strings: [] };
         const inv = this._getInverterSpecs();
         const strings = [];
@@ -2165,6 +2354,9 @@ class KostalPikoAdapter extends utils.Adapter {
                 expectedMpp     : Math.round(mppStc * 10) / 10,
                 expectedPower   : wp * s.count,
                 vmppPerModule   : vmpp,
+                vmppStc         : vmpp,
+                betaVmpp,
+                imppString      : Math.round(impp * s.count * 100) / 100,
                 mppMin          : Math.round(mppTypical * 0.88 * 10) / 10,
                 mppMax          : Math.round(mppStc * 1.06 * 10) / 10,
                 invDcMaxV       : inv.enabled ? inv.dcMaxV : null,
@@ -2174,7 +2366,47 @@ class KostalPikoAdapter extends utils.Adapter {
                 invDcMaxA       : inv.enabled ? inv.dcMaxA : null,
             });
         }
-        return { enabled: strings.length > 0, strings, vmpp, voc, preset: this._cfg.modulePreset, inverter: inv };
+        return { enabled: strings.length > 0, strings, vmpp, voc, betaVmpp, preset: this._cfg.modulePreset, inverter: inv };
+    }
+
+    _getTemperatureAnalysis() {
+        const cfg = this._getStringAnalysisConfig();
+        if (!cfg.enabled) return { enabled: false, strings: [], system: null };
+        const strings = cfg.strings.map(scfg => {
+            const prefix = `string${scfg.id}`;
+            const validRel = !!this._lastData[`${prefix}.tempValidRelative`];
+            const validAbs = !!this._lastData[`${prefix}.tempValidAbsolute`];
+            const tempRaw  = this._lastData[`${prefix}.tempEquivalentC`];
+            const quality  = this._lastData[`${prefix}.tempQuality`] || 'UNGUELTIG';
+            const usable   = quality !== 'UNGUELTIG' && tempRaw;
+            return {
+                id             : scfg.id,
+                modules        : scfg.modules,
+                vmppPerModule  : this._lastData[`${prefix}.vmppPerModule`] || 0,
+                tempC          : usable ? tempRaw : null,
+                tempQuality    : quality,
+                uncertainty    : this._lastData[`${prefix}.tempUncertaintyK`] ?? null,
+                validRelative  : validRel,
+                validAbsolute  : validAbs,
+                tempDeltaK     : this._lastData[`${prefix}.tempDeltaK`] ?? 0,
+                tempLossW      : this._lastData[`${prefix}.tempLossW`] ?? 0,
+                powerAt25C     : this._lastData[`${prefix}.powerAt25C`] ?? 0,
+                mppUtilization : this._lastData[`${prefix}.mppUtilization`] ?? 0,
+                alert          : this._lastData[`${prefix}.tempAlert`] || 'UNBEKANNT',
+            };
+        });
+        return {
+            enabled: strings.length > 0,
+            strings,
+            system : {
+                deltaStrings    : this._lastData['temperature.deltaStrings'] ?? 0,
+                deltaValid      : !!this._lastData['temperature.deltaValid'],
+                totalLossW      : this._lastData['temperature.totalLossW'] ?? 0,
+                totalLossKwhDay : this._lastData['temperature.totalLossKwhDay'] ?? 0,
+                hottest         : this._lastData['temperature.hottest'] || '',
+                systemAlert     : this._lastData['temperature.systemAlert'] || 'UNBEKANNT',
+            },
+        };
     }
 
     // ─── Modul-Analyse: Soll-Werte berechnen ────────────────────────────────────────
@@ -3028,6 +3260,46 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             { id:'string1.expectedPower',     type:'number',  role:'value.power',         name:'String 1 Soll-Leistung',      def:0, unit:'Wp' },
             { id:'string2.expectedPower',     type:'number',  role:'value.power',         name:'String 2 Soll-Leistung',      def:0, unit:'Wp' },
             { id:'string3.expectedPower',     type:'number',  role:'value.power',         name:'String 3 Soll-Leistung',      def:0, unit:'Wp' },
+            // Vmpp-basierte Modultemperatur (pro String)
+            { id:'string1.vmppPerModule',     type:'number',  role:'value.voltage',       name:'String 1 Vmpp/Modul (gemessen)', def:0, unit:'V' },
+            { id:'string1.tempEquivalentC',   type:'number',  role:'value.temperature',   name:'String 1 \u00e4quiv. Temperatur', def:0, unit:'\u00b0C' },
+            { id:'string1.tempQuality',       type:'string',  role:'text',                name:'String 1 Temp.-Qualit\u00e4t',    def:'UNGUELTIG' },
+            { id:'string1.tempValidRelative', type:'boolean', role:'indicator',           name:'String 1 Temp. relativ valide', def:false },
+            { id:'string1.tempValidAbsolute', type:'boolean', role:'indicator',           name:'String 1 Temp. absolut valide', def:false },
+            { id:'string1.tempUncertaintyK',  type:'number',  role:'value',               name:'String 1 Temp.-Unsicherheit',   def:0, unit:'K' },
+            { id:'string1.tempDeltaK',        type:'number',  role:'value',               name:'String 1 \u0394T \u00fcber STC', def:0, unit:'K' },
+            { id:'string1.tempLossW',         type:'number',  role:'value.power',         name:'String 1 Temperaturverlust',    def:0, unit:'W' },
+            { id:'string1.powerAt25C',        type:'number',  role:'value.power',         name:'String 1 \u00e4quiv. STC-Leistung', def:0, unit:'W' },
+            { id:'string1.mppUtilization',    type:'number',  role:'value',               name:'String 1 MPP-Ausnutzung',       def:0, unit:'%' },
+            { id:'string1.tempAlert',         type:'string',  role:'text',                name:'String 1 Temperatur-Status',    def:'UNBEKANNT' },
+            { id:'string2.vmppPerModule',     type:'number',  role:'value.voltage',       name:'String 2 Vmpp/Modul (gemessen)', def:0, unit:'V' },
+            { id:'string2.tempEquivalentC',   type:'number',  role:'value.temperature',   name:'String 2 \u00e4quiv. Temperatur', def:0, unit:'\u00b0C' },
+            { id:'string2.tempQuality',       type:'string',  role:'text',                name:'String 2 Temp.-Qualit\u00e4t',    def:'UNGUELTIG' },
+            { id:'string2.tempValidRelative', type:'boolean', role:'indicator',           name:'String 2 Temp. relativ valide', def:false },
+            { id:'string2.tempValidAbsolute', type:'boolean', role:'indicator',           name:'String 2 Temp. absolut valide', def:false },
+            { id:'string2.tempUncertaintyK',  type:'number',  role:'value',               name:'String 2 Temp.-Unsicherheit',   def:0, unit:'K' },
+            { id:'string2.tempDeltaK',        type:'number',  role:'value',               name:'String 2 \u0394T \u00fcber STC', def:0, unit:'K' },
+            { id:'string2.tempLossW',         type:'number',  role:'value.power',         name:'String 2 Temperaturverlust',    def:0, unit:'W' },
+            { id:'string2.powerAt25C',        type:'number',  role:'value.power',         name:'String 2 \u00e4quiv. STC-Leistung', def:0, unit:'W' },
+            { id:'string2.mppUtilization',    type:'number',  role:'value',               name:'String 2 MPP-Ausnutzung',       def:0, unit:'%' },
+            { id:'string2.tempAlert',         type:'string',  role:'text',                name:'String 2 Temperatur-Status',    def:'UNBEKANNT' },
+            { id:'string3.vmppPerModule',     type:'number',  role:'value.voltage',       name:'String 3 Vmpp/Modul (gemessen)', def:0, unit:'V' },
+            { id:'string3.tempEquivalentC',   type:'number',  role:'value.temperature',   name:'String 3 \u00e4quiv. Temperatur', def:0, unit:'\u00b0C' },
+            { id:'string3.tempQuality',       type:'string',  role:'text',                name:'String 3 Temp.-Qualit\u00e4t',    def:'UNGUELTIG' },
+            { id:'string3.tempValidRelative', type:'boolean', role:'indicator',           name:'String 3 Temp. relativ valide', def:false },
+            { id:'string3.tempValidAbsolute', type:'boolean', role:'indicator',           name:'String 3 Temp. absolut valide', def:false },
+            { id:'string3.tempUncertaintyK',  type:'number',  role:'value',               name:'String 3 Temp.-Unsicherheit',   def:0, unit:'K' },
+            { id:'string3.tempDeltaK',        type:'number',  role:'value',               name:'String 3 \u0394T \u00fcber STC', def:0, unit:'K' },
+            { id:'string3.tempLossW',         type:'number',  role:'value.power',         name:'String 3 Temperaturverlust',    def:0, unit:'W' },
+            { id:'string3.powerAt25C',        type:'number',  role:'value.power',         name:'String 3 \u00e4quiv. STC-Leistung', def:0, unit:'W' },
+            { id:'string3.mppUtilization',    type:'number',  role:'value',               name:'String 3 MPP-Ausnutzung',       def:0, unit:'%' },
+            { id:'string3.tempAlert',         type:'string',  role:'text',                name:'String 3 Temperatur-Status',    def:'UNBEKANNT' },
+            { id:'temperature.deltaStrings',  type:'number',  role:'value',               name:'\u0394T String 1 \u2194 2',     def:0, unit:'K' },
+            { id:'temperature.deltaValid',    type:'boolean', role:'indicator',           name:'\u0394T String 1\u21942 valide', def:false },
+            { id:'temperature.totalLossW',      type:'number',  role:'value.power',         name:'Temperaturverlust gesamt',      def:0, unit:'W' },
+            { id:'temperature.totalLossKwhDay', type:'number',  role:'value.energy',        name:'Temperaturverlust heute',       def:0, unit:'kWh' },
+            { id:'temperature.hottest',         type:'string',  role:'text',                name:'Hei\u00dfester String',         def:'' },
+            { id:'temperature.systemAlert',     type:'string',  role:'text',                name:'System-Temperatur-Status',      def:'UNBEKANNT' },
             { id:'dc.totalPower',             type:'number',  role:'value.power.active',  name:'DC-Gesamtleistung (berechnet)', def:0, unit:'W' },
             { id:'efficiency.ratio',          type:'number',  role:'value',               name:'Wirkungsgrad DC\u2192AC',     def:0, unit:'%' },
             { id:'efficiency.expected',       type:'number',  role:'value',               name:'Soll-Wirkungsgrad (temp.-korr.)', def:97, unit:'%' },
@@ -3110,12 +3382,13 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
 
             if (p === '/api/data') {
                 return this._json(res, {
-                    data           : this._lastData,
-                    nodes          : this._nodes,
-                    stringAnalysis : this._getStringAnalysisConfig(),
-                    inverterSpecs  : this._getInverterSpecs(),
-                    weather        : this._lastWeather,
-                    ts             : new Date().toISOString(),
+                    data               : this._lastData,
+                    nodes              : this._nodes,
+                    stringAnalysis     : this._getStringAnalysisConfig(),
+                    temperatureAnalysis: this._getTemperatureAnalysis(),
+                    inverterSpecs      : this._getInverterSpecs(),
+                    weather            : this._lastWeather,
+                    ts                 : new Date().toISOString(),
                 });
             }
             if (p === '/api/history') {
@@ -3135,8 +3408,9 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                     todayStale     : todayMeta.todayStale,
                     todayAgeMin    : todayMeta.ageMin,
                     loading        : this._historyLoading || false,
-                    stringAnalysis : this._getStringAnalysisConfig(),
-                    stringCount    : this._getStringCount(),
+                    stringAnalysis     : this._getStringAnalysisConfig(),
+                    temperatureAnalysis: this._getTemperatureAnalysis(),
+                    stringCount        : this._getStringCount(),
                     fromCache      : this._historyLoading && this._lastHistoryRows.length > 0,
                 });
             }
@@ -3417,6 +3691,18 @@ tr:hover td{background:rgba(255,255,255,.02)}
       Soll-MPP = Vmpp &times; Modulanzahl. Voc (Leerlauf) ist deutlich h&ouml;her und nur als Referenz.
     </div>
   </div>
+  <div class="card" id="temp-card" style="display:none">
+    <div class="ct"><span class="dot"></span>Modultemperatur (Vmpp-basiert)</div>
+    <div class="grid g3">
+      <div class="vc" id="temp-1" style="display:none"></div>
+      <div class="vc" id="temp-2" style="display:none"></div>
+      <div class="vc" id="temp-3" style="display:none"></div>
+    </div>
+    <div class="vc" id="temp-system" style="display:none;margin-top:8px"></div>
+    <div style="font-size:10px;color:var(--mut);margin-top:8px">
+      &Auml;quivalente Betriebstemperatur aus Stringspannung &mdash; keine physikalische Messung. Relativvergleich zwischen Strings ist am zuverl&auml;ssigsten.
+    </div>
+  </div>
 
   <div class="card">
     <div class="ct"><span class="dot"></span>Ausgangsleistung L1 / L2 / L3</div>
@@ -3528,6 +3814,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="chart-box">
       <div class="chart-title"><span>String-Spannungen</span></div>
       <div class="chart-wrap"><canvas id="chart-dc-voltage"></canvas></div>
+    </div>
+    <div class="chart-box" id="chart-temp-box" style="display:none">
+      <div class="chart-title"><span>Modultemperatur (Vmpp)</span></div>
+      <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
     </div>
     <div class="chart-box">
       <div class="chart-title"><span>Netz &amp; Frequenz</span></div>

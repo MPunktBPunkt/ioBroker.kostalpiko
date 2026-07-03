@@ -1,6 +1,7 @@
 (function(){
 var allLogs=[],allNodes={},allData={},histRows=[],histStringCfg={enabled:false,strings:[]};
 var liveStringCfg={enabled:false,strings:[]};
+var liveTempCfg={enabled:false,strings:[],system:null};
 var liveInvSpecs={enabled:false};
 var histLastCount=0,histStringCount=2;
 var chartInstances={};
@@ -105,6 +106,7 @@ window.loadData=function(){
   fetch(window.location.origin+'/api/data').then(function(r){return r.json()}).then(function(j){
     allData=j.data||{}; allNodes=j.nodes||{};
     liveStringCfg=j.stringAnalysis||{enabled:false,strings:[]};
+    liveTempCfg=j.temperatureAnalysis||{enabled:false,strings:[],system:null};
     liveInvSpecs=j.inverterSpecs||{enabled:false};
     var on=allData.online===1;
     document.getElementById('sdot').className='sd'+(on?' on':'');
@@ -133,6 +135,7 @@ window.loadData=function(){
     s('d-a1','info.analog1',2); s('d-a2','info.analog2',2); s('d-a3','info.analog3',2); s('d-a4','info.analog4',2);
     document.getElementById('d-modem').textContent=allData['info.modemStatus']||'--';
     renderStringAnalysis();
+    renderTemperatureAnalysis();
     renderInvSpecsCard(liveInvSpecs);
     renderWeatherCard(j.weather);
     document.getElementById('d-portal').textContent=allData['info.lastPortalConnection']||'--';
@@ -211,6 +214,54 @@ function voltStatus(voltage,cfg){
   else if(voltage<cfg.mppMin) label+=' unter Korridor';
   else label+=' über Korridor';
   return {pct:pct,label:label,color:color};
+}
+
+function tempColor(t){
+  if(t==null||isNaN(t)) return 'var(--mut)';
+  if(t<35) return '#3fb950';
+  if(t<50) return '#e3b341';
+  if(t<60) return '#f0883e';
+  if(t<70) return '#f85149';
+  return '#ff0000';
+}
+
+function tempAlertIcon(alert){
+  if(alert==='NORMAL') return '\ud83d\udfe2';
+  if(alert==='WARM') return '\ud83d\udfe1';
+  if(alert==='HEISS') return '\ud83d\udfe0';
+  if(alert==='WARNUNG') return '\ud83d\udd34';
+  if(alert==='KRITISCH') return '\u26d4';
+  return '\u2013';
+}
+
+function calcHistTemp(vString, modules, vmppStc, betaVmpp){
+  if(!vString||!modules||!vmppStc) return null;
+  var beta=Math.abs(betaVmpp||0.0045);
+  var vmppMod=vString/modules;
+  return Math.round((25+(vmppStc-vmppMod)/(vmppStc*beta))*10)/10;
+}
+
+function calcHistTempPoint(r, cfg, histCfg){
+  var d=r['dc'+cfg.id];
+  if(!d||!d.voltage||!d.current) return null;
+  var p=d.voltage*d.current;
+  if((r.acTotalPower||0)<50) return null;
+  var vmppStc=cfg.vmppStc||histCfg.vmpp;
+  var mppUtil=vmppStc?Math.round((d.voltage/cfg.modules)/vmppStc*1000)/10:null;
+  var coolModule=mppUtil!=null&&mppUtil>=97;
+  if(!coolModule&&p<50) return null;
+  if(coolModule&&p<10) return null;
+  var t=calcHistTemp(d.voltage,cfg.modules,vmppStc,cfg.betaVmpp||histCfg.betaVmpp);
+  if(t==null) return null;
+  var imppStr=cfg.imppString||0;
+  if(imppStr>0&&d.current/imppStr<0.01) return null;
+  return t;
+}
+
+function tempQualityLabel(q){
+  if(q==='ABSOLUT') return {text:'\u2713 absolut valide',color:'var(--grn)'};
+  if(q==='EINGESCHRAENKT') return {text:'~ eingeschr\u00e4nkt',color:'var(--orn)'};
+  return {text:'\u00d7 ung\u00fcltig',color:'var(--mut)'};
 }
 
 function invLimitWarnings(vMin,vMax,current,cfg){
@@ -381,6 +432,53 @@ function renderCharts(filtered,range){
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       scales:{x:tsOpt(navViewMode),y:valOpt('V','','#3fb950')}}
   });
+
+  var tempBox=document.getElementById('chart-temp-box');
+  if(tempBox){
+    if(!histStringCfg.enabled||!histStringCfg.strings.length){
+      tempBox.style.display='none';
+    } else {
+      tempBox.style.display='';
+      var prod=sorted.filter(function(r){return r.acTotalPower>=50;});
+      var tempDs=histStringCfg.strings.map(function(cfg,idx){
+        var colors=['#58a6ff','#3fb950','#a371f7'];
+        return {
+          label:'String '+cfg.id+' Temp.',
+          data:prod.map(function(r){
+            return {x:rowTs(r),y:calcHistTempPoint(r,cfg,histStringCfg)};
+          }),
+          borderColor:colors[idx%3],
+          backgroundColor:colors[idx%3]+'22',
+          fill:false,
+          yAxisID:'y',
+          spanGaps:true,
+          tension:0.15
+        };
+      });
+      tempDs.push({
+        label:'AC Leistung',
+        data:sorted.map(function(r){return {x:rowTs(r),y:r.acTotalPower||0};}),
+        borderColor:'#f6c90e88',
+        backgroundColor:'#f6c90e22',
+        fill:true,
+        yAxisID:'y2',
+        spanGaps:true
+      });
+      makeChart('chart-temp',{
+        type:'line',
+        data:{datasets:tempDs},
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          interaction:{mode:'index',intersect:false},
+          scales:{
+            x:tsOpt(navViewMode),
+            y:valOpt('\u00b0C','','#58a6ff'),
+            y2:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#f6c90e'},title:{display:true,text:'W',color:'#f6c90e'}}
+          }
+        }
+      });
+    }
+  }
 
   makeChart('chart-grid',{
     type:'line',
@@ -686,6 +784,66 @@ window.renderStringAnalysis=function(){
   var card=document.getElementById('sa-card');
   if(card) card.style.display=hasAny?'':'none';
 };
+
+window.renderTemperatureAnalysis=function(){
+  var cfg=liveTempCfg.enabled?liveTempCfg:{enabled:false,strings:[],system:null};
+  var card=document.getElementById('temp-card');
+  if(!card) return;
+  if(!cfg.enabled||!cfg.strings.length){
+    card.style.display='none';
+    return;
+  }
+  card.style.display='';
+  var hasAny=false;
+  cfg.strings.forEach(function(s){
+    var box=document.getElementById('temp-'+s.id);
+    if(!box) return;
+    hasAny=true;
+    box.style.display='';
+    var q=s.tempQuality||'UNGUELTIG';
+    var ql=tempQualityLabel(q);
+    var showTemp=(q!=='UNGUELTIG'&&s.tempC!=null);
+    var tempTxt=showTemp?s.tempC.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' \u00b0C':'--';
+    var tempStyle=showTemp?(q==='EINGESCHRAENKT'?'opacity:0.92;border-bottom:1px dashed var(--orn);display:inline-block':'opacity:1'):'opacity:0.5';
+    var unc=s.uncertainty!=null?'\u00b1 '+s.uncertainty.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' K':'';
+    var alertTxt=(showTemp&&s.alert&&s.alert!=='UNBEKANNT')?(tempAlertIcon(s.alert)+' '+s.alert):'';
+    box.innerHTML='<div class="vl">\ud83c\udf21 String '+s.id+' ('+s.modules+' Module)</div>'+
+      '<div style="font-size:10px;color:var(--mut);margin-top:2px">'+(s.vmppPerModule?s.vmppPerModule.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}):'--')+' V/Modul</div>'+
+      '<div style="font-size:18px;font-weight:700;margin:6px 0;color:'+(showTemp?tempColor(s.tempC):'var(--mut)')+'"><span style="'+tempStyle+'">'+tempTxt+'</span></div>'+
+      '<div style="font-size:10px;color:'+ql.color+'">'+unc+(unc?' \u00b7 ':'')+ql.text+'</div>'+
+      '<div style="font-size:10px;color:var(--mut);margin-top:2px">MPP-Nutzung: '+(s.mppUtilization?s.mppUtilization.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}):'--')+'% \u00b7 Verlust: '+(s.tempLossW||0)+' W</div>'+
+      (alertTxt?'<div style="font-size:10px;margin-top:2px">'+alertTxt+'</div>':'');
+  });
+  ['1','2','3'].forEach(function(n){
+    var found=false;
+    cfg.strings.forEach(function(s){if(String(s.id)===n) found=true;});
+    var box=document.getElementById('temp-'+n);
+    if(box&&!found) box.style.display='none';
+  });
+  var sys=document.getElementById('temp-system');
+  if(sys&&cfg.system){
+    sys.style.display='';
+    var dT=cfg.system.deltaStrings;
+    var dValid=cfg.system.deltaValid;
+    var dTxt=(dValid&&dT!=null)?(((dT>0?'+':'')+dT.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}))+' K'):'--';
+    var sysAlert=(cfg.system.systemAlert&&cfg.system.systemAlert!=='UNBEKANNT')?cfg.system.systemAlert:null;
+    sys.innerHTML='<div class="vl">System-Temperatur</div>'+
+      '<div style="font-size:12px;margin-top:4px">\u0394T String 1\u21942: <strong>'+dTxt+'</strong>'+(dValid&&qLimitedNote(cfg)?' <span style="color:var(--orn);font-size:10px">(eingeschr\u00e4nkt)</span>':'')+
+      ' \u00b7 Verlust heute: <strong>'+(cfg.system.totalLossKwhDay||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' kWh</strong> \u00b7 aktuell: <strong>'+(cfg.system.totalLossW||0)+' W</strong></div>'+
+      (sysAlert?'<div style="font-size:11px;margin-top:4px">'+tempAlertIcon(sysAlert)+' '+sysAlert+(cfg.system.hottest?' \u00b7 hei\u00dfester: '+cfg.system.hottest:'')+'</div>':'');
+  } else if(sys) {
+    sys.style.display='none';
+  }
+  if(!hasAny) card.style.display='none';
+};
+
+function qLimitedNote(cfg){
+  if(!cfg||!cfg.strings) return false;
+  for(var i=0;i<cfg.strings.length;i++){
+    if(cfg.strings[i].id<=2&&cfg.strings[i].tempQuality==='EINGESCHRAENKT') return true;
+  }
+  return false;
+}
 
 window.renderNodes=function(){
   var tb=document.getElementById('nTb'), keys=Object.keys(allNodes).sort();
