@@ -230,7 +230,6 @@
     ],
     "nodeProcessParams": [],
     "stopBeforeUpdate": true,
-    "allowInit": true,
     "supportCustoms": false,
     "supportMessages": true
   },
