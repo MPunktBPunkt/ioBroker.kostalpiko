@@ -18,7 +18,7 @@
     "url": "https://github.com/MPunktBPunkt/iobroker.kostalpiko"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "test": "echo 'Keine Tests definiert'",
