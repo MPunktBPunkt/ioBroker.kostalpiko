@@ -198,6 +198,10 @@ Empfehlung: einmal **Sync-All** pro WR, danach automatischer 15-min-Sync.
 
 ## Changelog
 
+
+### **WORK IN PROGRESS**
+- (ioBroker-Bot) Adapter requires js-controller >= 6.0.11 now.
+
 ### v0.6.15
 - Fix PIKO 5.5: kühle Module (MPP ≥ 97 %) werden nicht mehr als ungültig verworfen — Temperatur auch bei T &lt; T<sub>Luft</sub>
 
