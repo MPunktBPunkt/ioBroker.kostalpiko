@@ -12,8 +12,8 @@
  * Ausgabe: Markdown-Tabelle auf stdout, optional --csv datei.csv
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const MONTH_NAMES = [
     'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
