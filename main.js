@@ -7,11 +7,11 @@
  */
 
 const utils = require('@iobroker/adapter-core');
-const fs    = require('fs');
-const path  = require('path');
-const http  = require('http');
-const https = require('https');
-const url   = require('url');
+const fs    = require('node:fs');
+const path  = require('node:path');
+const http  = require('node:http');
+const https = require('node:https');
+const url   = require('node:url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
@@ -440,7 +440,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const testUser = (user || this._cfg.user).trim();
         const testPass = (password || this._cfg.password).trim();
 
-        const http = require('http');
+        const http = require('node:http');
         const auth = Buffer.from(`${testUser}:${testPass}`).toString('base64');
         const req  = http.request({
             hostname: testIp, port: testPort,

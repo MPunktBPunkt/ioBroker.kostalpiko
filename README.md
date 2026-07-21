@@ -219,6 +219,8 @@ Empfehlung: einmal **Sync-All** pro WR, danach automatischer 15-min-Sync.
 
 ---
 
+[Older changelogs can be found there](CHANGELOG_OLD.md)
+
 ## Spende
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
