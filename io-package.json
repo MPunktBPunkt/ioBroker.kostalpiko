@@ -1,200 +1,268 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.15",
+    "version": "0.6.16",
     "news": {
-      "0.1.0": {
-        "en": "Initial release – HTTP scraping of Kostal PIKO inverter",
-        "de": "Erstveröffentlichung – HTTP-Scraping des Kostal PIKO Wechselrichters"
-      },
-      "0.2.0": {
-        "de": "LogDaten.dat Parser: 15-min Messreihen mit korrektem Zeitstempel; InfluxDB-Integration via sendTo; History-Tab im Web-UI mit Sparklines; Deduplication-Cursor",
-        "en": "LogDaten.dat parser: 15-min time series with correct timestamps; InfluxDB integration via sendTo; History tab in Web-UI with sparklines; deduplication cursor"
-      },
-      "0.3.0": {
-        "de": "PIKO 5.5 Support: 3-String-Erkennung, \"x x x\" Offline-Muster, pv.string3 States; Unicode-Fix im JavaScript (Sonderzeichen als \\uXXXX); fetch-URLs absolut mit window.location.origin",
-        "en": "PIKO 5.5 support: auto-detect 2/3 strings, \"x x x\" offline pattern, pv.string3 states; Unicode escape fix in JavaScript; absolute fetch URLs via window.location.origin"
-      },
-      "0.3.1": {
-        "de": "Bugfix: \"x x x\" gilt fuer beide PIKO-Modelle als Offline-Muster; Energie-Zaehler (Gesamtenergie, Tagesenergie) werden auch im Offline-Zustand korrekt gelesen und nicht auf 0 gesetzt",
-        "en": "Bugfix: \"x x x\" offline pattern applies to both PIKO models; energy counters (total, daily) are always read correctly and not zeroed when inverter is offline"
-      },
-      "0.3.2": {
-        "de": "Bugfix: JavaScript als separate /app.js Route serviert statt Inline-Script - behebt Truncation-Problem bei langem HTML",
-        "en": "Bugfix: JavaScript served as separate /app.js route instead of inline script - fixes truncation issue with long HTML"
-      },
-      "0.3.3": {
-        "de": "Bugfix: app.js als echte Datei (admin/app.js) via fs.readFileSync - behebt SyntaxError durch falsche Backslash-Interpretation im Node.js Template-Literal",
-        "en": "Bugfix: app.js served from real file (admin/app.js) via fs.readFileSync - fixes SyntaxError caused by backslash misinterpretation in Node.js template literal"
-      },
-      "0.3.4": {
-        "de": "NEU: Netzwerk-Modus Lokal/Via fritzwireguard – Tunnel-Status wird vor jedem Poll geprueft, bei fehlendem Tunnel wird Poll uebersprungen und geloggt",
-        "en": "NEW: Network mode Local/Via fritzwireguard – tunnel status checked before each poll, poll skipped and logged when tunnel is inactive"
-      },
-      "0.3.5": {
-        "de": "Bugfix: Zellenreihenfolge im HTML-Parser korrigiert (String+Phase sind in derselben Tabellenzeile interleaved); device.model State; Modell-Anzeige im Web-UI dynamisch",
-        "en": "Bugfix: Fixed cell index order in HTML parser (String and L-phase cells are interleaved in same table row); device.model state; dynamic model name in Web-UI"
-      },
-      "0.3.6": {
-        "de": "NEU: Modul-Konfiguration (Wp, Voc, Anzahl pro String) – berechnet Soll-Stringspannung und Nennleistung; String-Analyse-Karte im Web-UI; Bugfix: akt.Zeit Regex robuster",
-        "en": "NEW: Module configuration (Wp, Voc, count per string) – calculates expected string voltage and nominal power; string analysis card in Web-UI; Bugfix: more robust akt.Zeit regex"
-      },
-      "0.3.7": {
-        "de": "NEU: Modell-Dropdown in den Einstellungen (PIKO 3.0–10.1) – ueberschreibt Auto-Erkennung der String-Anzahl; korrekte String-Anzahl laut offiziellem Datenblatt: 5.5=3 Strings, 8.3=2 Strings",
-        "en": "NEW: Model dropdown in settings (PIKO 3.0–10.1) – overrides auto-detection of string count; correct string counts per official datasheet: 5.5=3 strings, 8.3=2 strings"
-      },
-      "0.3.8": {
-        "de": "Bugfix: Speichern-Button im Admin war rot (required-Flag auf IP-Feld + fehlende sm-Angaben auf staticText-Elementen in jsonConfig)",
-        "en": "Bugfix: Save button in Admin was red (required flag on IP field + missing sm attributes on staticText elements in jsonConfig)"
-      },
-      "0.3.9": {
-        "de": "Bugfix: Passwortfeld verschwindet beim Antippen – encryptedNative gesetzt, kein Plaintext-Default mehr",
-        "en": "Bugfix: Password field disappears on tap – added encryptedNative, removed plaintext default"
-      },
-      "0.3.10": {
-        "de": "Bugfix: Speichern-Button rot beim Eintippen des Ports (min-Werte angepasst); NEU: Verbindungstest-Button in den Einstellungen",
-        "en": "Bugfix: Save button red while typing port (adjusted min values); NEW: Connection test button in settings"
-      },
-      "0.3.11": {
-        "de": "Bugfix: Passwortfeld type=text+inputType=password (verschwindet nicht mehr); supportMessages:true fuer Verbindungstest-Button; README Version korrigiert",
-        "en": "Bugfix: Password field type=text+inputType=password (no longer disappears); supportMessages:true for connection test button; README version fixed"
-      },
-      "0.3.12": {
-        "de": "Bugfix: encryptedNative entfernt (verursachte 401-Fehler durch kaputte Passwort-Dekodierung); default=pvwr wiederhergestellt; Auth-Debug-Log beim Start",
-        "en": "Bugfix: removed encryptedNative (caused 401 errors due to broken password decoding); restored default=pvwr; auth debug log on startup"
-      },
-      "0.3.13": {
-        "de": "Bugfix: History-Sync startet 3s nach Live-Poll (PIKO kann nur eine HTTP-Verbindung gleichzeitig); Auto-Retry nach 30s wenn PIKO \"service busy\" meldet; service-busy als WARN statt ERROR",
-        "en": "Bugfix: History-Sync starts 3s after live poll (PIKO handles only one HTTP connection at a time); auto-retry after 30s when PIKO reports service busy; service-busy logged as WARN not ERROR"
-      },
-      "0.3.14": {
-        "de": "NEU: Historie-Navigation mit Tag/Woche/Monat-Ansicht und Pfeil-Buttons; groesserer AC-Leistungs-Chart; Frequenz-Chart; Tabelle zeigt gefilterten Zeitraum",
-        "en": "NEW: History navigation with day/week/month view and arrow buttons; larger AC power chart; frequency chart; table shows filtered time range"
-      },
-      "0.3.15": {
-        "de": "NEU: Historiendaten und InfluxDB-Sync jetzt getrennt konfigurierbar – LogDaten.dat kann ohne InfluxDB geladen und im Web-UI angezeigt werden",
-        "en": "NEW: History fetch and InfluxDB sync now configurable separately – LogDaten.dat can be loaded and shown in Web-UI without InfluxDB"
-      },
-      "0.3.16": {
-        "de": "Bugfix: 200-Zeilen-Limit entfernt – alle ~6000 Datenpunkte werden geladen und nach Zeitraum gefiltert angezeigt",
-        "en": "Bugfix: removed 200-row limit – all ~6000 data points are loaded and displayed filtered by time range"
-      },
-      "0.3.17": {
-        "de": "NEU: Benachrichtigungen via Telegram/E-Mail/Pushover – taeglich (Sparkline-Diagramm), woechentlich (Tagesleistungen), monatlich (Monatsuebersicht), Alarm bei fehlenden Daten oder unter Schwellwert",
-        "en": "NEW: Notifications via Telegram/Email/Pushover – daily (sparkline chart), weekly (daily yields), monthly (month overview), alert for missing data or below threshold"
-      },
-      "0.3.18": {
-        "de": "Bugfix: Historie geht nach Neustart nicht verloren – Ladeindikator, Auto-Reload nach Sync; loading-Flag in API; Lizenz auf GPL-3.0",
-        "en": "Bugfix: History no longer lost after restart – loading indicator, auto-reload after sync; loading flag in API; license changed to GPL-3.0"
-      },
-      "0.3.19": {
-        "de": "Bugfix: Standard-Benachrichtigungsadapter E-Mail/email.0; drei separate Instanz-Felder je Adapter-Typ (kein manuelles Umschreiben mehr noetig)",
-        "en": "Bugfix: default notification adapter changed to email/email.0; three separate instance fields per adapter type (no manual update needed when switching)"
-      },
-      "0.3.20": {
-        "de": "Admin-UI: drei Instanz-Felder + SMTP-Hinweis; README E-Mail-Anleitung; Berichte erweitert (Erzeugungszeit, DC-Spitze, KW-Summen, Fehlercodes, kWh/kWp)",
-        "en": "Admin UI: three instance fields + SMTP hint; README email setup guide; enhanced reports (production time, DC peak, week stats, error codes, kWh/kWp)"
-      },
-      "0.6.15": {
-        "de": "Fix PIKO 5.5: kühle Module (Vmpp ≥ STC) nicht mehr als ungültig verworfen — Temperatur auch bei T < T_Luft anzeigen",
-        "en": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient"
-      },
-      "0.6.14": {
-        "de": "Temperatur-Kacheln: °C immer anzeigen (absolut/eingeschränkt/ungültig); ΔT String 1↔2 ab 50 W Stringleistung; Historie-Chart filtert Low-G-Punkte",
-        "en": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points"
-      },
-      "0.6.13": {
-        "de": "NEU: Vmpp-basierte Modultemperatur pro String (States, Kacheln, Historie-Chart); Temperaturverlust und MPP-Ausnutzung; Konzept in docs/KonzeptPikoTemperatur.md",
-        "en": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md"
-      },
-      "0.6.12": {
-        "de": "Berichte: Wetter-Archiv für Berichtstag; Fehlercode-Erklärungen (z. B. 240 Netzstörung); E-Mail-Tabellen mit Inline-Styles; Berichts-Kennung im Betreff (reportLabel)",
-        "en": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)"
-      },
-      "0.6.11": {
-        "de": "Bugfix: ioBroker-CLI sendet Testberichte als command send – wird korrekt erkannt",
-        "en": "Bugfix: ioBroker CLI test reports use command send – now handled correctly"
-      },
-      "0.6.10": {
-        "de": "Bugfix: Message-Handler für Testberichte und E-Mail-Versand registriert; package.json Version synchronisiert; Bericht-Timer pro Typ; E-Mail-Timeout",
-        "en": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout"
-      },
-      "0.6.8": {
-        "de": "Bugfix: Header size≤5 in jsonConfig (Test-Buttons); nur noch E-Mail-Benachrichtigungen (Telegram/Pushover entfernt)",
-        "en": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)"
-      },
-      "0.6.7": {
-        "de": "Bugfix: Passwortfeld type=password (jsonConfig gültig, Test-Buttons funktionieren); Niederschlag bisher/aktuell/Prognose getrennt",
-        "en": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast"
-      },
-      "0.6.6": {
-        "de": "Bugfix: sendTo-Buttons in Admin (Testberichte funktionieren); Niederschlag aus Stunden-/Aktualwerten statt nur Tagesprognose",
-        "en": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only"
-      },
-      "0.6.5": {
-        "de": "E-Mail-Berichte als HTML (DIN A4): Kurven Tagesbericht, Balken Wochenbericht, Tabelle Monatsbericht mit Vorjahresvergleich; Test-Buttons; mehrere Empfänger",
-        "en": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients"
-      },
-      "0.6.4": {
-        "de": "Nachhol-Abruf wenn Tages-Historie hängen bleibt; Wetter auf Daten-Tab nach unten; Button „Neu ab 05/2018“ entfernt",
-        "en": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button"
-      },
-      "0.6.3": {
-        "de": "Wetter-Text aus Bewölkung/Sonne statt WMO-Code; Ertragsberechnung: Duplikate entfernen, Zähler-Delta plausibilisieren, Auto-Werte löschen",
-        "en": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button"
-      },
-      "0.6.2": {
-        "de": "Ertrag: Backup-Wiederherstellung, Neu berechnen ab 05/2018, History-Zeitraum in UI; Script combine-yields.js für beide WR",
-        "en": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters"
-      },
-      "0.6.1": {
-        "de": "Bugfix: Historie wird nicht mehr durch abgeschnittene LogDaten.dat ersetzt – Merge nach Zeitstempel; Warnung im Historie-Tab wenn Tagesdaten veraltet wirken",
-        "en": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab"
-      },
-      "0.6.0": {
-        "de": "GPL-3.0; alle Live-Messwerte (DC-Strings, Wirkungsgrad, Wetter) als Datenpunkte + InfluxDB-Sync; History-Wirkungsgrad; README überarbeitet",
-        "en": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul"
+      "0.5.1": {
+        "de": "NEU: Jahres-Spalten hinzufügen/auffüllen, JSON/CSV Export & Import, Speicherort-Anzeige, Jahresvergleich als Balkendiagramm (MWh / kWh/kWp, Jahre umschaltbar)",
+        "en": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "ru": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "pt": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "nl": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "fr": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "it": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "es": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "pl": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "uk": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)",
+        "zh-cn": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)"
       },
       "0.5.2": {
         "de": "Gesamtertrag in kWh; volle PLZ (87781) für Wetter/Sonnenstunden auf Daten-Tab; doppelte WR-Grenzwerte auf Historie-Tab entfernt",
-        "en": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab"
+        "en": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "ru": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "pt": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "nl": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "fr": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "it": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "es": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "pl": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "uk": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab",
+        "zh-cn": "Total yield in kWh; full postal code for weather/sunshine on data tab; removed duplicate inverter limits on history tab"
       },
-      "0.5.1": {
-        "de": "NEU: Jahres-Spalten hinzufügen/auffüllen, JSON/CSV Export & Import, Speicherort-Anzeige, Jahresvergleich als Balkendiagramm (MWh / kWh/kWp, Jahre umschaltbar)",
-        "en": "NEW: Add/fill year columns, JSON/CSV export & import, storage path display, year comparison bar chart (MWh / kWh/kWp, toggleable years)"
+      "0.6.0": {
+        "de": "GPL-3.0; alle Live-Messwerte (DC-Strings, Wirkungsgrad, Wetter) als Datenpunkte + InfluxDB-Sync; History-Wirkungsgrad; README überarbeitet",
+        "en": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "ru": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "pt": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "nl": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "fr": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "it": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "es": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "pl": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "uk": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul",
+        "zh-cn": "GPL-3.0; all live values (DC strings, efficiency, weather) as states + InfluxDB sync; history efficiency; README overhaul"
       },
-      "0.5.0": {
-        "de": "NEU: Tab „Ertrag“ – Monatstabelle (Jahre × Monate) mit manueller Eingabe historischer Wh-Werte, automatischer Berechnung aus Historie, €-Ertrag und kWh/kWp; persistent in monthly-yields.json",
-        "en": "NEW: Yield tab – monthly table (years × months) with manual historical Wh entry, auto calculation from history, € revenue and kWh/kWp; persisted in monthly-yields.json"
+      "0.6.1": {
+        "de": "Bugfix: Historie wird nicht mehr durch abgeschnittene LogDaten.dat ersetzt – Merge nach Zeitstempel; Warnung im Historie-Tab wenn Tagesdaten veraltet wirken",
+        "en": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "ru": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "pt": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "nl": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "fr": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "it": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "es": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "pl": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "uk": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab",
+        "zh-cn": "Bugfix: history no longer replaced by truncated LogDaten.dat – merge by timestamp; stale-day warning on history tab"
       },
-      "0.4.3": {
-        "de": "Bugfix: Keine falschen Rot-Warnungen mehr bei U unter MPP-Min (Nennleistungsbereich, kein Grenzwert); nur echte Sicherheitsverstöße Udc/I",
-        "en": "Bugfix: no false red warnings for U below MPP-Min (nominal power range, not a safety limit); only real Udc/I violations"
+      "0.6.2": {
+        "de": "Ertrag: Backup-Wiederherstellung, Neu berechnen ab 05/2018, History-Zeitraum in UI; Script combine-yields.js für beide WR",
+        "en": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "ru": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "pt": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "nl": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "fr": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "it": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "es": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "pl": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "uk": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters",
+        "zh-cn": "Yield: backup restore, rebuild from May 2018, history range in UI; combine-yields.js script for both inverters"
       },
-      "0.4.2": {
-        "de": "Bugfix: Historie wird nicht mehr durch unvollständige LogDaten.dat ersetzt (5650→1); Backup-Cache (.bak); Kostal-Datenblatt-Grenzwerte (U/I, MPP, Netz DE) in String-Analyse und Web-UI",
-        "en": "Bugfix: history no longer replaced by incomplete LogDaten.dat (5650→1); backup cache (.bak); Kostal datasheet limits (U/I, MPP, grid DE) in string analysis and Web-UI"
+      "0.6.3": {
+        "de": "Wetter-Text aus Bewölkung/Sonne statt WMO-Code; Ertragsberechnung: Duplikate entfernen, Zähler-Delta plausibilisieren, Auto-Werte löschen",
+        "en": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "ru": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "pt": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "nl": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "fr": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "it": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "es": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "pl": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "uk": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button",
+        "zh-cn": "Weather label from cloud/sunshine; yield calc: dedupe cache, plausibility checks, clear auto values button"
       },
-      "0.4.1": {
-        "de": "Bugfix: String-Analyse nutzt Vmpp statt Voc fuer MPP-Korridor (kein falscher Rot-Status mehr); Modul-Vorlage Solarworld 225 poly/mono; Feld Vmpp ergänzt",
-        "en": "Bugfix: string analysis uses Vmpp instead of Voc for MPP corridor (no false red status); Solarworld 225 poly/mono preset; added Vmpp field"
+      "0.6.4": {
+        "de": "Nachhol-Abruf wenn Tages-Historie hängen bleibt; Wetter auf Daten-Tab nach unten; Button „Neu ab 05/2018“ entfernt",
+        "en": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "ru": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "pt": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "nl": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "fr": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "it": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "es": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "pl": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "uk": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button",
+        "zh-cn": "Catch-up fetch when today's history stalls; weather card moved down on data tab; removed rebuild-from-2018 button"
       },
-      "0.4.0": {
-        "de": "NEU: Chart.js Engineer-Dashboard im Historie-Tab (KPIs, interaktive Charts, DC3, Energie-Zaehler); Bugfix: DC3 + history.energy.total fehlten in InfluxDB; Live-Sync energy.today/total/ac.power; History-Cache ueberlebt Neustart; Lizenz auf persoenliche Nutzung umgestellt",
-        "en": "NEW: Chart.js engineer dashboard in History tab (KPIs, interactive charts, DC3, energy counter); Bugfix: DC3 + history.energy.total missing in InfluxDB; live sync energy.today/total/ac.power; history cache survives restart; license changed to personal private use"
+      "0.6.5": {
+        "de": "E-Mail-Berichte als HTML (DIN A4): Kurven Tagesbericht, Balken Wochenbericht, Tabelle Monatsbericht mit Vorjahresvergleich; Test-Buttons; mehrere Empfänger",
+        "en": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "ru": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "pt": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "nl": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "fr": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "it": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "es": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "pl": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "uk": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients",
+        "zh-cn": "HTML email reports (A4): curves daily, bars weekly, table monthly with year comparison; test buttons; multiple recipients"
       },
-      "0.3.21": {
-        "de": "Historie-Tab: Nav-Reset-Bug behoben; Button-Erklaerungen; String-Analyse mit MPP-Korridor in Charts und Tabelle",
-        "en": "History tab: nav reset bug fixed; button explanations; string analysis with MPP corridor in charts and table"
+      "0.6.6": {
+        "de": "Bugfix: sendTo-Buttons in Admin (Testberichte funktionieren); Niederschlag aus Stunden-/Aktualwerten statt nur Tagesprognose",
+        "en": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "ru": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "pt": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "nl": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "fr": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "it": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "es": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "pl": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "uk": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only",
+        "zh-cn": "Bugfix: sendTo admin buttons (test reports work); precipitation from hourly/current values not daily forecast only"
+      },
+      "0.6.7": {
+        "de": "Bugfix: Passwortfeld type=password (jsonConfig gültig, Test-Buttons funktionieren); Niederschlag bisher/aktuell/Prognose getrennt",
+        "en": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "ru": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "pt": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "nl": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "fr": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "it": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "es": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "pl": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "uk": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast",
+        "zh-cn": "Bugfix: password field type=password (valid jsonConfig, test buttons work); precipitation split into so-far/current/forecast"
+      },
+      "0.6.8": {
+        "de": "Bugfix: Header size≤5 in jsonConfig (Test-Buttons); nur noch E-Mail-Benachrichtigungen (Telegram/Pushover entfernt)",
+        "en": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "ru": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "pt": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "nl": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "fr": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "it": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "es": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "pl": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "uk": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)",
+        "zh-cn": "Bugfix: header size≤5 in jsonConfig (test buttons); email-only notifications (telegram/pushover removed)"
+      },
+      "0.6.10": {
+        "de": "Bugfix: Message-Handler für Testberichte und E-Mail-Versand registriert; package.json Version synchronisiert; Bericht-Timer pro Typ; E-Mail-Timeout",
+        "en": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "ru": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "pt": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "nl": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "fr": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "it": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "es": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "pl": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "uk": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout",
+        "zh-cn": "Bugfix: message handler registered for test reports and email; package.json version synced; per-type report timer; email timeout"
+      },
+      "0.6.11": {
+        "de": "Bugfix: ioBroker-CLI sendet Testberichte als command send – wird korrekt erkannt",
+        "en": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "ru": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "pt": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "nl": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "fr": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "it": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "es": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "pl": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "uk": "Bugfix: ioBroker CLI test reports use command send – now handled correctly",
+        "zh-cn": "Bugfix: ioBroker CLI test reports use command send – now handled correctly"
+      },
+      "0.6.12": {
+        "de": "Berichte: Wetter-Archiv für Berichtstag; Fehlercode-Erklärungen (z. B. 240 Netzstörung); E-Mail-Tabellen mit Inline-Styles; Berichts-Kennung im Betreff (reportLabel)",
+        "en": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "ru": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "pt": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "nl": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "fr": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "it": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "es": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "pl": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "uk": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)",
+        "zh-cn": "Reports: weather archive for report day; error code hints (e.g. 240 grid disturbance); email tables with inline styles; report label in subject (reportLabel)"
+      },
+      "0.6.13": {
+        "de": "NEU: Vmpp-basierte Modultemperatur pro String (States, Kacheln, Historie-Chart); Temperaturverlust und MPP-Ausnutzung; Konzept in docs/KonzeptPikoTemperatur.md",
+        "en": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "ru": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "pt": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "nl": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "fr": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "it": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "es": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "pl": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "uk": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md",
+        "zh-cn": "NEW: Vmpp-based module temperature per string (states, tiles, history chart); temperature loss and MPP utilization; concept doc in docs/KonzeptPikoTemperatur.md"
+      },
+      "0.6.14": {
+        "de": "Temperatur-Kacheln: °C immer anzeigen (absolut/eingeschränkt/ungültig); ΔT String 1↔2 ab 50 W Stringleistung; Historie-Chart filtert Low-G-Punkte",
+        "en": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "ru": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "pt": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "nl": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "fr": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "it": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "es": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "pl": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "uk": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points",
+        "zh-cn": "Temperature tiles: always show °C (absolute/limited/invalid); delta-T S1↔S2 from 50 W string power; history chart filters low-G points"
+      },
+      "0.6.15": {
+        "de": "Fix PIKO 5.5: kühle Module (Vmpp ≥ STC) nicht mehr als ungültig verworfen — Temperatur auch bei T < T_Luft anzeigen",
+        "en": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "ru": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "pt": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "nl": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "fr": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "it": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "es": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "pl": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "uk": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient",
+        "zh-cn": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient"
+      },
+      "0.6.16": {
+        "de": "Repo-Checker: Objektstruktur, CI-Tests, io-package-Schema, Adapter-Timer",
+        "en": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "ru": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "pt": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "nl": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "fr": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "it": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "es": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "pl": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "uk": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "zh-cn": "Repo checker: object structure, CI tests, io-package schema, adapter timers"
       }
     },
     "titleLang": {
       "de": "Kostal PIKO Wechselrichter",
-      "en": "Kostal PIKO Inverter"
+      "en": "Kostal PIKO Inverter",
+      "ru": "Kostal PIKO Inverter",
+      "pt": "Kostal PIKO Inverter",
+      "nl": "Kostal PIKO Inverter",
+      "fr": "Kostal PIKO Inverter",
+      "it": "Kostal PIKO Inverter",
+      "es": "Kostal PIKO Inverter",
+      "pl": "Kostal PIKO Inverter",
+      "uk": "Kostal PIKO Inverter",
+      "zh-cn": "Kostal PIKO Inverter"
     },
     "desc": {
       "de": "Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping.",
-      "en": "Reads real-time and history data from Kostal PIKO inverter via HTTP scraping."
+      "en": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "ru": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "pt": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "nl": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "fr": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "it": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "es": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "pl": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "uk": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
+      "zh-cn": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping."
     },
     "authors": [
       "MPunktBPunkt"
@@ -209,7 +277,7 @@
     ],
     "licenseInformation": {
       "type": "free",
-      "license": "GPL-3.0"
+      "license": "GPL-3.0-only"
     },
     "icon": "admin/kostal-piko-icon.svg",
     "type": "general",
@@ -233,12 +301,16 @@
     "nodeProcessParams": [],
     "stopBeforeUpdate": true,
     "supportCustoms": false,
-    "supportMessages": true,
     "globalDependencies": [
       {
         "admin": ">=7.8.23"
       }
-    ]
+    ],
+    "extIcon": "admin/kostal-piko-icon.svg",
+    "compact": false,
+    "supportedMessages": {
+      "custom": true
+    }
   },
   "native": {
     "ip": "192.168.178.30",
@@ -288,7 +360,159 @@
       "_id": "info",
       "type": "channel",
       "common": {
-        "name": "Adapter-Informationen"
+        "name": "info"
+      },
+      "native": {}
+    },
+    {
+      "_id": "ac",
+      "type": "channel",
+      "common": {
+        "name": "ac"
+      },
+      "native": {}
+    },
+    {
+      "_id": "ac.l1",
+      "type": "channel",
+      "common": {
+        "name": "ac.l1"
+      },
+      "native": {}
+    },
+    {
+      "_id": "ac.l2",
+      "type": "channel",
+      "common": {
+        "name": "ac.l2"
+      },
+      "native": {}
+    },
+    {
+      "_id": "ac.l3",
+      "type": "channel",
+      "common": {
+        "name": "ac.l3"
+      },
+      "native": {}
+    },
+    {
+      "_id": "energy",
+      "type": "channel",
+      "common": {
+        "name": "energy"
+      },
+      "native": {}
+    },
+    {
+      "_id": "pv",
+      "type": "channel",
+      "common": {
+        "name": "pv"
+      },
+      "native": {}
+    },
+    {
+      "_id": "pv.string1",
+      "type": "channel",
+      "common": {
+        "name": "pv.string1"
+      },
+      "native": {}
+    },
+    {
+      "_id": "pv.string2",
+      "type": "channel",
+      "common": {
+        "name": "pv.string2"
+      },
+      "native": {}
+    },
+    {
+      "_id": "pv.string3",
+      "type": "channel",
+      "common": {
+        "name": "pv.string3"
+      },
+      "native": {}
+    },
+    {
+      "_id": "device",
+      "type": "channel",
+      "common": {
+        "name": "device"
+      },
+      "native": {}
+    },
+    {
+      "_id": "string1",
+      "type": "channel",
+      "common": {
+        "name": "string1"
+      },
+      "native": {}
+    },
+    {
+      "_id": "string2",
+      "type": "channel",
+      "common": {
+        "name": "string2"
+      },
+      "native": {}
+    },
+    {
+      "_id": "string3",
+      "type": "channel",
+      "common": {
+        "name": "string3"
+      },
+      "native": {}
+    },
+    {
+      "_id": "temperature",
+      "type": "channel",
+      "common": {
+        "name": "temperature"
+      },
+      "native": {}
+    },
+    {
+      "_id": "dc",
+      "type": "channel",
+      "common": {
+        "name": "dc"
+      },
+      "native": {}
+    },
+    {
+      "_id": "efficiency",
+      "type": "channel",
+      "common": {
+        "name": "efficiency"
+      },
+      "native": {}
+    },
+    {
+      "_id": "weather",
+      "type": "channel",
+      "common": {
+        "name": "weather"
+      },
+      "native": {}
+    },
+    {
+      "_id": "history",
+      "type": "channel",
+      "common": {
+        "name": "history"
+      },
+      "native": {}
+    },
+    {
+      "_id": "rs485",
+      "type": "channel",
+      "common": {
+        "name": "rs485"
       },
       "native": {}
     },
@@ -318,5 +542,11 @@
       },
       "native": {}
     }
+  ],
+  "protectedNative": [
+    "password"
+  ],
+  "encryptedNative": [
+    "password"
   ]
 }
