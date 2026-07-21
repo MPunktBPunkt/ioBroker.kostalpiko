@@ -216,7 +216,6 @@
     "type": "general",
     "mode": "daemon",
     "platform": "Javascript/Node.js",
-    "main": "main.js",
     "enabled": true,
     "readme": "https://github.com/MPunktBPunkt/iobroker.kostalpiko/blob/main/README.md",
     "loglevel": "info",
