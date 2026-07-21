@@ -188,7 +188,6 @@
         "en": "History tab: nav reset bug fixed; button explanations; string analysis with MPP corridor in charts and table"
       }
     },
-    "title": "Kostal PIKO",
     "titleLang": {
       "de": "Kostal PIKO Wechselrichter",
       "en": "Kostal PIKO Inverter"
@@ -208,15 +207,18 @@
       "photovoltaik",
       "wechselrichter"
     ],
-    "license": "GPL-3.0",
+    "licenseInformation": {
+      "type": "free",
+      "license": "GPL-3.0"
+    },
     "icon": "admin/kostal-piko-icon.svg",
     "type": "general",
     "mode": "daemon",
     "platform": "Javascript/Node.js",
-    "main": "main.js",
     "enabled": true,
     "readme": "https://github.com/MPunktBPunkt/iobroker.kostalpiko/blob/main/README.md",
     "loglevel": "info",
+    "tier": 2,
     "messagebox": false,
     "connectionType": "local",
     "dataSource": "poll",
@@ -225,12 +227,11 @@
     },
     "dependencies": [
       {
-        "js-controller": ">=3.0.0"
+        "js-controller": ">=6.0.11"
       }
     ],
     "nodeProcessParams": [],
     "stopBeforeUpdate": true,
-    "allowInit": true,
     "supportCustoms": false,
     "supportMessages": true
   },
