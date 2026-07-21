@@ -217,6 +217,7 @@
     "enabled": true,
     "readme": "https://github.com/MPunktBPunkt/iobroker.kostalpiko/blob/main/README.md",
     "loglevel": "info",
+    "tier": 2,
     "messagebox": false,
     "connectionType": "local",
     "dataSource": "poll",
