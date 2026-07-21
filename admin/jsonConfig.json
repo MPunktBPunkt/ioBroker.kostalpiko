@@ -45,7 +45,11 @@
         }
       ],
       "default": "auto",
-      "sm": 5
+      "sm": 5,
+      "xs": 12,
+      "md": 5,
+      "lg": 5,
+      "xl": 5
     },
     "_h_network": {
       "type": "header",
@@ -67,7 +71,11 @@
         }
       ],
       "default": "local",
-      "sm": 6
+      "sm": 6,
+      "xs": 12,
+      "md": 6,
+      "lg": 6,
+      "xl": 6
     },
     "fritzwgInstance": {
       "type": "text",
@@ -75,7 +83,11 @@
       "help": "Name der fritzwireguard Adapter-Instanz, z. B. fritzwireguard.0",
       "default": "fritzwireguard.0",
       "sm": 4,
-      "hidden": "data.networkMode !== 'fritzwireguard'"
+      "hidden": "data.networkMode !== 'fritzwireguard'",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "fritzwgConnectedState": {
       "type": "text",
@@ -84,14 +96,22 @@
       "placeholder": "z. B. fritzwireguard.0.info.connection",
       "default": "",
       "sm": 8,
-      "hidden": "data.networkMode !== 'fritzwireguard'"
+      "hidden": "data.networkMode !== 'fritzwireguard'",
+      "xs": 12,
+      "md": 8,
+      "lg": 8,
+      "xl": 8
     },
     "ip": {
       "type": "text",
       "label": "IP-Adresse des Wechselrichters",
       "help": "z. B. 192.168.178.30",
       "default": "192.168.178.30",
-      "sm": 6
+      "sm": 6,
+      "xs": 12,
+      "md": 6,
+      "lg": 6,
+      "xl": 6
     },
     "port": {
       "type": "number",
@@ -100,7 +120,11 @@
       "default": 80,
       "min": 1,
       "max": 65535,
-      "sm": 3
+      "sm": 3,
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "_btnTest": {
       "type": "sendTo",
@@ -109,7 +133,11 @@
       "jsonData": "{\"ip\": \"${data.ip}\", \"port\": ${data.port}, \"user\": \"${data.user}\", \"password\": \"${data.password}\"}",
       "sm": 12,
       "variant": "outlined",
-      "showProcess": true
+      "showProcess": true,
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "_h2": {
       "type": "header",
@@ -121,14 +149,22 @@
       "label": "Benutzername",
       "help": "Standard: pvserver",
       "default": "pvserver",
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "password": {
       "type": "password",
       "label": "Passwort",
       "help": "HTTP Basic Auth Passwort des PIKO-Webservers (Standard: pvwr)",
       "default": "pvwr",
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "_h3": {
       "type": "header",
@@ -142,7 +178,11 @@
       "default": 30,
       "min": 1,
       "max": 3600,
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "_h4": {
       "type": "header",
@@ -152,14 +192,22 @@
     "_info4": {
       "type": "staticText",
       "text": "Die LogDaten.dat enthält 15-Minuten-Messreihen der letzten ~6 Monate. Der Adapter lädt diese Datei automatisch in dem unten angegebenen Intervall, berechnet die echten Messzeitpunkte und überträgt neue Datenpunkte an InfluxDB. Die InfluxDB-Verbindung (Host, Port, Datenbank, Token) wird im ioBroker-Admin unter 'Adapter → InfluxDB' konfiguriert – nicht hier.",
-      "sm": 12
+      "sm": 12,
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "historyFetch": {
       "type": "checkbox",
       "label": "Historiendaten laden (LogDaten.dat)",
       "help": "Lädt die Messdaten der letzten ~6 Monate vom PIKO und zeigt sie im Web-UI an. Kein InfluxDB nötig.",
       "default": false,
-      "sm": 12
+      "sm": 12,
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "influxSync": {
       "type": "checkbox",
@@ -167,7 +215,11 @@
       "help": "Sendet die Historiendaten zusätzlich an InfluxDB für Langzeitauswertungen. Nur sinnvoll wenn InfluxDB-Adapter installiert ist.",
       "default": false,
       "sm": 12,
-      "hidden": "!data.historyFetch"
+      "hidden": "!data.historyFetch",
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "syncInterval": {
       "type": "number",
@@ -176,14 +228,22 @@
       "default": 15,
       "min": 1,
       "max": 1440,
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "influxInstance": {
       "type": "text",
       "label": "InfluxDB Adapter-Instanz",
       "help": "Name der installierten InfluxDB-Instanz in ioBroker. Verbindungsdaten (Host, Port, DB, Token) werden dort konfiguriert.",
       "default": "influxdb.0",
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "_h5": {
       "type": "header",
@@ -197,7 +257,11 @@
       "default": 8092,
       "min": 1,
       "max": 65535,
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "_h6": {
       "type": "header",
@@ -212,19 +276,36 @@
     "_info_modules": {
       "type": "staticText",
       "text": "Optionale Angaben für die String-Analyse. Spannungs-Korridor basiert auf Vmpp (Betrieb), nicht Voc (Leerlauf). Vorlage wählen oder Werte manuell eintragen.",
-      "sm": 12
+      "sm": 12,
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "modulePreset": {
       "type": "select",
       "label": "Modul-Vorlage",
       "help": "Füllt Wp/Voc/Vmpp automatisch – Solarworld 225 Wp (~2010)",
       "options": [
-        { "label": "Manuell / unbekannt", "value": "" },
-        { "label": "Solarworld SW 225 poly (~2010)", "value": "sw225poly" },
-        { "label": "Solarworld SW 225 mono", "value": "sw225mono" }
+        {
+          "label": "Manuell / unbekannt",
+          "value": ""
+        },
+        {
+          "label": "Solarworld SW 225 poly (~2010)",
+          "value": "sw225poly"
+        },
+        {
+          "label": "Solarworld SW 225 mono",
+          "value": "sw225mono"
+        }
       ],
       "default": "",
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "moduleWp": {
       "type": "number",
@@ -233,7 +314,11 @@
       "default": 0,
       "min": 0,
       "max": 1000,
-      "sm": 3
+      "sm": 3,
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "moduleVoc": {
       "type": "number",
@@ -242,7 +327,11 @@
       "default": 0,
       "min": 0,
       "max": 100,
-      "sm": 3
+      "sm": 3,
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "moduleVmpp": {
       "type": "number",
@@ -251,7 +340,11 @@
       "default": 0,
       "min": 0,
       "max": 100,
-      "sm": 3
+      "sm": 3,
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "string1Modules": {
       "type": "number",
@@ -260,7 +353,11 @@
       "default": 0,
       "min": 0,
       "max": 50,
-      "sm": 3
+      "sm": 3,
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "string2Modules": {
       "type": "number",
@@ -269,7 +366,11 @@
       "default": 0,
       "min": 0,
       "max": 50,
-      "sm": 3
+      "sm": 3,
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "string3Modules": {
       "type": "number",
@@ -278,7 +379,11 @@
       "default": 0,
       "min": 0,
       "max": 50,
-      "sm": 3
+      "sm": 3,
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "_h_yields": {
       "type": "header",
@@ -288,7 +393,11 @@
     "_info_yields": {
       "type": "staticText",
       "text": "Monatliche Erträge werden in iobroker-data gespeichert. Historische Monate können im Web-UI manuell eingetragen werden. Automatische Monate werden aus LogDaten.dat berechnet (letzte ~6 Monate).",
-      "sm": 12
+      "sm": 12,
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "yieldFeedInTariff": {
       "type": "number",
@@ -298,7 +407,11 @@
       "min": 0,
       "max": 2,
       "step": 0.0001,
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "yieldInstalledKwp": {
       "type": "number",
@@ -308,20 +421,32 @@
       "min": 0,
       "max": 500,
       "step": 0.001,
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "yieldPlz": {
       "type": "text",
       "label": "Postleitzahl (5-stellig)",
       "help": "Für Wetter/Sonnenerwartung auf dem Daten-Tab und regionalen Ertragsvergleich (ertragsdatenbank.de)",
       "default": "87781",
-      "sm": 4
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "verbose": {
       "type": "checkbox",
       "label": "Ausführliches Logging (Debug)",
       "default": false,
-      "sm": 6
+      "sm": 6,
+      "xs": 12,
+      "md": 6,
+      "lg": 6,
+      "xl": 6
     },
     "_h_notify": {
       "type": "header",
@@ -332,13 +457,21 @@
       "type": "staticText",
       "text": "Berichte per E-Mail (HTML). Basis: LogDaten.dat – „Historiendaten laden“ muss aktiv sein. SMTP-Zugangsdaten werden im ioBroker E-Mail-Adapter konfiguriert, nicht hier.",
       "sm": 12,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "notifyEnabled": {
       "type": "checkbox",
       "label": "Benachrichtigungen aktivieren",
       "default": false,
-      "sm": 12
+      "sm": 12,
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "reportLabel": {
       "type": "text",
@@ -347,7 +480,11 @@
       "placeholder": "z. B. Kleiner",
       "default": "",
       "sm": 4,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "notifyInstanceEmail": {
       "type": "text",
@@ -355,7 +492,11 @@
       "help": "Name der ioBroker E-Mail-Adapter-Instanz, z. B. email.0",
       "default": "email.0",
       "sm": 4,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "notifyRecipient": {
       "type": "text",
@@ -364,7 +505,11 @@
       "placeholder": "z. B. user@example.com oder user@a.com, partner@b.com",
       "default": "",
       "sm": 12,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "notifyRecipientWeekly": {
       "type": "text",
@@ -373,7 +518,11 @@
       "placeholder": "z. B. partner@example.com",
       "default": "",
       "sm": 6,
-      "hidden": "!data.notifyEnabled || !data.notifyWeekly"
+      "hidden": "!data.notifyEnabled || !data.notifyWeekly",
+      "xs": 12,
+      "md": 6,
+      "lg": 6,
+      "xl": 6
     },
     "notifyRecipientMonthly": {
       "type": "text",
@@ -382,7 +531,11 @@
       "placeholder": "z. B. buchhaltung@example.com",
       "default": "",
       "sm": 6,
-      "hidden": "!data.notifyEnabled || !data.notifyMonthly"
+      "hidden": "!data.notifyEnabled || !data.notifyMonthly",
+      "xs": 12,
+      "md": 6,
+      "lg": 6,
+      "xl": 6
     },
     "_h_notify_daily": {
       "type": "header",
@@ -396,14 +549,22 @@
       "help": "Täglich ein Bericht mit Leistungskurve des Vortags",
       "default": false,
       "sm": 4,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "notifyDailyTime": {
       "type": "text",
       "label": "Uhrzeit (HH:MM)",
       "default": "07:00",
       "sm": 3,
-      "hidden": "!data.notifyEnabled || !data.notifyDaily"
+      "hidden": "!data.notifyEnabled || !data.notifyDaily",
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "_h_notify_weekly": {
       "type": "header",
@@ -417,14 +578,22 @@
       "help": "Jeden Montag: Tagesleistungen der Vorwoche",
       "default": false,
       "sm": 4,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "notifyWeeklyTime": {
       "type": "text",
       "label": "Uhrzeit (HH:MM)",
       "default": "07:00",
       "sm": 3,
-      "hidden": "!data.notifyEnabled || !data.notifyWeekly"
+      "hidden": "!data.notifyEnabled || !data.notifyWeekly",
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "_h_notify_monthly": {
       "type": "header",
@@ -438,14 +607,22 @@
       "help": "Am 1. des Monats: alle Tagesleistungen des Vormonats",
       "default": false,
       "sm": 4,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "notifyMonthlyTime": {
       "type": "text",
       "label": "Uhrzeit (HH:MM)",
       "default": "07:00",
       "sm": 3,
-      "hidden": "!data.notifyEnabled || !data.notifyMonthly"
+      "hidden": "!data.notifyEnabled || !data.notifyMonthly",
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "_h_notify_alert": {
       "type": "header",
@@ -459,14 +636,22 @@
       "help": "Benachrichtigung wenn Vortag keine Daten oder unter Schwellwert",
       "default": false,
       "sm": 4,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "notifyAlertTime": {
       "type": "text",
       "label": "Uhrzeit (HH:MM)",
       "default": "07:00",
       "sm": 3,
-      "hidden": "!data.notifyEnabled || !data.notifyAlert"
+      "hidden": "!data.notifyEnabled || !data.notifyAlert",
+      "xs": 12,
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "notifyThresholdKwh": {
       "type": "number",
@@ -475,7 +660,11 @@
       "default": 0,
       "min": 0,
       "sm": 4,
-      "hidden": "!data.notifyEnabled || !data.notifyAlert"
+      "hidden": "!data.notifyEnabled || !data.notifyAlert",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "_h_notify_test": {
       "type": "header",
@@ -487,7 +676,11 @@
       "type": "staticText",
       "text": "Sendet sofort einen Testbericht an die konfigurierten Empfänger – Betreff mit [TEST]. HTML-Layout im DIN-A4-Format mit Kurven (Tag), Balkendiagramm (Woche) bzw. Tabelle (Monat).",
       "sm": 12,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "_btnTestDaily": {
       "type": "sendTo",
@@ -496,7 +689,11 @@
       "sm": 4,
       "variant": "outlined",
       "showProcess": true,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "_btnTestWeekly": {
       "type": "sendTo",
@@ -505,7 +702,11 @@
       "sm": 4,
       "variant": "outlined",
       "showProcess": true,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "_btnTestMonthly": {
       "type": "sendTo",
@@ -514,7 +715,12 @@
       "sm": 4,
       "variant": "outlined",
       "showProcess": true,
-      "hidden": "!data.notifyEnabled"
+      "hidden": "!data.notifyEnabled",
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     }
-  }
+  },
+  "i18n": false
 }

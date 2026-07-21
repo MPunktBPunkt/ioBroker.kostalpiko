@@ -15,7 +15,7 @@ const url   = require('node:url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.15';
+const ADAPTER_VERSION = '0.6.16';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -340,13 +340,13 @@ class KostalPikoAdapter extends utils.Adapter {
         this._startWebServer();
 
         await this._poll();
-        this._pollTimer = setInterval(() => this._poll(), this._cfg.pollInterval * 1000);
+        this._pollTimer = this.setInterval(() => this._poll(), this._cfg.pollInterval * 1000);
         this._refreshWeather().catch(e => this._log('DEBUG', `Wetter: ${e.message}`));
 
         // Nach Neustart sofort Historie vom PIKO nachladen (Cache zeigt bis dahin alte Daten)
         if (this._cfg.historyFetch) {
             this._lastHistoryFetch = 0;
-            setTimeout(() => {
+            this.setTimeout(() => {
                 this._fetchAndImportHistory(false).catch(e =>
                     this._log('WARN', `Startup History-Fetch: ${e.message}`)
                 );
@@ -479,8 +479,8 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _onUnload(callback) {
         try {
-            if (this._pollTimer)  clearInterval(this._pollTimer);
-            if (this._notifyTimer) clearInterval(this._notifyTimer);
+            if (this._pollTimer)  this.clearInterval(this._pollTimer);
+            if (this._notifyTimer) this.clearInterval(this._notifyTimer);
             if (this._webServer)   this._webServer.close();
         } catch (_) {}
         callback();
@@ -583,7 +583,7 @@ class KostalPikoAdapter extends utils.Adapter {
                         `Tages-Historie hängt (${todayMeta.ageMin} Min seit letztem Punkt) → PIKO-Abruf`
                     );
                 }
-                setTimeout(() => {
+                this.setTimeout(() => {
                     this._fetchAndImportHistory(false).catch(e =>
                         this._log('WARN', `History-Sync: ${e.message}`)
                     );
@@ -1112,7 +1112,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 // PIKO ist beschäftigt → in 30s nochmal versuchen
                 this._historyLoading = false;
                 this._log('WARN', `History-Sync: PIKO meldet "service busy" → Retry in 30s (Versuch ${retryCount + 1}/3)`);
-                setTimeout(() => this._fetchAndImportHistory(syncAll, retryCount + 1).catch(e =>
+                this.setTimeout(() => this._fetchAndImportHistory(syncAll, retryCount + 1).catch(e =>
                     this._log('WARN', `History-Sync Retry: ${e.message}`)
                 ), 30000);
                 return;
@@ -2438,9 +2438,9 @@ class KostalPikoAdapter extends utils.Adapter {
     // ─── Benachrichtigungen ─────────────────────────────────────────────────────
 
     _startNotifyTimer() {
-        if (this._notifyTimer) clearInterval(this._notifyTimer);
+        if (this._notifyTimer) this.clearInterval(this._notifyTimer);
         // Jede Minute prüfen ob ein Bericht fällig ist
-        this._notifyTimer = setInterval(() => this._checkNotify(), 60 * 1000);
+        this._notifyTimer = this.setInterval(() => this._checkNotify(), 60 * 1000);
         this._log('SYSTEM', 'Benachrichtigungs-Timer gestartet');
     }
 
@@ -3119,10 +3119,10 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             const finish = (result) => {
                 if (settled) return;
                 settled = true;
-                clearTimeout(timer);
+                this.clearTimeout(timer);
                 resolve(result);
             };
-            const timer = setTimeout(() => {
+            const timer = this.setTimeout(() => {
                 this._log('WARN', `Benachrichtigung: Timeout (30s) via ${inst}`);
                 finish({ error: 'Timeout beim E-Mail-Versand (email-Adapter antwortet nicht)' });
             }, 30000);
@@ -3217,6 +3217,20 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
     }
 
     // ─── States anlegen ──────────────────────────────────────────────────────────
+
+    async _ensureChannelPath(objectId) {
+        const parts = objectId.split('.');
+        if (parts.length < 2) return;
+        let path = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+            path = path ? `${path}.${parts[i]}` : parts[i];
+            await this.setObjectNotExistsAsync(path, {
+                type: 'channel',
+                common: { name: parts[i] },
+                native: {},
+            });
+        }
+    }
 
     async _ensureBaseStates() {
         const defs = [
@@ -3313,6 +3327,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             { id:'weather.updatedAt',         type:'string',  role:'date',                name:'Wetter letzte Aktualisierung', def:'' },
         ];
         for (const d of defs) {
+            await this._ensureChannelPath(d.id);
             const obj = { type:'state', common:{ name:d.name, type:d.type, role:d.role, read:true, write:false }, native:{} };
             if (d.unit !== undefined) obj.common.unit = d.unit;
             if (d.def  !== undefined) obj.common.def  = d.def;
@@ -3334,6 +3349,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             { id:'history.pikoEpoch',      type:'string',  role:'date',  name:'PIKO Inbetriebnahme-Datum',        def:'' },
         ];
         for (const d of meta) {
+            await this._ensureChannelPath(d.id);
             await this.setObjectNotExistsAsync(d.id, {
                 type:'state', common:{ name:d.name, type:d.type, role:d.role, read:true, write:false, def:d.def }, native:{},
             });
@@ -3342,6 +3358,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
 
         // Messwert-States für InfluxDB
         for (const def of HISTORY_STATES) {
+            await this._ensureChannelPath(def.id);
             await this.setObjectNotExistsAsync(def.id, {
                 type:'state',
                 common:{

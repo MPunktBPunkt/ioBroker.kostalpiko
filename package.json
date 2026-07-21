@@ -1,9 +1,9 @@
 {
   "name": "iobroker.kostalpiko",
-  "version": "0.6.15",
-  "description": "ioBroker Adapter für den Kostal PIKO Wechselrichter (HTTP-Scraping)",
+  "version": "0.6.16",
+  "description": "ioBroker adapter for Kostal PIKO solar inverters (HTTP scraping)",
   "author": "MPunktBPunkt",
-  "license": "GPL-3.0",
+  "license": "GPL-3.0-only",
   "main": "main.js",
   "keywords": [
     "ioBroker",
@@ -11,26 +11,39 @@
     "piko",
     "solar",
     "photovoltaik",
+    "inverter",
     "wechselrichter"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/MPunktBPunkt/iobroker.kostalpiko"
+    "url": "https://github.com/MPunktBPunkt/iobroker.kostalpiko.git"
   },
   "engines": {
     "node": ">=22.0.0"
   },
   "scripts": {
-    "test": "echo 'Keine Tests definiert'",
+    "test:package": "mocha test/package.js --exit",
+    "test:integration": "mocha test/integration.js --exit",
+    "test": "npm run test:package && npm run test:integration",
     "start": "node main.js"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.4.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@iobroker/testing": "5.2.2",
+    "mocha": "^11.7.5"
+  },
   "bugs": {
     "url": "https://github.com/MPunktBPunkt/iobroker.kostalpiko/issues"
   },
   "homepage": "https://github.com/MPunktBPunkt/iobroker.kostalpiko#readme",
-  "readmeFilename": "README.md"
+  "files": [
+    "admin/",
+    "docs/",
+    "io-package.json",
+    "LICENSE",
+    "main.js",
+    "scripts/"
+  ]
 }
