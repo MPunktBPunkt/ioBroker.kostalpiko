@@ -25,7 +25,7 @@
     "start": "node main.js"
   },
   "dependencies": {
-    "@iobroker/adapter-core": "^3.0.0"
+    "@iobroker/adapter-core": "^3.4.2"
   },
   "devDependencies": {},
   "bugs": {
