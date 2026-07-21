@@ -208,7 +208,10 @@
       "photovoltaik",
       "wechselrichter"
     ],
-    "license": "GPL-3.0",
+    "licenseInformation": {
+      "type": "free",
+      "license": "GPL-3.0"
+    },
     "icon": "admin/kostal-piko-icon.svg",
     "type": "general",
     "mode": "daemon",
