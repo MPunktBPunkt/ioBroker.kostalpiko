@@ -233,7 +233,12 @@
     "nodeProcessParams": [],
     "stopBeforeUpdate": true,
     "supportCustoms": false,
-    "supportMessages": true
+    "supportMessages": true,
+    "globalDependencies": [
+      {
+        "admin": ">=7.8.23"
+      }
+    ]
   },
   "native": {
     "ip": "192.168.178.30",
