@@ -1,5 +1,7 @@
 'use strict';
 
+process.env.TZ = 'UTC';
+
 const path = require('node:path');
 const { expect } = require('chai');
 const { tests } = require('@iobroker/testing');

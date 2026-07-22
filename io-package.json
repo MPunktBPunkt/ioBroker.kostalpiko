@@ -1,23 +1,59 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.18",
+    "version": "0.6.19",
     "news": {
-      "0.6.15": {
-        "de": "Fix PIKO 5.5: kühle Module (Vmpp ≥ STC) nicht mehr als ungültig verworfen — Temperatur auch bei T < T_Luft anzeigen",
-        "en": "Fix PIKO 5.5: cool modules (Vmpp ≥ STC) no longer rejected as invalid — show temperature even when T < ambient"
-      },
       "0.6.16": {
         "de": "Repo-Checker: Objektstruktur, CI-Tests, io-package-Schema, Adapter-Timer",
-        "en": "Repo checker: object structure, CI tests, io-package schema, adapter timers"
+        "en": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
+        "ru": "Repo-checker: структура объектов, CI-тесты, схема io-package, таймеры адаптера",
+        "pt": "Repo-checker: estrutura de objetos, testes CI, esquema io-package, timers do adaptador",
+        "nl": "Repo-checker: objectstructuur, CI-tests, io-package-schema, adapter-timers",
+        "fr": "Repo-checker : structure d'objets, tests CI, schéma io-package, timers adaptateur",
+        "it": "Repo-checker: struttura oggetti, test CI, schema io-package, timer adapter",
+        "es": "Repo-checker: estructura de objetos, pruebas CI, esquema io-package, timers del adaptador",
+        "pl": "Repo-checker: struktura obiektów, testy CI, schemat io-package, timery adaptera",
+        "uk": "Repo-checker: структура об'єктів, CI-тести, схема io-package, таймери адаптера",
+        "zh-cn": "Repo-checker：对象结构、CI 测试、io-package 架构、适配器定时器"
       },
       "0.6.17": {
         "de": "Modul-Vorlage mit Datenblatt-Werten (SW 225 poly), Preset-Sync, NOCT_eff, Admin-Hilfen für Temperaturberechnung",
-        "en": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation"
+        "en": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "ru": "Пресет модуля по паспорту (SW 225 poly), синхронизация, NOCT_eff, подсказки админки для температуры",
+        "pt": "Preset de módulo com dados de folha (SW 225 poly), sync, NOCT_eff, ajudas admin para temperatura",
+        "nl": "Modulepreset met datasheet (SW 225 poly), sync, NOCT_eff, admin-hulp voor temperatuur",
+        "fr": "Préréglage module selon fiche technique (SW 225 poly), sync, NOCT_eff, aide admin température",
+        "it": "Preset modulo da scheda tecnica (SW 225 poly), sync, NOCT_eff, aiuti admin temperatura",
+        "es": "Preset de módulo con ficha técnica (SW 225 poly), sync, NOCT_eff, ayudas admin temperatura",
+        "pl": "Preset modułu z karty katalogowej (SW 225 poly), sync, NOCT_eff, podpowiedzi admin temperatury",
+        "uk": "Пресет модуля за паспортом (SW 225 poly), синхронізація, NOCT_eff, підказки адмінки для температури",
+        "zh-cn": "模块预设含数据表值（SW 225 poly）、同步、NOCT_eff、温度计算管理提示"
       },
       "0.6.18": {
         "de": "News bereinigt (nur de/en, letzte 3 Versionen); extIcon GitHub-Pfad",
-        "en": "News trimmed (de/en only, last 3 versions); extIcon GitHub path"
+        "en": "News trimmed (de/en only, last 3 versions); extIcon GitHub path",
+        "ru": "News сокращены (только de/en, последние версии); extIcon GitHub URL",
+        "pt": "News reduzidas (apenas de/en, últimas versões); extIcon URL GitHub",
+        "nl": "News ingekort (alleen de/en, laatste versies); extIcon GitHub-URL",
+        "fr": "News réduites (de/en seulement, dernières versions) ; extIcon URL GitHub",
+        "it": "News ridotte (solo de/en, ultime versioni); extIcon URL GitHub",
+        "es": "News reducidas (solo de/en, últimas versiones); extIcon URL GitHub",
+        "pl": "News skrócone (tylko de/en, ostatnie wersje); extIcon URL GitHub",
+        "uk": "News скорочено (лише de/en, останні версії); extIcon GitHub URL",
+        "zh-cn": "精简 news（仅 de/en，保留最近版本）；extIcon GitHub 路径"
+      },
+      "0.6.19": {
+        "de": "Repo-Checker: News-Übersetzungen, CI (Node 22+), Integrationstests",
+        "en": "Repo checker: news translations, CI (Node 22+), integration tests",
+        "ru": "Repo-checker: переводы news, CI (Node 22+), интеграционные тесты",
+        "pt": "Repo-checker: traduções news, CI (Node 22+), testes de integração",
+        "nl": "Repo-checker: news-vertalingen, CI (Node 22+), integratietests",
+        "fr": "Repo-checker : traductions news, CI (Node 22+), tests d'intégration",
+        "it": "Repo-checker: traduzioni news, CI (Node 22+), test di integrazione",
+        "es": "Repo-checker: traducciones news, CI (Node 22+), pruebas de integración",
+        "pl": "Repo-checker: tłumaczenia news, CI (Node 22+), testy integracyjne",
+        "uk": "Repo-checker: переклади news, CI (Node 22+), інтеграційні тести",
+        "zh-cn": "Repo-checker：news 翻译、CI（Node 22+）、集成测试"
       }
     },
     "titleLang": {

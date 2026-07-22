@@ -1,6 +1,6 @@
 {
   "name": "iobroker.kostalpiko",
-  "version": "0.6.18",
+  "version": "0.6.19",
   "description": "ioBroker adapter for Kostal PIKO solar inverters (HTTP scraping)",
   "author": "MPunktBPunkt",
   "license": "GPL-3.0-only",
@@ -19,12 +19,12 @@
     "url": "https://github.com/MPunktBPunkt/ioBroker.kostalpiko.git"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "test:package": "mocha test/package.js --exit",
     "test:unit": "mocha test/module-presets.test.js --exit",
-    "test:integration": "mocha --config test/mocharc.custom.json test/integration.js --exit",
+    "test:integration": "mocha test/integration.js --timeout 300000 --exit",
     "test": "npm run test:package && npm run test:unit && npm run test:integration",
     "start": "node main.js"
   },
@@ -32,7 +32,7 @@
     "@iobroker/adapter-core": "^3.4.2"
   },
   "devDependencies": {
-    "@iobroker/testing": "^5.2.2"
+    "@iobroker/testing": "^5.3.0"
   },
   "bugs": {
     "url": "https://github.com/MPunktBPunkt/ioBroker.kostalpiko/issues"

@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.18
+ * Version: 0.6.19
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -16,7 +16,7 @@ const url   = require('node:url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.18';
+const ADAPTER_VERSION = '0.6.19';
 
 const POLL_URLS = {
     main : '/index.fhtml',
