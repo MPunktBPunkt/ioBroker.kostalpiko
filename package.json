@@ -1,6 +1,6 @@
 {
   "name": "iobroker.kostalpiko",
-  "version": "0.6.17",
+  "version": "0.6.18",
   "description": "ioBroker adapter for Kostal PIKO solar inverters (HTTP scraping)",
   "author": "MPunktBPunkt",
   "license": "GPL-3.0-only",
@@ -32,8 +32,7 @@
     "@iobroker/adapter-core": "^3.4.2"
   },
   "devDependencies": {
-    "@iobroker/testing": "5.2.2",
-    "mocha": "^11.7.5"
+    "@iobroker/testing": "^5.2.2"
   },
   "bugs": {
     "url": "https://github.com/MPunktBPunkt/ioBroker.kostalpiko/issues"

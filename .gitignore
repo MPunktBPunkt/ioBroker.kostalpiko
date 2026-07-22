@@ -9,3 +9,4 @@ npm-debug.log*
 coverage/
 test/integration.js.snap
 test/.controller/
+.commitinfo
