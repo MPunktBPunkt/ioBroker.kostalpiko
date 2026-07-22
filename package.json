@@ -1,6 +1,6 @@
 {
   "name": "iobroker.kostalpiko",
-  "version": "0.6.16",
+  "version": "0.6.17",
   "description": "ioBroker adapter for Kostal PIKO solar inverters (HTTP scraping)",
   "author": "MPunktBPunkt",
   "license": "GPL-3.0-only",
@@ -16,15 +16,16 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/MPunktBPunkt/iobroker.kostalpiko.git"
+    "url": "https://github.com/MPunktBPunkt/ioBroker.kostalpiko.git"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "test:package": "mocha test/package.js --exit",
-    "test:integration": "mocha test/integration.js --exit",
-    "test": "npm run test:package && npm run test:integration",
+    "test:unit": "mocha test/module-presets.test.js --exit",
+    "test:integration": "mocha --config test/mocharc.custom.json test/integration.js --exit",
+    "test": "npm run test:package && npm run test:unit && npm run test:integration",
     "start": "node main.js"
   },
   "dependencies": {
@@ -35,14 +36,15 @@
     "mocha": "^11.7.5"
   },
   "bugs": {
-    "url": "https://github.com/MPunktBPunkt/iobroker.kostalpiko/issues"
+    "url": "https://github.com/MPunktBPunkt/ioBroker.kostalpiko/issues"
   },
-  "homepage": "https://github.com/MPunktBPunkt/iobroker.kostalpiko#readme",
+  "homepage": "https://github.com/MPunktBPunkt/ioBroker.kostalpiko#readme",
   "files": [
     "admin/",
     "docs/",
     "io-package.json",
     "LICENSE",
+    "lib/",
     "main.js",
     "scripts/"
   ]

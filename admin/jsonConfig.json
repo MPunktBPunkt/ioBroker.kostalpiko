@@ -270,12 +270,12 @@
     },
     "_h_modules": {
       "type": "header",
-      "text": "PV-Modul Konfiguration (optional, für String-Analyse)",
+      "text": "PV-Modul & Temperaturberechnung",
       "size": 4
     },
     "_info_modules": {
       "type": "staticText",
-      "text": "Optionale Angaben für die String-Analyse. Spannungs-Korridor basiert auf Vmpp (Betrieb), nicht Voc (Leerlauf). Vorlage wählen oder Werte manuell eintragen.",
+      "text": "Für String-Analyse und Vmpp-Temperatur: Modul-Vorlage wählen und Module pro String eintragen (z. B. PIKO 5.5: 13+13, PIKO 8.3: 20+19). Ohne Vorlage oder ohne Modulanzahl keine Temperaturanzeige.",
       "sm": 12,
       "xs": 12,
       "md": 12,
@@ -285,14 +285,14 @@
     "modulePreset": {
       "type": "select",
       "label": "Modul-Vorlage",
-      "help": "Füllt Wp/Voc/Vmpp automatisch – Solarworld 225 Wp (~2010)",
+      "help": "Übernimmt Datenblatt-Werte (Wp, Voc, Vmpp, β, NOCT). Danach nur noch Module pro String eintragen.",
       "options": [
         {
           "label": "Manuell / unbekannt",
           "value": ""
         },
         {
-          "label": "Solarworld SW 225 poly (~2010)",
+          "label": "Solarworld Sunmodule SW 225 poly (~2010)",
           "value": "sw225poly"
         },
         {
@@ -307,6 +307,65 @@
       "lg": 4,
       "xl": 4
     },
+    "_preset_sw225poly": {
+      "type": "staticText",
+      "text": "Automatisch: 225 Wp · Voc 36,8 V · Vmpp 29,5 V · Impp 7,63 A · β 0,48 %/K · NOCT 46 °C · Vmpp@NOCT 26,5 V",
+      "hidden": "data.modulePreset !== 'sw225poly' || data.moduleManualOverride",
+      "sm": 12,
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
+    },
+    "_preset_sw225mono": {
+      "type": "staticText",
+      "text": "Automatisch: 225 Wp · Voc 37,3 V · Vmpp 29,7 V · Impp 7,63 A · β 0,43 %/K · NOCT 45 °C",
+      "hidden": "data.modulePreset !== 'sw225mono' || data.moduleManualOverride",
+      "sm": 12,
+      "xs": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
+    },
+    "btnApplyModulePreset": {
+      "type": "sendTo",
+      "command": "applyModulePreset",
+      "label": "Preset-Werte übernehmen",
+      "jsonData": "{\"preset\":\"{modulePreset}\"}",
+      "hidden": "!data.modulePreset",
+      "variant": "outlined",
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
+    },
+    "moduleManualOverride": {
+      "type": "checkbox",
+      "label": "Modulwerte manuell überschreiben (Experte)",
+      "help": "Standard: Vorlage hat Vorrang. Nur aktivieren, wenn Ihr Modul vom Datenblatt abweicht.",
+      "default": false,
+      "hidden": "!data.modulePreset",
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
+    },
+    "moduleNoctEff": {
+      "type": "number",
+      "label": "Effektiver NOCT (°C, optional)",
+      "help": "0 = Datenblatt-NOCT (46 °C). PIKO 5.5 Dach oft ~34 °C, PIKO 8.3 oft ~46–61 °C – nur für erweiterte Plausibilität.",
+      "default": 0,
+      "min": 0,
+      "max": 90,
+      "hidden": "!data.modulePreset",
+      "sm": 4,
+      "xs": 12,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
+    },
     "moduleWp": {
       "type": "number",
       "label": "Modul-Leistung (Wp)",
@@ -314,6 +373,7 @@
       "default": 0,
       "min": 0,
       "max": 1000,
+      "hidden": "data.modulePreset && !data.moduleManualOverride",
       "sm": 3,
       "xs": 12,
       "md": 3,
@@ -327,6 +387,7 @@
       "default": 0,
       "min": 0,
       "max": 100,
+      "hidden": "data.modulePreset && !data.moduleManualOverride",
       "sm": 3,
       "xs": 12,
       "md": 3,
@@ -340,6 +401,7 @@
       "default": 0,
       "min": 0,
       "max": 100,
+      "hidden": "data.modulePreset && !data.moduleManualOverride",
       "sm": 3,
       "xs": 12,
       "md": 3,
@@ -349,7 +411,7 @@
     "string1Modules": {
       "type": "number",
       "label": "String 1: Anzahl Module",
-      "help": "Anzahl Module in String 1",
+      "help": "Module in String 1 (z. B. 13 bei PIKO 5.5, 20 bei PIKO 8.3)",
       "default": 0,
       "min": 0,
       "max": 50,
@@ -362,7 +424,7 @@
     "string2Modules": {
       "type": "number",
       "label": "String 2: Anzahl Module",
-      "help": "Anzahl Module in String 2",
+      "help": "Module in String 2 (z. B. 13 bei PIKO 5.5, 19 bei PIKO 8.3)",
       "default": 0,
       "min": 0,
       "max": 50,
