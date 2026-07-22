@@ -1,5 +1,0 @@
-{
-  "require": "test/mocha.setup.js",
-  "timeout": 300000,
-  "exit": true
-}
