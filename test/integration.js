@@ -25,6 +25,13 @@ tests.integration(path.join(__dirname, '..'), {
 
             before(async () => {
                 harness = getHarness();
+                await harness.changeAdapterConfig(harness.adapterName, {
+                    native: {
+                        modulePreset: 'sw225poly',
+                        string1Modules: 13,
+                        string2Modules: 13,
+                    },
+                });
                 await harness.startAdapterAndWait();
             });
 
@@ -56,6 +63,13 @@ tests.integration(path.join(__dirname, '..'), {
             it('creates history meta states', async () => {
                 await waitForObject(harness, 'history');
                 await waitForObject(harness, 'history.recordCount');
+            });
+
+            it('creates temperature states when module preset is configured', async () => {
+                await waitForObject(harness, 'string1');
+                const temp = await waitForObject(harness, 'string1.tempEquivalentC');
+                expect(temp.common.type).to.equal('number');
+                expect(temp.common.role).to.equal('value.temperature');
             });
         });
     },

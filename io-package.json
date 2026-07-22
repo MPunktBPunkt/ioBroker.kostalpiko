@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.16",
+    "version": "0.6.17",
     "news": {
       "0.5.1": {
         "de": "NEU: Jahres-Spalten hinzufügen/auffüllen, JSON/CSV Export & Import, Speicherort-Anzeige, Jahresvergleich als Balkendiagramm (MWh / kWh/kWp, Jahre umschaltbar)",
@@ -236,6 +236,19 @@
         "pl": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
         "uk": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
         "zh-cn": "Repo checker: object structure, CI tests, io-package schema, adapter timers"
+      },
+      "0.6.17": {
+        "de": "Modul-Vorlage mit Datenblatt-Werten (SW 225 poly), Preset-Sync, NOCT_eff, Admin-Hilfen für Temperaturberechnung",
+        "en": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "ru": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "pt": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "nl": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "fr": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "it": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "es": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "pl": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "uk": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
+        "zh-cn": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation"
       }
     },
     "titleLang": {
@@ -330,6 +343,8 @@
     "moduleVoc": 0,
     "moduleVmpp": 0,
     "modulePreset": "",
+    "moduleManualOverride": false,
+    "moduleNoctEff": 0,
     "string1Modules": 0,
     "string2Modules": 0,
     "string3Modules": 0,

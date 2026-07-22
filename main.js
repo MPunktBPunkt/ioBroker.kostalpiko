@@ -3,10 +3,11 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.15
+ * Version: 0.6.17
  */
 
 const utils = require('@iobroker/adapter-core');
+const { MODULE_PRESETS, getModulePresetFields } = require('./lib/module-presets');
 const fs    = require('node:fs');
 const path  = require('node:path');
 const http  = require('node:http');
@@ -15,7 +16,7 @@ const url   = require('node:url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME    = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.16';
+const ADAPTER_VERSION = '0.6.17';
 
 const POLL_URLS = {
     main : '/index.fhtml',
@@ -80,30 +81,6 @@ const LIVE_INFLUX_STATES = [
 ];
 
 // Typische Modul-Vorlagen (Solarworld 225 Wp, ~2010)
-const MODULE_PRESETS = {
-    sw225poly: {
-        name    : 'Solarworld Sunmodule Plus 225 poly',
-        wp      : 225,
-        voc     : 36.8,
-        vmpp    : 29.5,
-        vmppNoct: 26.5,
-        impp    : 7.63,
-        betaVmpp: 0.0045,
-        betaPmax: 0.0045,
-        noct    : 46,
-    },
-    sw225mono: {
-        name    : 'Solarworld SW 225 mono',
-        wp      : 225,
-        voc     : 37.3,
-        vmpp    : 29.7,
-        vmppNoct: 26.8,
-        impp    : 7.63,
-        betaVmpp: 0.0043,
-        betaPmax: 0.0043,
-        noct    : 45,
-    },
-};
 const VMPP_VOC_RATIO = 29.5 / 36.8; // typisch poly 225 Wp
 const DEFAULT_BETA_VMPP = 0.0045;
 
@@ -292,6 +269,8 @@ class KostalPikoAdapter extends utils.Adapter {
             moduleVoc      : parseFloat(this.config.moduleVoc)      || 0,
             moduleVmpp     : parseFloat(this.config.moduleVmpp)     || 0,
             modulePreset   : (this.config.modulePreset || '').trim(),
+            moduleManualOverride: !!this.config.moduleManualOverride,
+            moduleNoctEff  : parseFloat(this.config.moduleNoctEff)  || 0,
             string1Modules : parseInt(this.config.string1Modules)   || 0,
             string2Modules : parseInt(this.config.string2Modules)   || 0,
             string3Modules : parseInt(this.config.string3Modules)   || 0,
@@ -319,6 +298,7 @@ class KostalPikoAdapter extends utils.Adapter {
 
         await this._ensureBaseStates();
         await this._ensureHistoryStates();
+        await this._syncModulePresetConfig();
         this._historyCachePath = this._getHistoryCachePath();
         this._yieldsCachePath  = this._getYieldsCachePath();
         await this._loadHistoryCache();
@@ -430,6 +410,34 @@ class KostalPikoAdapter extends utils.Adapter {
             sendFn()
                 .then(() => reply(`✅ Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht gesendet`, null))
                 .catch(e => reply(null, `❌ ${e.message}`));
+            return;
+        }
+
+        if (cmd === 'applyModulePreset') {
+            const presetId = (obj.message?.preset || this._cfg.modulePreset || '').trim();
+            const preset   = MODULE_PRESETS[presetId];
+            if (!preset) {
+                this.sendTo(obj.from, cmd, { error: 'Keine Modul-Vorlage gewählt.' }, obj.callback);
+                return;
+            }
+            this._applyModulePresetToInstance(presetId, preset)
+                .then(() => this.sendTo(obj.from, cmd, {
+                    result: `✅ ${preset.name}: ${preset.wp} Wp, Voc ${preset.voc} V, Vmpp ${preset.vmpp} V übernommen`,
+                }, obj.callback))
+                .catch(e => this.sendTo(obj.from, cmd, { error: e.message }, obj.callback));
+            return;
+        }
+
+        if (cmd === 'getModulePresetInfo') {
+            const presetId = (obj.message?.preset || this._cfg.modulePreset || '').trim();
+            const preset   = MODULE_PRESETS[presetId];
+            this.sendTo(obj.from, cmd, {
+                preset : presetId,
+                summary: preset
+                    ? `${preset.wp} Wp · Voc ${preset.voc} V · Vmpp ${preset.vmpp} V · Impp ${preset.impp} A · β ${(preset.betaPmax * 100).toFixed(2)} %/K · NOCT ${preset.noct} °C`
+                    : '',
+                fields : getModulePresetFields(presetId),
+            }, obj.callback);
             return;
         }
 
@@ -2316,21 +2324,73 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _getModuleParams() {
+        const presetKey = this._cfg.modulePreset;
+        const preset    = presetKey ? MODULE_PRESETS[presetKey] : null;
+        const manual    = !!this._cfg.moduleManualOverride;
+
         let wp   = this._cfg.moduleWp;
         let voc  = this._cfg.moduleVoc;
         let vmpp = this._cfg.moduleVmpp;
-        const preset = MODULE_PRESETS[this._cfg.modulePreset];
-        if (preset) {
+
+        if (preset && !manual) {
+            wp   = preset.wp;
+            voc  = preset.voc;
+            vmpp = preset.vmpp;
+        } else if (preset) {
             if (!wp)   wp   = preset.wp;
             if (!voc)  voc  = preset.voc;
             if (!vmpp) vmpp = preset.vmpp;
         }
+
         if (!vmpp && voc) vmpp = Math.round(voc * VMPP_VOC_RATIO * 100) / 100;
+
         const vmppNoct = preset?.vmppNoct || (vmpp ? Math.round(vmpp * 0.898 * 100) / 100 : 0);
         const betaVmpp = preset?.betaVmpp ?? DEFAULT_BETA_VMPP;
         const betaPmax = preset?.betaPmax ?? betaVmpp;
         const impp     = preset?.impp ?? 7.63;
-        return { wp, voc, vmpp, vmppNoct, betaVmpp, betaPmax, impp, presetName: preset?.name || null };
+        const noctStd  = preset?.noct ?? 46;
+        const noctEff  = this._cfg.moduleNoctEff > 0 ? this._cfg.moduleNoctEff : noctStd;
+
+        return {
+            wp, voc, vmpp, vmppNoct, betaVmpp, betaPmax, impp,
+            noct: noctEff, noctStd, presetName: preset?.name || null, presetKey,
+        };
+    }
+
+    async _applyModulePresetToInstance(presetId, preset) {
+        const instId = `system.adapter.${this.namespace}`;
+        const obj    = await this.getObjectAsync(instId);
+        if (!obj?.native) throw new Error('Instanz-Konfiguration nicht lesbar');
+        const native = {
+            ...obj.native,
+            modulePreset: presetId,
+            moduleWp    : preset.wp,
+            moduleVoc   : preset.voc,
+            moduleVmpp  : preset.vmpp,
+            moduleManualOverride: false,
+        };
+        await this.setForeignObjectAsync(instId, { ...obj, native });
+        this._cfg.modulePreset = presetId;
+        this._cfg.moduleWp     = preset.wp;
+        this._cfg.moduleVoc    = preset.voc;
+        this._cfg.moduleVmpp   = preset.vmpp;
+        this._cfg.moduleManualOverride = false;
+    }
+
+    async _syncModulePresetConfig() {
+        if (this._cfg.moduleManualOverride || !this._cfg.modulePreset) return;
+        const preset = MODULE_PRESETS[this._cfg.modulePreset];
+        if (!preset) return;
+        const needsSync = this._cfg.moduleWp !== preset.wp
+            || this._cfg.moduleVoc !== preset.voc
+            || this._cfg.moduleVmpp !== preset.vmpp;
+        if (!needsSync) return;
+        try {
+            await this._applyModulePresetToInstance(this._cfg.modulePreset, preset);
+            this._log('INFO', `Modul-Vorlage "${preset.name}" in Instanz-Konfiguration übernommen`);
+        } catch (e) {
+            this._log('WARN', `Modul-Vorlage konnte nicht synchronisiert werden: ${e.message}`);
+        }
     }
 
     _getStringAnalysisConfig() {
@@ -2366,7 +2426,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 invDcMaxA       : inv.enabled ? inv.dcMaxA : null,
             });
         }
-        return { enabled: strings.length > 0, strings, vmpp, voc, betaVmpp, preset: this._cfg.modulePreset, inverter: inv };
+        return { enabled: strings.length > 0, strings, vmpp, voc, betaVmpp, preset: this._cfg.modulePreset, noct: this._getModuleParams().noct, inverter: inv };
     }
 
     _getTemperatureAnalysis() {

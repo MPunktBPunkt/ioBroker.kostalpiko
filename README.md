@@ -1,9 +1,9 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.6.16-blue.svg)](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
+[![Version](https://img.shields.io/badge/version-0.6.17-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
 
 **Live monitoring, 15-minute history and long-term yield** for Kostal PIKO inverters – directly via the built-in HTTP web server, no cloud required.  
 Values are exposed as ioBroker states, optional **InfluxDB** sync for Grafana, and a built-in **engineer dashboard** in the browser.
@@ -127,6 +127,9 @@ node /opt/iobroker/node_modules/iobroker.kostalpiko/scripts/combine-yields.js \
 ---
 
 ## Changelog
+
+### 0.6.17
+- Module preset with datasheet values (Solarworld SW 225 poly), auto-sync, optional NOCT_eff, improved admin for temperature calculation
 
 ### 0.6.16
 - Repo checker compliance: object structure, CI tests, io-package schema, adapter timers
