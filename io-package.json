@@ -97,7 +97,7 @@
       "type": "free",
       "license": "GPL-3.0-only"
     },
-    "icon": "admin/kostal-piko-icon.svg",
+    "icon": "kostal-piko-icon.svg",
     "type": "general",
     "mode": "daemon",
     "platform": "Javascript/Node.js",
