@@ -1,21 +1,8 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.19",
+    "version": "0.6.20",
     "news": {
-      "0.6.16": {
-        "de": "Repo-Checker: Objektstruktur, CI-Tests, io-package-Schema, Adapter-Timer",
-        "en": "Repo checker: object structure, CI tests, io-package schema, adapter timers",
-        "ru": "Repo-checker: структура объектов, CI-тесты, схема io-package, таймеры адаптера",
-        "pt": "Repo-checker: estrutura de objetos, testes CI, esquema io-package, timers do adaptador",
-        "nl": "Repo-checker: objectstructuur, CI-tests, io-package-schema, adapter-timers",
-        "fr": "Repo-checker : structure d'objets, tests CI, schéma io-package, timers adaptateur",
-        "it": "Repo-checker: struttura oggetti, test CI, schema io-package, timer adapter",
-        "es": "Repo-checker: estructura de objetos, pruebas CI, esquema io-package, timers del adaptador",
-        "pl": "Repo-checker: struktura obiektów, testy CI, schemat io-package, timery adaptera",
-        "uk": "Repo-checker: структура об'єктів, CI-тести, схема io-package, таймери адаптера",
-        "zh-cn": "Repo-checker：对象结构、CI 测试、io-package 架构、适配器定时器"
-      },
       "0.6.17": {
         "de": "Modul-Vorlage mit Datenblatt-Werten (SW 225 poly), Preset-Sync, NOCT_eff, Admin-Hilfen für Temperaturberechnung",
         "en": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
@@ -54,6 +41,19 @@
         "pl": "Repo-checker: tłumaczenia news, CI (Node 22+), testy integracyjne",
         "uk": "Repo-checker: переклади news, CI (Node 22+), інтеграційні тести",
         "zh-cn": "Repo-checker：news 翻译、CI（Node 22+）、集成测试"
+      },
+      "0.6.20": {
+        "de": "Admin-Abhängigkeit auf >=7.6.17 gesenkt (jsonConfig; 7.8.23 nicht erforderlich)",
+        "en": "Lowered admin dependency to >=7.6.17 (jsonConfig; 7.8.23 not required)",
+        "ru": "Снижена зависимость admin до >=7.6.17 (jsonConfig; 7.8.23 не требуется)",
+        "pt": "Dependência admin reduzida para >=7.6.17 (jsonConfig; 7.8.23 não necessário)",
+        "nl": "Admin-afhankelijkheid verlaagd naar >=7.6.17 (jsonConfig; 7.8.23 niet vereist)",
+        "fr": "Dépendance admin abaissée à >=7.6.17 (jsonConfig ; 7.8.23 non requis)",
+        "it": "Dipendenza admin ridotta a >=7.6.17 (jsonConfig; 7.8.23 non richiesto)",
+        "es": "Dependencia admin reducida a >=7.6.17 (jsonConfig; 7.8.23 no requerido)",
+        "pl": "Zależność admin obniżona do >=7.6.17 (jsonConfig; 7.8.23 nie wymagane)",
+        "uk": "Знижено залежність admin до >=7.6.17 (jsonConfig; 7.8.23 не потрібно)",
+        "zh-cn": "Admin 依赖降至 >=7.6.17（jsonConfig；无需 7.8.23）"
       }
     },
     "titleLang": {
@@ -121,7 +121,7 @@
     "supportCustoms": false,
     "globalDependencies": [
       {
-        "admin": ">=7.8.23"
+        "admin": ">=7.6.17"
       }
     ],
     "extIcon": "https://raw.githubusercontent.com/MPunktBPunkt/ioBroker.kostalpiko/main/admin/kostal-piko-icon.svg",

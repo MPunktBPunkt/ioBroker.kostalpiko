@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.6.19-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
+[![Version](https://img.shields.io/badge/version-0.6.20-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
@@ -127,6 +127,9 @@ node /opt/iobroker/node_modules/iobroker.kostalpiko/scripts/combine-yields.js \
 ---
 
 ## Changelog
+
+### 0.6.20
+- Lowered admin dependency to `>=7.6.17` (jsonConfig); Admin 7.8.23 is not required
 
 ### 0.6.19
 - News translations for all supported languages; CI requires Node.js 22+; integration test script aligned with @iobroker/testing
