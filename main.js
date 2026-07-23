@@ -8,76 +8,132 @@
 
 const utils = require('@iobroker/adapter-core');
 const { MODULE_PRESETS, getModulePresetFields } = require('./lib/module-presets');
-const fs    = require('node:fs');
-const path  = require('node:path');
-const http  = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const http = require('node:http');
 const https = require('node:https');
-const url   = require('node:url');
+const url = require('node:url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
-const ADAPTER_NAME    = 'kostalpiko';
+const ADAPTER_NAME = 'kostalpiko';
 const ADAPTER_VERSION = '0.6.20';
 
 const POLL_URLS = {
-    main : '/index.fhtml',
-    info : '/Inf.fhtml',
-    log  : '/LogDaten.dat',
+    main: '/index.fhtml',
+    info: '/Inf.fhtml',
+    log: '/LogDaten.dat',
 };
 
 // Spaltenindizes für LogDaten.dat (Tab-separiert)
 const COL = {
-    ZEIT:0, DC1_U:1,DC1_I:2,DC1_P:3,DC1_T:4,DC1_S:5,
-    DC2_U:6,DC2_I:7,DC2_P:8,DC2_T:9,DC2_S:10,
-    DC3_U:11,DC3_I:12,DC3_P:13,DC3_T:14,DC3_S:15,
-    AC1_U:16,AC1_I:17,AC1_P:18,AC1_T:19,
-    AC2_U:20,AC2_I:21,AC2_P:22,AC2_T:23,
-    AC3_U:24,AC3_I:25,AC3_P:26,AC3_T:27,
-    AC_F:28,FC_I:29,
-    AIN1:30,AIN2:31,AIN3:32,AIN4:33,
-    AC_S:34,ERR:35,ENS_S:36,ENS_ERR:37,KB_S:38,
-    TOTAL_E:39,ISO_R:40,
+    ZEIT: 0,
+    DC1_U: 1,
+    DC1_I: 2,
+    DC1_P: 3,
+    DC1_T: 4,
+    DC1_S: 5,
+    DC2_U: 6,
+    DC2_I: 7,
+    DC2_P: 8,
+    DC2_T: 9,
+    DC2_S: 10,
+    DC3_U: 11,
+    DC3_I: 12,
+    DC3_P: 13,
+    DC3_T: 14,
+    DC3_S: 15,
+    AC1_U: 16,
+    AC1_I: 17,
+    AC1_P: 18,
+    AC1_T: 19,
+    AC2_U: 20,
+    AC2_I: 21,
+    AC2_P: 22,
+    AC2_T: 23,
+    AC3_U: 24,
+    AC3_I: 25,
+    AC3_P: 26,
+    AC3_T: 27,
+    AC_F: 28,
+    FC_I: 29,
+    AIN1: 30,
+    AIN2: 31,
+    AIN3: 32,
+    AIN4: 33,
+    AC_S: 34,
+    ERR: 35,
+    ENS_S: 36,
+    ENS_ERR: 37,
+    KB_S: 38,
+    TOTAL_E: 39,
+    ISO_R: 40,
 };
 
 // History-States für InfluxDB (erhalten historische ts-Werte beim setState)
 const HISTORY_STATES = [
-    { id:'history.dc1.voltage',   col:COL.DC1_U,  factor:1,     unit:'V',  name:'String 1 Spannung (15-min)' },
-    { id:'history.dc1.current',   col:COL.DC1_I,  factor:0.001, unit:'A',  name:'String 1 Strom (15-min)' },
-    { id:'history.dc1.power',     col:COL.DC1_P,  factor:1,     unit:'W',  name:'String 1 Leistung (15-min)' },
-    { id:'history.dc2.voltage',   col:COL.DC2_U,  factor:1,     unit:'V',  name:'String 2 Spannung (15-min)' },
-    { id:'history.dc2.current',   col:COL.DC2_I,  factor:0.001, unit:'A',  name:'String 2 Strom (15-min)' },
-    { id:'history.dc2.power',     col:COL.DC2_P,  factor:1,     unit:'W',  name:'String 2 Leistung (15-min)' },
-    { id:'history.dc3.voltage',   col:COL.DC3_U,  factor:1,     unit:'V',  name:'String 3 Spannung (15-min)' },
-    { id:'history.dc3.current',   col:COL.DC3_I,  factor:0.001, unit:'A',  name:'String 3 Strom (15-min)' },
-    { id:'history.dc3.power',     col:COL.DC3_P,  factor:1,     unit:'W',  name:'String 3 Leistung (15-min)' },
-    { id:'history.ac1.voltage',   col:COL.AC1_U,  factor:1,     unit:'V',  name:'L1 Spannung (15-min)' },
-    { id:'history.ac1.current',   col:COL.AC1_I,  factor:0.001, unit:'A',  name:'L1 Strom (15-min)' },
-    { id:'history.ac1.power',     col:COL.AC1_P,  factor:1,     unit:'W',  name:'L1 Leistung (15-min)' },
-    { id:'history.ac2.voltage',   col:COL.AC2_U,  factor:1,     unit:'V',  name:'L2 Spannung (15-min)' },
-    { id:'history.ac2.current',   col:COL.AC2_I,  factor:0.001, unit:'A',  name:'L2 Strom (15-min)' },
-    { id:'history.ac2.power',     col:COL.AC2_P,  factor:1,     unit:'W',  name:'L2 Leistung (15-min)' },
-    { id:'history.ac3.voltage',   col:COL.AC3_U,  factor:1,     unit:'V',  name:'L3 Spannung (15-min)' },
-    { id:'history.ac3.current',   col:COL.AC3_I,  factor:0.001, unit:'A',  name:'L3 Strom (15-min)' },
-    { id:'history.ac3.power',     col:COL.AC3_P,  factor:1,     unit:'W',  name:'L3 Leistung (15-min)' },
-    { id:'history.ac.totalPower', col:null,        factor:1,     unit:'W',  name:'AC Gesamtleistung (15-min)' },
-    { id:'history.dc.totalPower', col:null,        factor:1,     unit:'W',  name:'DC Gesamtleistung (15-min)' },
-    { id:'history.efficiency.ratio', col:null,     factor:1,     unit:'%',  name:'Wirkungsgrad DC\u2192AC (15-min)' },
-    { id:'history.ac.frequency',  col:COL.AC_F,   factor:1,     unit:'Hz', name:'Netzfrequenz (15-min)' },
-    { id:'history.acStatus',      col:COL.AC_S,   factor:1,     unit:'',   name:'Betriebsstatus-Code (15-min)' },
-    { id:'history.errorCode',     col:COL.ERR,    factor:1,     unit:'',   name:'Fehlercode (15-min)' },
-    { id:'history.energy.total',  col:COL.TOTAL_E, factor:1,    unit:'kWh', name:'Gesamtenergie-Z\u00e4hler (15-min)' },
+    { id: 'history.dc1.voltage', col: COL.DC1_U, factor: 1, unit: 'V', name: 'String 1 Spannung (15-min)' },
+    { id: 'history.dc1.current', col: COL.DC1_I, factor: 0.001, unit: 'A', name: 'String 1 Strom (15-min)' },
+    { id: 'history.dc1.power', col: COL.DC1_P, factor: 1, unit: 'W', name: 'String 1 Leistung (15-min)' },
+    { id: 'history.dc2.voltage', col: COL.DC2_U, factor: 1, unit: 'V', name: 'String 2 Spannung (15-min)' },
+    { id: 'history.dc2.current', col: COL.DC2_I, factor: 0.001, unit: 'A', name: 'String 2 Strom (15-min)' },
+    { id: 'history.dc2.power', col: COL.DC2_P, factor: 1, unit: 'W', name: 'String 2 Leistung (15-min)' },
+    { id: 'history.dc3.voltage', col: COL.DC3_U, factor: 1, unit: 'V', name: 'String 3 Spannung (15-min)' },
+    { id: 'history.dc3.current', col: COL.DC3_I, factor: 0.001, unit: 'A', name: 'String 3 Strom (15-min)' },
+    { id: 'history.dc3.power', col: COL.DC3_P, factor: 1, unit: 'W', name: 'String 3 Leistung (15-min)' },
+    { id: 'history.ac1.voltage', col: COL.AC1_U, factor: 1, unit: 'V', name: 'L1 Spannung (15-min)' },
+    { id: 'history.ac1.current', col: COL.AC1_I, factor: 0.001, unit: 'A', name: 'L1 Strom (15-min)' },
+    { id: 'history.ac1.power', col: COL.AC1_P, factor: 1, unit: 'W', name: 'L1 Leistung (15-min)' },
+    { id: 'history.ac2.voltage', col: COL.AC2_U, factor: 1, unit: 'V', name: 'L2 Spannung (15-min)' },
+    { id: 'history.ac2.current', col: COL.AC2_I, factor: 0.001, unit: 'A', name: 'L2 Strom (15-min)' },
+    { id: 'history.ac2.power', col: COL.AC2_P, factor: 1, unit: 'W', name: 'L2 Leistung (15-min)' },
+    { id: 'history.ac3.voltage', col: COL.AC3_U, factor: 1, unit: 'V', name: 'L3 Spannung (15-min)' },
+    { id: 'history.ac3.current', col: COL.AC3_I, factor: 0.001, unit: 'A', name: 'L3 Strom (15-min)' },
+    { id: 'history.ac3.power', col: COL.AC3_P, factor: 1, unit: 'W', name: 'L3 Leistung (15-min)' },
+    { id: 'history.ac.totalPower', col: null, factor: 1, unit: 'W', name: 'AC Gesamtleistung (15-min)' },
+    { id: 'history.dc.totalPower', col: null, factor: 1, unit: 'W', name: 'DC Gesamtleistung (15-min)' },
+    { id: 'history.efficiency.ratio', col: null, factor: 1, unit: '%', name: 'Wirkungsgrad DC\u2192AC (15-min)' },
+    { id: 'history.ac.frequency', col: COL.AC_F, factor: 1, unit: 'Hz', name: 'Netzfrequenz (15-min)' },
+    { id: 'history.acStatus', col: COL.AC_S, factor: 1, unit: '', name: 'Betriebsstatus-Code (15-min)' },
+    { id: 'history.errorCode', col: COL.ERR, factor: 1, unit: '', name: 'Fehlercode (15-min)' },
+    {
+        id: 'history.energy.total',
+        col: COL.TOTAL_E,
+        factor: 1,
+        unit: 'kWh',
+        name: 'Gesamtenergie-Z\u00e4hler (15-min)',
+    },
 ];
 
 // Live-States die bei aktiviertem InfluxDB-Sync mitgeschrieben werden
 const LIVE_INFLUX_STATES = [
-    'ac.power', 'energy.today', 'energy.total',
-    'ac.l1.voltage', 'ac.l1.power', 'ac.l2.voltage', 'ac.l2.power', 'ac.l3.voltage', 'ac.l3.power',
-    'pv.string1.voltage', 'pv.string1.current',
-    'pv.string2.voltage', 'pv.string2.current',
-    'pv.string3.voltage', 'pv.string3.current',
-    'dc.totalPower', 'efficiency.ratio', 'efficiency.expected',
-    'string1.tempEquivalentC', 'string2.tempEquivalentC', 'string3.tempEquivalentC',
-    'string1.tempLossW', 'string2.tempLossW', 'temperature.totalLossW',
-    'weather.sunshineHours', 'weather.tempMax', 'weather.cloudCover', 'weather.precipitation',
+    'ac.power',
+    'energy.today',
+    'energy.total',
+    'ac.l1.voltage',
+    'ac.l1.power',
+    'ac.l2.voltage',
+    'ac.l2.power',
+    'ac.l3.voltage',
+    'ac.l3.power',
+    'pv.string1.voltage',
+    'pv.string1.current',
+    'pv.string2.voltage',
+    'pv.string2.current',
+    'pv.string3.voltage',
+    'pv.string3.current',
+    'dc.totalPower',
+    'efficiency.ratio',
+    'efficiency.expected',
+    'string1.tempEquivalentC',
+    'string2.tempEquivalentC',
+    'string3.tempEquivalentC',
+    'string1.tempLossW',
+    'string2.tempLossW',
+    'temperature.totalLossW',
+    'weather.sunshineHours',
+    'weather.tempMax',
+    'weather.cloudCover',
+    'weather.precipitation',
 ];
 
 // Typische Modul-Vorlagen (Solarworld 225 Wp, ~2010)
@@ -86,7 +142,9 @@ const DEFAULT_BETA_VMPP = 0.0045;
 
 // ─── Vmpp-basierte Modultemperatur (siehe docs/KonzeptPikoTemperatur.md) ───────
 function calcStringTemp(vString, nMod, vmppStc, betaVmpp) {
-    if (!vString || !nMod) return null;
+    if (!vString || !nMod) {
+        return null;
+    }
     const vmpp = vmppStc || 29.5;
     const beta = Math.abs(betaVmpp || DEFAULT_BETA_VMPP);
     const vmppMod = vString / nMod;
@@ -96,7 +154,7 @@ function calcStringTemp(vString, nMod, vmppStc, betaVmpp) {
 function calcTempUncertainty(nMod, vmppStc, betaVmpp) {
     const vmpp = vmppStc || 29.5;
     const beta = Math.abs(betaVmpp || DEFAULT_BETA_VMPP);
-    const sigmaV    = 1 / nMod;
+    const sigmaV = 1 / nMod;
     const sigmaBeta = 0.0002;
     const sigmaVstc = vmpp * 0.005;
     const s1 = Math.pow(sigmaV / (vmpp * beta), 2);
@@ -106,56 +164,76 @@ function calcTempUncertainty(nMod, vmppStc, betaVmpp) {
 }
 
 function isTempValidRelative(iString, imppString) {
-    return iString > 0 && imppString > 0 && (iString / imppString) > 0.10;
+    return iString > 0 && imppString > 0 && iString / imppString > 0.1;
 }
 
 function isTempValidAbsolute(iString, imppString, tEquiv, tAmbient) {
-    const gSufficient = imppString > 0 && (iString / imppString) > 0.45;
-    const physPlaus   = tAmbient != null ? (tEquiv > tAmbient) : true;
+    const gSufficient = imppString > 0 && iString / imppString > 0.45;
+    const physPlaus = tAmbient != null ? tEquiv > tAmbient : true;
     return gSufficient && physPlaus;
 }
 
 /** Qualitätsstufe für Anzeige: absolute | limited | invalid */
 function getTempQuality(tempC, iString, imppString, pMeasured, tAmbient, validAbs, validRel, mppUtil) {
-    if (tempC === null || iString < 0.05) return 'invalid';
+    if (tempC === null || iString < 0.05) {
+        return 'invalid';
+    }
 
     const coolModule = mppUtil != null && mppUtil >= 97; // Vmpp ≥ STC → Module kühl
-    const iFrac      = imppString > 0 ? iString / imppString : 0;
-    const hasSignal  = pMeasured >= 50
-        || (pMeasured >= 15 && iString >= 0.1)
-        || (coolModule && pMeasured >= 10 && iString >= 0.05);
+    const iFrac = imppString > 0 ? iString / imppString : 0;
+    const hasSignal =
+        pMeasured >= 50 || (pMeasured >= 15 && iString >= 0.1) || (coolModule && pMeasured >= 10 && iString >= 0.05);
 
-    if (!hasSignal) return 'invalid';
+    if (!hasSignal) {
+        return 'invalid';
+    }
 
     // Low-G-Artefakt: nur bei warmen Strings (Vmpp unter STC) + wenig Strom
-    const lowGArtifact = !coolModule
-        && tAmbient != null
-        && tempC < tAmbient - 2
-        && iFrac < 0.25;
-    if (lowGArtifact) return 'invalid';
+    const lowGArtifact = !coolModule && tAmbient != null && tempC < tAmbient - 2 && iFrac < 0.25;
+    if (lowGArtifact) {
+        return 'invalid';
+    }
 
-    if (validAbs) return 'absolute';
+    if (validAbs) {
+        return 'absolute';
+    }
     // Kühle Module (5.5-Dach): T < T_Luft ist plausibel → eingeschränkt anzeigen
-    if (pMeasured >= 50 || validRel || coolModule) return 'limited';
+    if (pMeasured >= 50 || validRel || coolModule) {
+        return 'limited';
+    }
     return 'invalid';
 }
 
 function calcTempLoss(pMeasured, tMod, betaPmax) {
-    if (!tMod || tMod <= 25 || !pMeasured) return 0;
+    if (!tMod || tMod <= 25 || !pMeasured) {
+        return 0;
+    }
     return Math.round(pMeasured * (betaPmax || DEFAULT_BETA_VMPP) * (tMod - 25));
 }
 
 function calcMppUtilization(vString, nMod, vmppStc) {
-    if (!vString || !nMod || !vmppStc) return null;
-    return Math.round((vString / nMod) / vmppStc * 1000) / 10;
+    if (!vString || !nMod || !vmppStc) {
+        return null;
+    }
+    return Math.round((vString / nMod / vmppStc) * 1000) / 10;
 }
 
 function getTempAlert(tMod) {
-    if (tMod === null || tMod === undefined) return 'UNBEKANNT';
-    if (tMod < 35) return 'NORMAL';
-    if (tMod < 50) return 'WARM';
-    if (tMod < 60) return 'HEISS';
-    if (tMod < 70) return 'WARNUNG';
+    if (tMod === null || tMod === undefined) {
+        return 'UNBEKANNT';
+    }
+    if (tMod < 35) {
+        return 'NORMAL';
+    }
+    if (tMod < 50) {
+        return 'WARM';
+    }
+    if (tMod < 60) {
+        return 'HEISS';
+    }
+    if (tMod < 70) {
+        return 'WARNUNG';
+    }
     return 'KRITISCH';
 }
 
@@ -163,19 +241,90 @@ const TEMP_ALERT_RANK = { UNBEKANNT: -1, NORMAL: 0, WARM: 1, HEISS: 2, WARNUNG: 
 
 // Kostal PIKO Grenzwerte laut Datenblatt (PIKO 4.2–10.1)
 const PIKO_SPECS = {
-    'piko3.0' : { name:'PIKO 3.0',  strings:1, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:500, mppMax:850, udcNom:680, pacNom:3000  },
-    'piko3.6' : { name:'PIKO 3.6',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:360, mppMax:850, udcNom:680, pacNom:3600  },
-    'piko4.2' : { name:'PIKO 4.2',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin2:360, mppMax:850, udcNom:680, pacNom:4200  },
-    'piko5.5' : { name:'PIKO 5.5',  strings:3, dcMaxV:950, dcMinV:180, dcMaxA:9,    mppMin1:660, mppMin2:360, mppMax:850, udcNom:680, pacNom:5500  },
-    'piko7.0' : { name:'PIKO 7.0',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:400, mppMax:850, udcNom:680, pacNom:7000  },
-    'piko8.3' : { name:'PIKO 8.3',  strings:2, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:400, mppMax:850, udcNom:680, pacNom:8300  },
-    'piko10.1': { name:'PIKO 10.1', strings:3, dcMaxV:950, dcMinV:180, dcMaxA:12.5, mppMin2:420, mppMax:850, udcNom:680, pacNom:10000 },
+    'piko3.0': {
+        name: 'PIKO 3.0',
+        strings: 1,
+        dcMaxV: 950,
+        dcMinV: 180,
+        dcMaxA: 9,
+        mppMin2: 500,
+        mppMax: 850,
+        udcNom: 680,
+        pacNom: 3000,
+    },
+    'piko3.6': {
+        name: 'PIKO 3.6',
+        strings: 2,
+        dcMaxV: 950,
+        dcMinV: 180,
+        dcMaxA: 9,
+        mppMin2: 360,
+        mppMax: 850,
+        udcNom: 680,
+        pacNom: 3600,
+    },
+    'piko4.2': {
+        name: 'PIKO 4.2',
+        strings: 2,
+        dcMaxV: 950,
+        dcMinV: 180,
+        dcMaxA: 9,
+        mppMin2: 360,
+        mppMax: 850,
+        udcNom: 680,
+        pacNom: 4200,
+    },
+    'piko5.5': {
+        name: 'PIKO 5.5',
+        strings: 3,
+        dcMaxV: 950,
+        dcMinV: 180,
+        dcMaxA: 9,
+        mppMin1: 660,
+        mppMin2: 360,
+        mppMax: 850,
+        udcNom: 680,
+        pacNom: 5500,
+    },
+    'piko7.0': {
+        name: 'PIKO 7.0',
+        strings: 2,
+        dcMaxV: 950,
+        dcMinV: 180,
+        dcMaxA: 12.5,
+        mppMin2: 400,
+        mppMax: 850,
+        udcNom: 680,
+        pacNom: 7000,
+    },
+    'piko8.3': {
+        name: 'PIKO 8.3',
+        strings: 2,
+        dcMaxV: 950,
+        dcMinV: 180,
+        dcMaxA: 12.5,
+        mppMin2: 400,
+        mppMax: 850,
+        udcNom: 680,
+        pacNom: 8300,
+    },
+    'piko10.1': {
+        name: 'PIKO 10.1',
+        strings: 3,
+        dcMaxV: 950,
+        dcMinV: 180,
+        dcMaxA: 12.5,
+        mppMin2: 420,
+        mppMax: 850,
+        udcNom: 680,
+        pacNom: 10000,
+    },
 };
-const GRID_LIMITS_DE = { acMaxV:264.5, acMinV:184, fMax:51.5, fMin:47.5 };
+const GRID_LIMITS_DE = { acMaxV: 264.5, acMinV: 184, fMax: 51.5, fMin: 47.5 };
 
 // Kostal PIKO Ereignis-/Fehlercodes (LogDaten Spalte Err, dezimal)
 const PIKO_ERROR_HINTS = {
-    0  : 'Kein Fehler',
+    0: 'Kein Fehler',
     240: 'Netzstörung – Netzspannung kurzzeitig außerhalb des zulässigen Bereichs (häufig morgens/abends oder bei Wolken; bei Wiederholung Netzbetreiber/AC-Verkabelung prüfen)',
     241: 'Netzunterspannung',
     242: 'Netzüberspannung',
@@ -191,34 +340,34 @@ const PIKO_ERROR_HINTS = {
 class KostalPikoAdapter extends utils.Adapter {
     constructor(options) {
         super({ ...options, name: ADAPTER_NAME });
-        this._pollTimer       = null;
-        this._webServer       = null;
-        this._logBuffer       = [];
-        this._maxLogs         = 500;
-        this._lastData        = {};
+        this._pollTimer = null;
+        this._webServer = null;
+        this._logBuffer = [];
+        this._maxLogs = 500;
+        this._lastData = {};
         this._lastHistoryRows = [];
-        this._lastNotifySent  = {};    // pro Berichtstyp, verhindert doppeltes Senden
-        this._nodes           = {};
-        this._pikoEpoch       = null;  // Unix-Sekunden (Geräteinbetriebnahme)
-        this._lastImportedTs  = 0;     // ms - zuletzt importierter Timestamp
-        this._lastImportIso   = null;  // ISO-Zeitpunkt des letzten History-Imports
-        this._lastHistoryFetch= 0;
+        this._lastNotifySent = {}; // pro Berichtstyp, verhindert doppeltes Senden
+        this._nodes = {};
+        this._pikoEpoch = null; // Unix-Sekunden (Geräteinbetriebnahme)
+        this._lastImportedTs = 0; // ms - zuletzt importierter Timestamp
+        this._lastImportIso = null; // ISO-Zeitpunkt des letzten History-Imports
+        this._lastHistoryFetch = 0;
         this._lastStaleHistoryFetch = 0;
         this._historyCachePath = null;
-        this._yieldsCachePath  = null;
-        this._monthlyYields    = null;
-        this._lastWeather        = null;
-        this._lastWeatherFetch   = 0;
-        this._weatherGeoCache    = null;
+        this._yieldsCachePath = null;
+        this._monthlyYields = null;
+        this._lastWeather = null;
+        this._lastWeatherFetch = 0;
+        this._weatherGeoCache = null;
         this._weatherHistoryCache = new Map();
         this._instanceDisplayName = '';
-        this._tempLossKwhDay    = 0;
-        this._tempLossDayDate   = '';
+        this._tempLossKwhDay = 0;
+        this._tempLossDayDate = '';
 
-        this.on('ready',       this._onReady.bind(this));
+        this.on('ready', this._onReady.bind(this));
         this.on('stateChange', this._onStateChange.bind(this));
-        this.on('message',      this._onMessage.bind(this));
-        this.on('unload',      this._onUnload.bind(this));
+        this.on('message', this._onMessage.bind(this));
+        this.on('unload', this._onUnload.bind(this));
     }
 
     // ─── Lifecycle ──────────────────────────────────────────────────────────────
@@ -227,80 +376,86 @@ class KostalPikoAdapter extends utils.Adapter {
         this._log('SYSTEM', `Kostal PIKO Adapter v${ADAPTER_VERSION} gestartet`);
 
         this._cfg = {
-            ip                   : (this.config.ip                   || '192.168.178.30').trim(),
-            port                 : parseInt(this.config.port)                  || 80,
-            user                 : (this.config.user                 || 'pvserver').trim(),
-            password             : (this.config.password             || 'pvwr').trim(),
-            pollInterval         : parseInt(this.config.pollInterval)          || 30,
-            webPort              : parseInt(this.config.webPort)               || 8092,
-            verbose              : !!this.config.verbose,
-            historyFetch         : !!this.config.historyFetch,
-            influxSync           : !!this.config.influxSync,   // InfluxDB-Sync separat
-            syncInterval         : parseInt(this.config.syncInterval || this.config.historyInterval) || 15,
-            influxInstance       : (this.config.influxInstance       || 'influxdb.0').trim(),
+            ip: (this.config.ip || '192.168.178.30').trim(),
+            port: parseInt(this.config.port) || 80,
+            user: (this.config.user || 'pvserver').trim(),
+            password: (this.config.password || 'pvwr').trim(),
+            pollInterval: parseInt(this.config.pollInterval) || 30,
+            webPort: parseInt(this.config.webPort) || 8092,
+            verbose: !!this.config.verbose,
+            historyFetch: !!this.config.historyFetch,
+            influxSync: !!this.config.influxSync, // InfluxDB-Sync separat
+            syncInterval: parseInt(this.config.syncInterval || this.config.historyInterval) || 15,
+            influxInstance: (this.config.influxInstance || 'influxdb.0').trim(),
             // influxEnable = nur wenn BEIDE aktiviert sind
-            influxEnable         : !!this.config.historyFetch && !!this.config.influxSync,
+            influxEnable: !!this.config.historyFetch && !!this.config.influxSync,
             // Netzwerk-Modus: 'local' = direkt, 'fritzwireguard' = via WireGuard-Tunnel
-            networkMode          : (this.config.networkMode          || 'local').trim(),
-            fritzwgInstance      : (this.config.fritzwgInstance      || 'fritzwireguard.0').trim(),
+            networkMode: (this.config.networkMode || 'local').trim(),
+            fritzwgInstance: (this.config.fritzwgInstance || 'fritzwireguard.0').trim(),
             // State-ID des Verbindungsstatus im fritzwireguard-Adapter
             // Typisch: fritzwireguard.0.info.connection oder fritzwireguard.0.connected
             fritzwgConnectedState: (this.config.fritzwgConnectedState || '').trim(),
             // Modell-Override: 'auto' = aus HTML lesen, sonst z.B. 'piko5.5'
-            pikoModel      : (this.config.pikoModel || 'auto').trim(),
+            pikoModel: (this.config.pikoModel || 'auto').trim(),
             // Benachrichtigungen
-            notifyEnabled      : !!this.config.notifyEnabled,
-            notifyInstance     : (this.config.notifyInstanceEmail || this.config.notifyInstance || 'email.0').trim(),
-            reportLabel        : (this.config.reportLabel || '').trim(),
-            notifyRecipient    : (this.config.notifyRecipient || '').trim(),
-            notifyRecipientWeekly  : (this.config.notifyRecipientWeekly  || '').trim(),
-            notifyRecipientMonthly : (this.config.notifyRecipientMonthly || '').trim(),
-            notifyDaily        : !!this.config.notifyDaily,
-            notifyDailyTime    : (this.config.notifyDailyTime  || '07:00').trim(),
-            notifyWeekly       : !!this.config.notifyWeekly,
-            notifyWeeklyTime   : (this.config.notifyWeeklyTime || '07:00').trim(),
-            notifyMonthly      : !!this.config.notifyMonthly,
-            notifyMonthlyTime  : (this.config.notifyMonthlyTime|| '07:00').trim(),
-            notifyAlert        : !!this.config.notifyAlert,
-            notifyAlertTime    : (this.config.notifyAlertTime  || '07:00').trim(),
-            notifyThresholdKwh : parseFloat(this.config.notifyThresholdKwh) || 0,
+            notifyEnabled: !!this.config.notifyEnabled,
+            notifyInstance: (this.config.notifyInstanceEmail || this.config.notifyInstance || 'email.0').trim(),
+            reportLabel: (this.config.reportLabel || '').trim(),
+            notifyRecipient: (this.config.notifyRecipient || '').trim(),
+            notifyRecipientWeekly: (this.config.notifyRecipientWeekly || '').trim(),
+            notifyRecipientMonthly: (this.config.notifyRecipientMonthly || '').trim(),
+            notifyDaily: !!this.config.notifyDaily,
+            notifyDailyTime: (this.config.notifyDailyTime || '07:00').trim(),
+            notifyWeekly: !!this.config.notifyWeekly,
+            notifyWeeklyTime: (this.config.notifyWeeklyTime || '07:00').trim(),
+            notifyMonthly: !!this.config.notifyMonthly,
+            notifyMonthlyTime: (this.config.notifyMonthlyTime || '07:00').trim(),
+            notifyAlert: !!this.config.notifyAlert,
+            notifyAlertTime: (this.config.notifyAlertTime || '07:00').trim(),
+            notifyThresholdKwh: parseFloat(this.config.notifyThresholdKwh) || 0,
             // Modul-Konfiguration (optional, für String-Analyse)
-            moduleWp       : parseFloat(this.config.moduleWp)       || 0,
-            moduleVoc      : parseFloat(this.config.moduleVoc)      || 0,
-            moduleVmpp     : parseFloat(this.config.moduleVmpp)     || 0,
-            modulePreset   : (this.config.modulePreset || '').trim(),
+            moduleWp: parseFloat(this.config.moduleWp) || 0,
+            moduleVoc: parseFloat(this.config.moduleVoc) || 0,
+            moduleVmpp: parseFloat(this.config.moduleVmpp) || 0,
+            modulePreset: (this.config.modulePreset || '').trim(),
             moduleManualOverride: !!this.config.moduleManualOverride,
-            moduleNoctEff  : parseFloat(this.config.moduleNoctEff)  || 0,
-            string1Modules : parseInt(this.config.string1Modules)   || 0,
-            string2Modules : parseInt(this.config.string2Modules)   || 0,
-            string3Modules : parseInt(this.config.string3Modules)   || 0,
+            moduleNoctEff: parseFloat(this.config.moduleNoctEff) || 0,
+            string1Modules: parseInt(this.config.string1Modules) || 0,
+            string2Modules: parseInt(this.config.string2Modules) || 0,
+            string3Modules: parseInt(this.config.string3Modules) || 0,
             yieldFeedInTariff: parseFloat(this.config.yieldFeedInTariff) || 0.3925,
             yieldInstalledKwp: parseFloat(this.config.yieldInstalledKwp) || 0,
-            yieldPlz         : (() => {
+            yieldPlz: (() => {
                 const plz = String(this.config.yieldPlz || '').trim();
                 const legacy = String(this.config.yieldPlzRegion || '').trim();
-                if (/^\d{5}$/.test(plz)) return plz;
-                if (/^\d{5}$/.test(legacy)) return legacy;
+                if (/^\d{5}$/.test(plz)) {
+                    return plz;
+                }
+                if (/^\d{5}$/.test(legacy)) {
+                    return legacy;
+                }
                 return plz || legacy || '87781';
             })(),
         };
 
-        const networkInfo = this._cfg.networkMode === 'fritzwireguard'
-            ? `Via ${this._cfg.fritzwgInstance} (WireGuard)`
-            : 'Lokal (direkter Zugriff)';
+        const networkInfo =
+            this._cfg.networkMode === 'fritzwireguard'
+                ? `Via ${this._cfg.fritzwgInstance} (WireGuard)`
+                : 'Lokal (direkter Zugriff)';
         this._log('SYSTEM', `Auth: user=${this._cfg.user}, password=${this._cfg.password ? 'gesetzt' : 'LEER!'}`);
-        this._log('SYSTEM',
+        this._log(
+            'SYSTEM',
             `Ziel: http://${this._cfg.ip}:${this._cfg.port} | ` +
-            `Netzwerk: ${networkInfo} | ` +
-            `Poll: ${this._cfg.pollInterval}s | ` +
-            `Sync: ${this._cfg.historyFetch ? 'alle ' + this._cfg.syncInterval + ' min' + (this._cfg.influxEnable ? ' → ' + this._cfg.influxInstance : ' (nur Web-UI, kein InfluxDB)') : 'deaktiviert'}`
+                `Netzwerk: ${networkInfo} | ` +
+                `Poll: ${this._cfg.pollInterval}s | ` +
+                `Sync: ${this._cfg.historyFetch ? `alle ${this._cfg.syncInterval} min${this._cfg.influxEnable ? ` → ${this._cfg.influxInstance}` : ' (nur Web-UI, kein InfluxDB)'}` : 'deaktiviert'}`,
         );
 
         await this._ensureBaseStates();
         await this._ensureHistoryStates();
         await this._syncModulePresetConfig();
         this._historyCachePath = this._getHistoryCachePath();
-        this._yieldsCachePath  = this._getYieldsCachePath();
+        this._yieldsCachePath = this._getYieldsCachePath();
         await this._loadHistoryCache();
         await this._loadMonthlyYields();
 
@@ -314,7 +469,9 @@ class KostalPikoAdapter extends utils.Adapter {
                 this._log('INFO', `History-Cursor: ${new Date(this._lastImportedTs).toISOString()}`);
             }
             const stLi = await this.getStateAsync('history.lastImport');
-            if (stLi && stLi.val) this._lastImportIso = stLi.val;
+            if (stLi && stLi.val) {
+                this._lastImportIso = stLi.val;
+            }
         } catch (_) {}
 
         this._startWebServer();
@@ -327,16 +484,17 @@ class KostalPikoAdapter extends utils.Adapter {
         if (this._cfg.historyFetch) {
             this._lastHistoryFetch = 0;
             this.setTimeout(() => {
-                this._fetchAndImportHistory(false).catch(e =>
-                    this._log('WARN', `Startup History-Fetch: ${e.message}`)
-                );
+                this._fetchAndImportHistory(false).catch(e => this._log('WARN', `Startup History-Fetch: ${e.message}`));
             }, 5000);
         }
 
         // Benachrichtigungs-Timer
         if (this._cfg.notifyEnabled) {
             if (!this._cfg.historyFetch) {
-                this._log('WARN', 'Benachrichtigungen aktiv, aber Historiendaten laden ist deaktiviert – Berichte haben keine Daten');
+                this._log(
+                    'WARN',
+                    'Benachrichtigungen aktiv, aber Historiendaten laden ist deaktiviert – Berichte haben keine Daten',
+                );
             }
             this._logNotifyConfig();
             this._startNotifyTimer();
@@ -346,20 +504,38 @@ class KostalPikoAdapter extends utils.Adapter {
     _logNotifyConfig() {
         const inst = this._cfg.notifyInstance;
         const dailyRcpt = this._getRecipientsForReport('daily');
-        this._log('SYSTEM',
-            `Berichte: E-Mail via ${inst || '(nicht gesetzt!)'} → ${dailyRcpt.join(', ') || '(kein Empfänger!)'}`
+        this._log(
+            'SYSTEM',
+            `Berichte: E-Mail via ${inst || '(nicht gesetzt!)'} → ${dailyRcpt.join(', ') || '(kein Empfänger!)'}`,
         );
         if (this.config.notifyAdapter || (this.config.notifyInstance && this.config.notifyInstance !== inst)) {
-            this._log('INFO', 'Legacy-Felder notifyAdapter/notifyInstance in der Instanz-Konfiguration werden ignoriert (nur notifyInstanceEmail)');
+            this._log(
+                'INFO',
+                'Legacy-Felder notifyAdapter/notifyInstance in der Instanz-Konfiguration werden ignoriert (nur notifyInstanceEmail)',
+            );
         }
-        if (!inst) this._log('WARN', 'E-Mail-Instanz fehlt – bitte „E-Mail-Instanz“ in Admin setzen (z. B. email.0)');
-        if (!dailyRcpt.length) this._log('WARN', 'Kein Empfänger für Tagesbericht – bitte „Empfänger (Hauptadresse)“ setzen');
+        if (!inst) {
+            this._log('WARN', 'E-Mail-Instanz fehlt – bitte „E-Mail-Instanz“ in Admin setzen (z. B. email.0)');
+        }
+        if (!dailyRcpt.length) {
+            this._log('WARN', 'Kein Empfänger für Tagesbericht – bitte „Empfänger (Hauptadresse)“ setzen');
+        }
         const parts = [];
-        if (this._cfg.notifyDaily)   parts.push(`Tagesbericht ${this._cfg.notifyDailyTime}`);
-        if (this._cfg.notifyWeekly)  parts.push(`Wochenbericht Mo ${this._cfg.notifyWeeklyTime}`);
-        if (this._cfg.notifyMonthly) parts.push(`Monatsbericht 1. ${this._cfg.notifyMonthlyTime}`);
-        if (this._cfg.notifyAlert)   parts.push(`Alarm ${this._cfg.notifyAlertTime}`);
-        if (parts.length) this._log('SYSTEM', `Zeitplan: ${parts.join(' · ')}`);
+        if (this._cfg.notifyDaily) {
+            parts.push(`Tagesbericht ${this._cfg.notifyDailyTime}`);
+        }
+        if (this._cfg.notifyWeekly) {
+            parts.push(`Wochenbericht Mo ${this._cfg.notifyWeeklyTime}`);
+        }
+        if (this._cfg.notifyMonthly) {
+            parts.push(`Monatsbericht 1. ${this._cfg.notifyMonthlyTime}`);
+        }
+        if (this._cfg.notifyAlert) {
+            parts.push(`Alarm ${this._cfg.notifyAlertTime}`);
+        }
+        if (parts.length) {
+            this._log('SYSTEM', `Zeitplan: ${parts.join(' · ')}`);
+        }
     }
 
     _onStateChange(id, state) {
@@ -373,7 +549,9 @@ class KostalPikoAdapter extends utils.Adapter {
     _resolveMessageCommand(obj) {
         let cmd = obj.command;
         if (cmd === 'send') {
-            if (typeof obj.message === 'string') return obj.message;
+            if (typeof obj.message === 'string') {
+                return obj.message;
+            }
             if (obj.message && typeof obj.message === 'object' && obj.message.command) {
                 return obj.message.command;
             }
@@ -382,7 +560,9 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _onMessage(obj) {
-        if (!obj) return;
+        if (!obj) {
+            return;
+        }
         const cmd = this._resolveMessageCommand(obj);
 
         if (cmd === 'testReportDaily' || cmd === 'testReportWeekly' || cmd === 'testReportMonthly') {
@@ -390,7 +570,10 @@ class KostalPikoAdapter extends utils.Adapter {
             const reply = (result, error) => {
                 this.sendTo(obj.from, cmd, { result, error }, obj.callback);
             };
-            this._log('INFO', `Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht angefordert`);
+            this._log(
+                'INFO',
+                `Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht angefordert`,
+            );
             if (!this._cfg.notifyEnabled) {
                 reply(null, 'Benachrichtigungen sind deaktiviert – bitte zuerst aktivieren und speichern.');
                 return;
@@ -404,92 +587,142 @@ class KostalPikoAdapter extends utils.Adapter {
                 reply(null, 'Kein E-Mail-Empfänger eingetragen.');
                 return;
             }
-            const sendFn = kind === 'daily'   ? () => this._sendDailyReport({ test: true })
-                           : kind === 'weekly'  ? () => this._sendWeeklyReport({ test: true })
-                           :                      () => this._sendMonthlyReport({ test: true });
+            const sendFn =
+                kind === 'daily'
+                    ? () => this._sendDailyReport({ test: true })
+                    : kind === 'weekly'
+                      ? () => this._sendWeeklyReport({ test: true })
+                      : () => this._sendMonthlyReport({ test: true });
             sendFn()
-                .then(() => reply(`✅ Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht gesendet`, null))
+                .then(() =>
+                    reply(
+                        `✅ Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht gesendet`,
+                        null,
+                    ),
+                )
                 .catch(e => reply(null, `❌ ${e.message}`));
             return;
         }
 
         if (cmd === 'applyModulePreset') {
             const presetId = (obj.message?.preset || this._cfg.modulePreset || '').trim();
-            const preset   = MODULE_PRESETS[presetId];
+            const preset = MODULE_PRESETS[presetId];
             if (!preset) {
                 this.sendTo(obj.from, cmd, { error: 'Keine Modul-Vorlage gewählt.' }, obj.callback);
                 return;
             }
             this._applyModulePresetToInstance(presetId, preset)
-                .then(() => this.sendTo(obj.from, cmd, {
-                    result: `✅ ${preset.name}: ${preset.wp} Wp, Voc ${preset.voc} V, Vmpp ${preset.vmpp} V übernommen`,
-                }, obj.callback))
+                .then(() =>
+                    this.sendTo(
+                        obj.from,
+                        cmd,
+                        {
+                            result: `✅ ${preset.name}: ${preset.wp} Wp, Voc ${preset.voc} V, Vmpp ${preset.vmpp} V übernommen`,
+                        },
+                        obj.callback,
+                    ),
+                )
                 .catch(e => this.sendTo(obj.from, cmd, { error: e.message }, obj.callback));
             return;
         }
 
         if (cmd === 'getModulePresetInfo') {
             const presetId = (obj.message?.preset || this._cfg.modulePreset || '').trim();
-            const preset   = MODULE_PRESETS[presetId];
-            this.sendTo(obj.from, cmd, {
-                preset : presetId,
-                summary: preset
-                    ? `${preset.wp} Wp · Voc ${preset.voc} V · Vmpp ${preset.vmpp} V · Impp ${preset.impp} A · β ${(preset.betaPmax * 100).toFixed(2)} %/K · NOCT ${preset.noct} °C`
-                    : '',
-                fields : getModulePresetFields(presetId),
-            }, obj.callback);
+            const preset = MODULE_PRESETS[presetId];
+            this.sendTo(
+                obj.from,
+                cmd,
+                {
+                    preset: presetId,
+                    summary: preset
+                        ? `${preset.wp} Wp · Voc ${preset.voc} V · Vmpp ${preset.vmpp} V · Impp ${preset.impp} A · β ${(preset.betaPmax * 100).toFixed(2)} %/K · NOCT ${preset.noct} °C`
+                        : '',
+                    fields: getModulePresetFields(presetId),
+                },
+                obj.callback,
+            );
             return;
         }
 
-        if (cmd !== 'test') return;
+        if (cmd !== 'test') {
+            return;
+        }
         const { ip, port, user, password } = obj.message || {};
-        const testIp   = (ip   || this._cfg.ip).trim();
+        const testIp = (ip || this._cfg.ip).trim();
         const testPort = parseInt(port) || this._cfg.port;
         const testUser = (user || this._cfg.user).trim();
         const testPass = (password || this._cfg.password).trim();
 
         const http = require('node:http');
         const auth = Buffer.from(`${testUser}:${testPass}`).toString('base64');
-        const req  = http.request({
-            hostname: testIp, port: testPort,
-            path: '/index.fhtml', method: 'GET',
-            headers: { 'Authorization': `Basic ${auth}` },
-            timeout: 5000,
-        }, (res) => {
-            let data = '';
-            res.setEncoding('latin1');
-            res.on('data', chunk => { data += chunk; });
-            res.on('end', () => {
-                const ok = res.statusCode === 200 && data.includes('PIKO');
-                this.sendTo(obj.from, obj.command, {
-                    result: ok
-                        ? `✅ Verbindung OK – PIKO gefunden (HTTP ${res.statusCode})`
-                        : `⚠️ HTTP ${res.statusCode} – PIKO nicht erkannt`,
-                    error: ok ? null : 'Gerät antwortet aber kein PIKO erkannt',
-                }, obj.callback);
-            });
-        });
-        req.on('error', (e) => {
-            this.sendTo(obj.from, obj.command, {
-                result: null,
-                error: `❌ Verbindung fehlgeschlagen: ${e.message}`,
-            }, obj.callback);
+        const req = http.request(
+            {
+                hostname: testIp,
+                port: testPort,
+                path: '/index.fhtml',
+                method: 'GET',
+                headers: { Authorization: `Basic ${auth}` },
+                timeout: 5000,
+            },
+            res => {
+                let data = '';
+                res.setEncoding('latin1');
+                res.on('data', chunk => {
+                    data += chunk;
+                });
+                res.on('end', () => {
+                    const ok = res.statusCode === 200 && data.includes('PIKO');
+                    this.sendTo(
+                        obj.from,
+                        obj.command,
+                        {
+                            result: ok
+                                ? `✅ Verbindung OK – PIKO gefunden (HTTP ${res.statusCode})`
+                                : `⚠️ HTTP ${res.statusCode} – PIKO nicht erkannt`,
+                            error: ok ? null : 'Gerät antwortet aber kein PIKO erkannt',
+                        },
+                        obj.callback,
+                    );
+                });
+            },
+        );
+        req.on('error', e => {
+            this.sendTo(
+                obj.from,
+                obj.command,
+                {
+                    result: null,
+                    error: `❌ Verbindung fehlgeschlagen: ${e.message}`,
+                },
+                obj.callback,
+            );
         });
         req.on('timeout', () => {
             req.destroy();
-            this.sendTo(obj.from, obj.command, {
-                result: null,
-                error: '❌ Timeout – Gerät nicht erreichbar (5s)',
-            }, obj.callback);
+            this.sendTo(
+                obj.from,
+                obj.command,
+                {
+                    result: null,
+                    error: '❌ Timeout – Gerät nicht erreichbar (5s)',
+                },
+                obj.callback,
+            );
         });
         req.end();
     }
 
     _onUnload(callback) {
         try {
-            if (this._pollTimer)  this.clearInterval(this._pollTimer);
-            if (this._notifyTimer) this.clearInterval(this._notifyTimer);
-            if (this._webServer)   this._webServer.close();
+            if (this._pollTimer) {
+                this.clearInterval(this._pollTimer);
+            }
+            if (this._notifyTimer) {
+                this.clearInterval(this._notifyTimer);
+            }
+            if (this._webServer) {
+                this._webServer.close();
+            }
         } catch (_) {}
         callback();
     }
@@ -497,15 +730,18 @@ class KostalPikoAdapter extends utils.Adapter {
     // ─── Netzwerk-Verfügbarkeit prüfen (fritzwireguard) ────────────────────────
 
     async _checkNetwork() {
-        if (this._cfg.networkMode !== 'fritzwireguard') return true;
+        if (this._cfg.networkMode !== 'fritzwireguard') {
+            return true;
+        }
 
-        const stateId = this._cfg.fritzwgConnectedState ||
-                        `${this._cfg.fritzwgInstance}.info.connection`;
+        const stateId = this._cfg.fritzwgConnectedState || `${this._cfg.fritzwgInstance}.info.connection`;
         try {
             const st = await this.getForeignStateAsync(stateId);
             if (!st || !st.val) {
-                this._log('WARN',
-                    `WireGuard-Tunnel nicht aktiv (${stateId} = ${st ? st.val : 'null'}) → Poll übersprungen`);
+                this._log(
+                    'WARN',
+                    `WireGuard-Tunnel nicht aktiv (${stateId} = ${st ? st.val : 'null'}) → Poll übersprungen`,
+                );
                 return false;
             }
             if (this._cfg.verbose) {
@@ -513,7 +749,10 @@ class KostalPikoAdapter extends utils.Adapter {
             }
             return true;
         } catch (e) {
-            this._log('WARN', `WireGuard-Status konnte nicht gelesen werden (${stateId}): ${e.message} → Poll übersprungen`);
+            this._log(
+                'WARN',
+                `WireGuard-Status konnte nicht gelesen werden (${stateId}): ${e.message} → Poll übersprungen`,
+            );
             return false;
         }
     }
@@ -529,13 +768,18 @@ class KostalPikoAdapter extends utils.Adapter {
             return { todayNewest: null, todayStale: false, ageMin: null };
         }
         const newestTs = Math.max(...todayRows.map(r => r.ts));
-        const ageMin   = Math.round((Date.now() - newestTs) / 60000);
-        const hour = parseInt(new Intl.DateTimeFormat('en', {
-            timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false,
-        }).format(new Date()), 10);
+        const ageMin = Math.round((Date.now() - newestTs) / 60000);
+        const hour = parseInt(
+            new Intl.DateTimeFormat('en', {
+                timeZone: 'Europe/Berlin',
+                hour: 'numeric',
+                hour12: false,
+            }).format(new Date()),
+            10,
+        );
         const livePower = parseFloat(this._lastData['ac.power']) || 0;
         const producing = livePower >= 50;
-        const daylight  = hour >= 5 && hour <= 22;
+        const daylight = hour >= 5 && hour <= 22;
         const todayStale = daylight && ageMin >= 20 && (producing || ageMin >= 35);
         return {
             todayNewest: new Date(newestTs).toISOString(),
@@ -563,11 +807,13 @@ class KostalPikoAdapter extends utils.Adapter {
                 ...this._parseMainPage(mainHtml),
                 ...this._parseInfoPage(infoHtml),
             });
-            await this.setStateAsync('info.connection',  { val: true,  ack: true });
-            await this.setStateAsync('info.lastPoll',    { val: new Date().toISOString(), ack: true });
+            await this.setStateAsync('info.connection', { val: true, ack: true });
+            await this.setStateAsync('info.lastPoll', { val: new Date().toISOString(), ack: true });
             await this.setStateAsync('info.networkMode', { val: this._cfg.networkMode, ack: true });
             await this._writeModuleStates();
-            if (this._cfg.verbose) this._log('DEBUG', 'Live-Poll OK');
+            if (this._cfg.verbose) {
+                this._log('DEBUG', 'Live-Poll OK');
+            }
         } catch (err) {
             this._log('ERROR', `Live-Poll: ${err.message}`);
             await this.setStateAsync('info.connection', { val: false, ack: true }).catch(() => {});
@@ -576,33 +822,35 @@ class KostalPikoAdapter extends utils.Adapter {
         // 2. History-Sync (syncInterval) + Nachhol-Abruf wenn Tagesdaten hängen bleiben
         // 3–5s Verzögerung damit PIKO nach dem Live-Poll wieder frei ist
         if (this._cfg.historyFetch) {
-            const now        = Date.now();
+            const now = Date.now();
             const intervalMs = this._cfg.syncInterval * 60 * 1000;
-            const todayMeta  = this._getTodayHistoryMeta();
+            const todayMeta = this._getTodayHistoryMeta();
             const intervalDue = now - this._lastHistoryFetch >= intervalMs;
-            const staleDue    = todayMeta.todayStale
-                && !this._historyLoading
-                && now - this._lastStaleHistoryFetch >= 5 * 60 * 1000;
+            const staleDue =
+                todayMeta.todayStale && !this._historyLoading && now - this._lastStaleHistoryFetch >= 5 * 60 * 1000;
             if (intervalDue || staleDue) {
-                if (intervalDue) this._lastHistoryFetch = now;
+                if (intervalDue) {
+                    this._lastHistoryFetch = now;
+                }
                 if (staleDue) {
                     this._lastStaleHistoryFetch = now;
-                    this._log('INFO',
-                        `Tages-Historie hängt (${todayMeta.ageMin} Min seit letztem Punkt) → PIKO-Abruf`
-                    );
+                    this._log('INFO', `Tages-Historie hängt (${todayMeta.ageMin} Min seit letztem Punkt) → PIKO-Abruf`);
                 }
-                this.setTimeout(() => {
-                    this._fetchAndImportHistory(false).catch(e =>
-                        this._log('WARN', `History-Sync: ${e.message}`)
-                    );
-                }, staleDue ? 5000 : 3000);
+                this.setTimeout(
+                    () => {
+                        this._fetchAndImportHistory(false).catch(e => this._log('WARN', `History-Sync: ${e.message}`));
+                    },
+                    staleDue ? 5000 : 3000,
+                );
             }
         }
 
         // 3. Wetter (alle 30 Minuten, wenn PLZ gesetzt)
         if (this._cfg.yieldPlz && Date.now() - this._lastWeatherFetch >= 30 * 60 * 1000) {
             this._refreshWeather().catch(e => {
-                if (this._cfg.verbose) this._log('DEBUG', `Wetter: ${e.message}`);
+                if (this._cfg.verbose) {
+                    this._log('DEBUG', `Wetter: ${e.message}`);
+                }
             });
         }
     }
@@ -611,21 +859,26 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _fetchHttpsJson(reqUrl, timeoutMs = 12000) {
         return new Promise((resolve, reject) => {
-            const req = https.get(reqUrl, { timeout: timeoutMs }, (res) => {
+            const req = https.get(reqUrl, { timeout: timeoutMs }, res => {
                 let data = '';
-                res.on('data', c => { data += c; });
+                res.on('data', c => {
+                    data += c;
+                });
                 res.on('end', () => {
                     if (res.statusCode !== 200) {
                         return reject(new Error(`HTTP ${res.statusCode}`));
                     }
                     try {
                         resolve(JSON.parse(data));
-                    } catch (e) {
+                    } catch (_e) {
                         reject(new Error('JSON ungültig'));
                     }
                 });
             });
-            req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+            req.on('timeout', () => {
+                req.destroy();
+                reject(new Error('Timeout'));
+            });
             req.on('error', reject);
         });
     }
@@ -636,22 +889,32 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _weatherLabelFromMetrics(cloudPct, sunshineH, weatherCode) {
         if (cloudPct != null) {
-            if (cloudPct <= 15) return 'Sonnig';
-            if (cloudPct <= 35) return 'Überwiegend sonnig';
-            if (cloudPct <= 60) return 'Teilweise bewölkt';
-            if (cloudPct <= 85) return 'Bewölkt';
+            if (cloudPct <= 15) {
+                return 'Sonnig';
+            }
+            if (cloudPct <= 35) {
+                return 'Überwiegend sonnig';
+            }
+            if (cloudPct <= 60) {
+                return 'Teilweise bewölkt';
+            }
+            if (cloudPct <= 85) {
+                return 'Bewölkt';
+            }
             return 'Stark bewölkt';
         }
-        if (sunshineH != null && sunshineH >= 10) return 'Sonnig';
+        if (sunshineH != null && sunshineH >= 10) {
+            return 'Sonnig';
+        }
         return weatherCode != null ? this._wmoLabel(weatherCode) : null;
     }
 
     _wmoLabel(code) {
         const labels = {
-            0 : 'Klar',
-            1 : 'Überwiegend klar',
-            2 : 'Teilweise bewölkt',
-            3 : 'Bewölkt',
+            0: 'Klar',
+            1: 'Überwiegend klar',
+            2: 'Teilweise bewölkt',
+            3: 'Bewölkt',
             45: 'Neblig',
             48: 'Neblig',
             51: 'Leichter Nieselregen',
@@ -679,11 +942,13 @@ class KostalPikoAdapter extends utils.Adapter {
         }
         const zip = await this._fetchHttpsJson(`https://api.zippopotam.us/de/${plz}`);
         const place = zip.places && zip.places[0];
-        if (!place) throw new Error(`PLZ ${plz} nicht gefunden`);
+        if (!place) {
+            throw new Error(`PLZ ${plz} nicht gefunden`);
+        }
         const geo = {
             plz,
-            lat  : parseFloat(place.latitude),
-            lon  : parseFloat(place.longitude),
+            lat: parseFloat(place.latitude),
+            lon: parseFloat(place.longitude),
             place: `${place['place name']}`,
             state: place.state || '',
         };
@@ -692,25 +957,34 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _isPrecipWeatherCode(code) {
-        if (code == null) return false;
-        return (code >= 51 && code <= 67) || (code >= 71 && code <= 77) ||
-            (code >= 80 && code <= 82) || code >= 95;
+        if (code == null) {
+            return false;
+        }
+        return (code >= 51 && code <= 67) || (code >= 71 && code <= 77) || (code >= 80 && code <= 82) || code >= 95;
     }
 
     _sumHourlyPrecipToday(times, values, todayBerlin, onlyElapsed = false) {
-        if (!times.length || !values.length) return 0;
+        if (!times.length || !values.length) {
+            return 0;
+        }
         const now = Date.now();
         let sum = 0;
         times.forEach((t, i) => {
-            if (!t.startsWith(todayBerlin) || values[i] == null) return;
-            if (onlyElapsed && new Date(t).getTime() > now) return;
+            if (!t.startsWith(todayBerlin) || values[i] == null) {
+                return;
+            }
+            if (onlyElapsed && new Date(t).getTime() > now) {
+                return;
+            }
             sum += values[i];
         });
         return sum;
     }
 
     _formatPrecipMm(mm) {
-        if (mm == null || isNaN(mm)) return null;
+        if (mm == null || isNaN(mm)) {
+            return null;
+        }
         return Math.round(mm * 10) / 10;
     }
 
@@ -723,18 +997,26 @@ class KostalPikoAdapter extends utils.Adapter {
                 return;
             }
             const tl = obj?.common?.titleLang;
-            let raw = typeof tl === 'string' ? tl : (tl?.de || tl?.en || '');
-            raw = raw.replace(/^Kostal\s+PIKO\s*/i, '').replace(/\s*Wechselrichter.*/i, '').trim();
-            if (raw) this._instanceDisplayName = raw;
+            let raw = typeof tl === 'string' ? tl : tl?.de || tl?.en || '';
+            raw = raw
+                .replace(/^Kostal\s+PIKO\s*/i, '')
+                .replace(/\s*Wechselrichter.*/i, '')
+                .trim();
+            if (raw) {
+                this._instanceDisplayName = raw;
+            }
         } catch (_) {}
     }
 
     _getReportSubjectTag() {
-        const model = this._lastData['device.model'] ||
+        const model =
+            this._lastData['device.model'] ||
             PIKO_SPECS[this._cfg.pikoModel]?.name ||
             (this._cfg.pikoModel !== 'auto' ? this._cfg.pikoModel : 'PIKO');
         const label = (this._cfg.reportLabel || this._instanceDisplayName || '').trim();
-        if (label) return `${model} · ${label} – `;
+        if (label) {
+            return `${model} · ${label} – `;
+        }
         return `${model} – `;
     }
 
@@ -743,16 +1025,22 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _formatErrorCodesHtml(codes) {
-        if (!codes?.length) return '';
-        const items = codes.map(c =>
-            `<li><strong>${c}</strong>: ${this._escHtml(this._explainErrorCode(c))}</li>`
-        ).join('');
-        return `<p class="warn" style="margin:8px 0 4px;">⚠️ Fehlercodes im Tagesverlauf</p>` +
-            `<ul style="margin:0 0 12px 18px;padding:0;font-size:10px;">${items}</ul>`;
+        if (!codes?.length) {
+            return '';
+        }
+        const items = codes
+            .map(c => `<li><strong>${c}</strong>: ${this._escHtml(this._explainErrorCode(c))}</li>`)
+            .join('');
+        return (
+            `<p class="warn" style="margin:8px 0 4px;">⚠️ Fehlercodes im Tagesverlauf</p>` +
+            `<ul style="margin:0 0 12px 18px;padding:0;font-size:10px;">${items}</ul>`
+        );
     }
 
     _formatErrorCodesText(codes) {
-        if (!codes?.length) return '';
+        if (!codes?.length) {
+            return '';
+        }
         return codes.map(c => `⚠️ ${c}: ${this._explainErrorCode(c)}`).join('\n');
     }
 
@@ -775,10 +1063,10 @@ class KostalPikoAdapter extends utils.Adapter {
     _weatherFromArchiveDay(data, geo, dateKey) {
         const sunshineSec = data.daily?.sunshine_duration?.[0];
         const weatherCode = data.daily?.weather_code?.[0];
-        const tempMax     = data.daily?.temperature_2m_max?.[0];
+        const tempMax = data.daily?.temperature_2m_max?.[0];
         const dailyPrecip = Math.max(data.daily?.precipitation_sum?.[0] ?? 0, data.daily?.rain_sum?.[0] ?? 0);
 
-        const times  = data.hourly?.time || [];
+        const times = data.hourly?.time || [];
         const clouds = data.hourly?.cloud_cover || [];
         let cloudAvg = null;
         if (times.length && clouds.length) {
@@ -794,31 +1082,34 @@ class KostalPikoAdapter extends utils.Adapter {
             }
         }
 
-        const sunshineH = sunshineSec != null ? Math.round(sunshineSec / 3600 * 10) / 10 : null;
-        const weatherLabel = this._weatherLabelFromMetrics(cloudAvg, sunshineH, weatherCode) ||
+        const sunshineH = sunshineSec != null ? Math.round((sunshineSec / 3600) * 10) / 10 : null;
+        const weatherLabel =
+            this._weatherLabelFromMetrics(cloudAvg, sunshineH, weatherCode) ||
             (weatherCode != null ? this._wmoLabel(weatherCode) : null);
 
         return {
-            plz         : geo.plz,
-            place       : geo.place,
-            date        : dateKey,
+            plz: geo.plz,
+            place: geo.place,
+            date: dateKey,
             sunshineH,
-            weather     : weatherLabel || '–',
+            weather: weatherLabel || '–',
             weatherCode,
-            tempMax     : tempMax != null ? Math.round(tempMax * 10) / 10 : null,
-            precipMm    : this._formatPrecipMm(dailyPrecip > 0 ? dailyPrecip : 0),
-            precipSoFar : null,
+            tempMax: tempMax != null ? Math.round(tempMax * 10) / 10 : null,
+            precipMm: this._formatPrecipMm(dailyPrecip > 0 ? dailyPrecip : 0),
+            precipSoFar: null,
             precipCurrent: null,
             precipForecast: null,
-            cloudPct    : cloudAvg,
-            source      : 'Open-Meteo Archiv',
-            historical  : true,
-            updatedAt   : new Date().toISOString(),
+            cloudPct: cloudAvg,
+            source: 'Open-Meteo Archiv',
+            historical: true,
+            updatedAt: new Date().toISOString(),
         };
     }
 
     async _getWeatherForDate(dateKey) {
-        if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null;
+        if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+            return null;
+        }
         const today = this._berlinDateKey();
         if (dateKey === today) {
             if (!this._lastWeather || this._lastWeather.date !== today) {
@@ -830,20 +1121,22 @@ class KostalPikoAdapter extends utils.Adapter {
             return this._weatherHistoryCache.get(dateKey);
         }
         const plz = this._cfg.yieldPlz;
-        if (!plz || !/^\d{5}$/.test(plz)) return null;
+        if (!plz || !/^\d{5}$/.test(plz)) {
+            return null;
+        }
         try {
             const geo = await this._geocodePlz(plz);
             const q = new URLSearchParams({
-                latitude  : String(geo.lat),
-                longitude : String(geo.lon),
+                latitude: String(geo.lat),
+                longitude: String(geo.lon),
                 start_date: dateKey,
-                end_date  : dateKey,
-                daily     : 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum,rain_sum',
-                hourly    : 'cloud_cover,precipitation,rain',
-                timezone  : 'Europe/Berlin',
+                end_date: dateKey,
+                daily: 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum,rain_sum',
+                hourly: 'cloud_cover,precipitation,rain',
+                timezone: 'Europe/Berlin',
             });
             const ar = await this._fetchHttpsJson(`https://archive-api.open-meteo.com/v1/archive?${q}`);
-            const w  = this._weatherFromArchiveDay(ar, geo, dateKey);
+            const w = this._weatherFromArchiveDay(ar, geo, dateKey);
             this._weatherHistoryCache.set(dateKey, w);
             return w;
         } catch (e) {
@@ -853,7 +1146,9 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _weatherSummaryText(w) {
-        if (!w) return '';
+        if (!w) {
+            return '';
+        }
         const parts = [
             w.weather && `Bedingungen: ${w.weather}`,
             w.sunshineH != null && `Sonnenschein: ${w.sunshineH} h`,
@@ -866,28 +1161,30 @@ class KostalPikoAdapter extends utils.Adapter {
 
     async _refreshWeather() {
         const plz = this._cfg.yieldPlz;
-        if (!plz || !/^\d{5}$/.test(plz)) return;
+        if (!plz || !/^\d{5}$/.test(plz)) {
+            return;
+        }
 
         const geo = await this._geocodePlz(plz);
         const q = new URLSearchParams({
-            latitude : String(geo.lat),
+            latitude: String(geo.lat),
             longitude: String(geo.lon),
-            daily    : 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum,rain_sum',
-            hourly   : 'cloud_cover,precipitation,rain,weather_code',
-            current  : 'precipitation,rain,weather_code',
-            timezone : 'Europe/Berlin',
+            daily: 'sunshine_duration,weather_code,temperature_2m_max,precipitation_sum,rain_sum',
+            hourly: 'cloud_cover,precipitation,rain,weather_code',
+            current: 'precipitation,rain,weather_code',
+            timezone: 'Europe/Berlin',
             forecast_days: '1',
         });
         const fc = await this._fetchHttpsJson(`https://api.open-meteo.com/v1/forecast?${q}`);
 
         const sunshineSec = fc.daily?.sunshine_duration?.[0];
         const weatherCode = fc.daily?.weather_code?.[0];
-        const tempMax     = fc.daily?.temperature_2m_max?.[0];
+        const tempMax = fc.daily?.temperature_2m_max?.[0];
         const dailyPrecip = fc.daily?.precipitation_sum?.[0];
-        const dailyRain   = fc.daily?.rain_sum?.[0];
+        const dailyRain = fc.daily?.rain_sum?.[0];
         const currentCode = fc.current?.weather_code;
         const currentPrecip = fc.current?.precipitation;
-        const currentRain   = fc.current?.rain;
+        const currentRain = fc.current?.rain;
 
         const times = fc.hourly?.time || [];
         const clouds = fc.hourly?.cloud_cover || [];
@@ -924,110 +1221,120 @@ class KostalPikoAdapter extends utils.Adapter {
             precipMm = precipForecast;
         }
 
-        const sunshineH = sunshineSec != null ? Math.round(sunshineSec / 3600 * 10) / 10 : null;
-        const labelCode = (currentCode != null && this._isPrecipWeatherCode(currentCode))
-            ? currentCode
-            : weatherCode;
+        const sunshineH = sunshineSec != null ? Math.round((sunshineSec / 3600) * 10) / 10 : null;
+        const labelCode = currentCode != null && this._isPrecipWeatherCode(currentCode) ? currentCode : weatherCode;
         const weatherLabel = this._isPrecipWeatherCode(labelCode)
             ? this._wmoLabel(labelCode)
             : this._weatherLabelFromMetrics(cloudAvg, sunshineH, weatherCode);
 
         this._lastWeather = {
             plz,
-            place    : geo.place,
-            state    : geo.state,
-            date     : todayBerlin,
+            place: geo.place,
+            state: geo.state,
+            date: todayBerlin,
             sunshineH,
-            weather  : weatherLabel,
+            weather: weatherLabel,
             weatherCode: labelCode ?? weatherCode,
-            tempMax  : tempMax != null ? Math.round(tempMax * 10) / 10 : null,
-            precipMm : this._formatPrecipMm(precipMm),
+            tempMax: tempMax != null ? Math.round(tempMax * 10) / 10 : null,
+            precipMm: this._formatPrecipMm(precipMm),
             precipSoFar: this._formatPrecipMm(precipSoFar),
             precipCurrent: this._formatPrecipMm(precipCurrent > 0 ? precipCurrent : null),
             precipForecast: this._formatPrecipMm(precipForecast > 0 ? precipForecast : null),
-            cloudPct : cloudAvg,
-            source   : 'Open-Meteo',
+            cloudPct: cloudAvg,
+            source: 'Open-Meteo',
             updatedAt: new Date().toISOString(),
         };
         this._lastWeatherFetch = Date.now();
         if (this._cfg.verbose) {
-            this._log('DEBUG', `Wetter ${plz} ${geo.place}: ${this._lastWeather.sunshineH}h Sonne, ${this._lastWeather.weather}`);
+            this._log(
+                'DEBUG',
+                `Wetter ${plz} ${geo.place}: ${this._lastWeather.sunshineH}h Sonne, ${this._lastWeather.weather}`,
+            );
         }
         await this._writeWeatherStates();
     }
 
     async _writeWeatherStates() {
         const w = this._lastWeather;
-        if (!w) return;
-        await this._writeStates({
-            'weather.sunshineHours' : w.sunshineH ?? 0,
-            'weather.tempMax'       : w.tempMax ?? 0,
-            'weather.cloudCover'    : w.cloudPct ?? 0,
-            'weather.precipitation' : w.precipMm ?? 0,
-            'weather.description'   : w.weather || '',
-            'weather.plz'           : w.plz || '',
-            'weather.place'           : w.place || '',
-            'weather.updatedAt'     : w.updatedAt || '',
-        }, { skipDerived: true });
+        if (!w) {
+            return;
+        }
+        await this._writeStates(
+            {
+                'weather.sunshineHours': w.sunshineH ?? 0,
+                'weather.tempMax': w.tempMax ?? 0,
+                'weather.cloudCover': w.cloudPct ?? 0,
+                'weather.precipitation': w.precipMm ?? 0,
+                'weather.description': w.weather || '',
+                'weather.plz': w.plz || '',
+                'weather.place': w.place || '',
+                'weather.updatedAt': w.updatedAt || '',
+            },
+            { skipDerived: true },
+        );
     }
 
     _calcTemperatureStates(data) {
         const { wp, voc, vmpp, betaVmpp, betaPmax, impp } = this._getModuleParams();
-        if (!voc || !wp || !vmpp) return {};
+        if (!voc || !wp || !vmpp) {
+            return {};
+        }
 
-        const tAmbient    = this._lastWeather?.tempMax ?? null;
+        const tAmbient = this._lastWeather?.tempMax ?? null;
         const stringCount = this._getStringCount();
-        const results     = {};
-        let totalLossW    = 0;
-        let hottestId     = '';
-        let hottestTemp   = -Infinity;
-        let worstAlert    = 'UNBEKANNT';
+        const results = {};
+        let totalLossW = 0;
+        let hottestId = '';
+        let hottestTemp = -Infinity;
+        let worstAlert = 'UNBEKANNT';
 
         for (const s of [
             { id: 1, count: this._cfg.string1Modules },
             { id: 2, count: this._cfg.string2Modules },
             { id: 3, count: this._cfg.string3Modules },
         ]) {
-            if (!s.count || s.id > stringCount) continue;
+            if (!s.count || s.id > stringCount) {
+                continue;
+            }
 
-            const v         = parseFloat(data[`pv.string${s.id}.voltage`]) || 0;
-            const i         = parseFloat(data[`pv.string${s.id}.current`]) || 0;
-            const prefix    = `string${s.id}`;
+            const v = parseFloat(data[`pv.string${s.id}.voltage`]) || 0;
+            const i = parseFloat(data[`pv.string${s.id}.current`]) || 0;
+            const prefix = `string${s.id}`;
             const imppString = impp * s.count;
             const pMeasured = v * i;
-            const tempC     = calcStringTemp(v, s.count, vmpp, betaVmpp);
+            const tempC = calcStringTemp(v, s.count, vmpp, betaVmpp);
             const uncertainty = s.count ? calcTempUncertainty(s.count, vmpp, betaVmpp) : 0;
-            const validRel  = tempC !== null && isTempValidRelative(i, imppString);
-            const validAbs  = tempC !== null && isTempValidAbsolute(i, imppString, tempC, tAmbient);
-            const mppUtil   = calcMppUtilization(v, s.count, vmpp);
-            const quality   = getTempQuality(tempC, i, imppString, pMeasured, tAmbient, validAbs, validRel, mppUtil);
-            const deltaK    = tempC !== null ? Math.round((tempC - 25) * 10) / 10 : 0;
-            const lossW     = tempC !== null && quality !== 'invalid'
-                ? calcTempLoss(pMeasured, tempC, betaPmax) : 0;
-            const powerAt25 = tempC !== null && tempC > 25 && betaPmax > 0 && pMeasured > 0
-                ? Math.round(pMeasured / (1 - betaPmax * (tempC - 25)))
-                : Math.round(pMeasured);
-            const alert     = quality !== 'invalid' ? getTempAlert(tempC) : 'UNBEKANNT';
-            const vmppMod   = v && s.count ? Math.round(v / s.count * 10) / 10 : 0;
-            const qualityLabel = quality === 'absolute' ? 'ABSOLUT'
-                : quality === 'limited' ? 'EINGESCHRAENKT' : 'UNGUELTIG';
+            const validRel = tempC !== null && isTempValidRelative(i, imppString);
+            const validAbs = tempC !== null && isTempValidAbsolute(i, imppString, tempC, tAmbient);
+            const mppUtil = calcMppUtilization(v, s.count, vmpp);
+            const quality = getTempQuality(tempC, i, imppString, pMeasured, tAmbient, validAbs, validRel, mppUtil);
+            const deltaK = tempC !== null ? Math.round((tempC - 25) * 10) / 10 : 0;
+            const lossW = tempC !== null && quality !== 'invalid' ? calcTempLoss(pMeasured, tempC, betaPmax) : 0;
+            const powerAt25 =
+                tempC !== null && tempC > 25 && betaPmax > 0 && pMeasured > 0
+                    ? Math.round(pMeasured / (1 - betaPmax * (tempC - 25)))
+                    : Math.round(pMeasured);
+            const alert = quality !== 'invalid' ? getTempAlert(tempC) : 'UNBEKANNT';
+            const vmppMod = v && s.count ? Math.round((v / s.count) * 10) / 10 : 0;
+            const qualityLabel =
+                quality === 'absolute' ? 'ABSOLUT' : quality === 'limited' ? 'EINGESCHRAENKT' : 'UNGUELTIG';
 
-            results[`${prefix}.vmppPerModule`]     = vmppMod;
-            results[`${prefix}.tempEquivalentC`]   = tempC !== null ? tempC : 0;
-            results[`${prefix}.tempQuality`]       = qualityLabel;
+            results[`${prefix}.vmppPerModule`] = vmppMod;
+            results[`${prefix}.tempEquivalentC`] = tempC !== null ? tempC : 0;
+            results[`${prefix}.tempQuality`] = qualityLabel;
             results[`${prefix}.tempValidRelative`] = validRel;
             results[`${prefix}.tempValidAbsolute`] = validAbs;
-            results[`${prefix}.tempUncertaintyK`]  = uncertainty;
-            results[`${prefix}.tempDeltaK`]        = deltaK;
-            results[`${prefix}.tempLossW`]          = lossW;
-            results[`${prefix}.powerAt25C`]        = powerAt25;
-            results[`${prefix}.mppUtilization`]     = mppUtil !== null ? mppUtil : 0;
-            results[`${prefix}.tempAlert`]          = alert;
+            results[`${prefix}.tempUncertaintyK`] = uncertainty;
+            results[`${prefix}.tempDeltaK`] = deltaK;
+            results[`${prefix}.tempLossW`] = lossW;
+            results[`${prefix}.powerAt25C`] = powerAt25;
+            results[`${prefix}.mppUtilization`] = mppUtil !== null ? mppUtil : 0;
+            results[`${prefix}.tempAlert`] = alert;
 
             totalLossW += lossW;
             if (quality !== 'invalid' && tempC !== null && tempC > hottestTemp) {
                 hottestTemp = tempC;
-                hottestId   = prefix;
+                hottestId = prefix;
             }
             if ((TEMP_ALERT_RANK[alert] ?? -1) > (TEMP_ALERT_RANK[worstAlert] ?? -1)) {
                 worstAlert = alert;
@@ -1039,31 +1346,32 @@ class KostalPikoAdapter extends utils.Adapter {
         const s1p = (parseFloat(data['pv.string1.voltage']) || 0) * (parseFloat(data['pv.string1.current']) || 0);
         const s2p = (parseFloat(data['pv.string2.voltage']) || 0) * (parseFloat(data['pv.string2.current']) || 0);
         let deltaStrings = 0;
-        let deltaValid   = false;
+        let deltaValid = false;
         if (s1q && s1q !== 'UNGUELTIG' && s2q && s2q !== 'UNGUELTIG' && s1p >= 50 && s2p >= 50) {
-            deltaStrings = Math.round(
-                ((results['string1.tempEquivalentC'] || 0) - (results['string2.tempEquivalentC'] || 0)) * 10
-            ) / 10;
+            deltaStrings =
+                Math.round(
+                    ((results['string1.tempEquivalentC'] || 0) - (results['string2.tempEquivalentC'] || 0)) * 10,
+                ) / 10;
             deltaValid = true;
         }
 
         const today = new Date().toDateString();
         if (this._tempLossDayDate !== today) {
             this._tempLossDayDate = today;
-            this._tempLossKwhDay  = 0;
+            this._tempLossKwhDay = 0;
         }
         const acPower = parseFloat(data['ac.power']) || 0;
         if (totalLossW > 0 && acPower >= 50) {
-            this._tempLossKwhDay += totalLossW * (this._cfg.pollInterval || 30) / 3600000;
-            this._tempLossKwhDay  = Math.round(this._tempLossKwhDay * 10000) / 10000;
+            this._tempLossKwhDay += (totalLossW * (this._cfg.pollInterval || 30)) / 3600000;
+            this._tempLossKwhDay = Math.round(this._tempLossKwhDay * 10000) / 10000;
         }
 
-        results['temperature.deltaStrings']    = deltaStrings;
-        results['temperature.deltaValid']      = deltaValid;
-        results['temperature.totalLossW']        = totalLossW;
-        results['temperature.totalLossKwhDay']   = this._tempLossKwhDay || 0;
-        results['temperature.hottest']           = hottestId;
-        results['temperature.systemAlert']       = worstAlert;
+        results['temperature.deltaStrings'] = deltaStrings;
+        results['temperature.deltaValid'] = deltaValid;
+        results['temperature.totalLossW'] = totalLossW;
+        results['temperature.totalLossKwhDay'] = this._tempLossKwhDay || 0;
+        results['temperature.hottest'] = hottestId;
+        results['temperature.systemAlert'] = worstAlert;
 
         return results;
     }
@@ -1075,13 +1383,11 @@ class KostalPikoAdapter extends utils.Adapter {
         });
         const strings = [str(1), str(2), str(3)];
         const stringCount = this._getStringCount();
-        const dcTotal = Math.round(strings
-            .slice(0, stringCount)
-            .reduce((sum, s) => sum + s.v * s.a, 0));
+        const dcTotal = Math.round(strings.slice(0, stringCount).reduce((sum, s) => sum + s.v * s.a, 0));
         const acPower = parseFloat(data['ac.power']) || 0;
         let ratio = 0;
         if (dcTotal >= 50 && acPower >= 0) {
-            ratio = Math.round(acPower / dcTotal * 1000) / 10;
+            ratio = Math.round((acPower / dcTotal) * 1000) / 10;
         }
         const tempMax = this._lastWeather?.tempMax;
         let expected = 97;
@@ -1091,8 +1397,8 @@ class KostalPikoAdapter extends utils.Adapter {
             expected = Math.round(97 * tempFactor * 10) / 10;
         }
         return {
-            'dc.totalPower'      : dcTotal,
-            'efficiency.ratio'   : ratio,
+            'dc.totalPower': dcTotal,
+            'efficiency.ratio': ratio,
             'efficiency.expected': expected,
             ...this._calcTemperatureStates(data),
         };
@@ -1102,9 +1408,11 @@ class KostalPikoAdapter extends utils.Adapter {
 
     async _fetchAndImportHistory(syncAll = false, retryCount = 0) {
         this._historyLoading = true;
-        this._log('INFO', syncAll
-            ? 'Starte VOLLSYNC (alle Datenpunkte) → InfluxDB...'
-            : 'Starte History-Sync (nur neue Datenpunkte)...'
+        this._log(
+            'INFO',
+            syncAll
+                ? 'Starte VOLLSYNC (alle Datenpunkte) → InfluxDB...'
+                : 'Starte History-Sync (nur neue Datenpunkte)...',
         );
 
         // Zeitpunkt des HTTP-Abrufs merken (für Epochen-Berechnung)
@@ -1114,31 +1422,40 @@ class KostalPikoAdapter extends utils.Adapter {
         // "akt. Zeit" aus Header lesen (Tab-separiert: "akt. Zeit:\t 495381409")
         const m = raw.match(/akt\.\s*Zeit[:\s\t]+\s*(\d+)/);
         if (!m) {
-            const preview = raw.substring(0, 300).replace(/\r/g, '').split('\n').slice(0,5).join(' | ');
-            const isBusy  = /service.*busy|nicht.*verf.gbar/i.test(raw.substring(0, 200));
+            const preview = raw.substring(0, 300).replace(/\r/g, '').split('\n').slice(0, 5).join(' | ');
+            const isBusy = /service.*busy|nicht.*verf.gbar/i.test(raw.substring(0, 200));
             if (isBusy && retryCount < 3) {
                 // PIKO ist beschäftigt → in 30s nochmal versuchen
                 this._historyLoading = false;
-                this._log('WARN', `History-Sync: PIKO meldet "service busy" → Retry in 30s (Versuch ${retryCount + 1}/3)`);
-                this.setTimeout(() => this._fetchAndImportHistory(syncAll, retryCount + 1).catch(e =>
-                    this._log('WARN', `History-Sync Retry: ${e.message}`)
-                ), 30000);
+                this._log(
+                    'WARN',
+                    `History-Sync: PIKO meldet "service busy" → Retry in 30s (Versuch ${retryCount + 1}/3)`,
+                );
+                this.setTimeout(
+                    () =>
+                        this._fetchAndImportHistory(syncAll, retryCount + 1).catch(e =>
+                            this._log('WARN', `History-Sync Retry: ${e.message}`),
+                        ),
+                    30000,
+                );
                 return;
             }
-            throw new Error('"akt. Zeit" nicht im Header gefunden. Header-Preview: ' + preview);
+            throw new Error(`"akt. Zeit" nicht im Header gefunden. Header-Preview: ${preview}`);
         }
         const aktZeit = parseInt(m[1]);
 
         // PIKO-Epoche berechnen:
         // Gerät läuft aktZeit Sekunden → Inbetriebnahme war vor aktZeit Sekunden
         this._pikoEpoch = fetchUnixSec - aktZeit;
-        this._log('INFO',
+        this._log(
+            'INFO',
             `PIKO Epoche: ${new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10)} ` +
-            `| akt. Zeit des Geräts: ${aktZeit} s`
+                `| akt. Zeit des Geräts: ${aktZeit} s`,
         );
-        await this.setStateAsync('history.pikoEpoch',
-            { val: new Date(this._pikoEpoch * 1000).toISOString(), ack: true }
-        );
+        await this.setStateAsync('history.pikoEpoch', {
+            val: new Date(this._pikoEpoch * 1000).toISOString(),
+            ack: true,
+        });
 
         // CSV parsen
         const rows = this._parseLogDaten(raw, this._pikoEpoch);
@@ -1151,24 +1468,26 @@ class KostalPikoAdapter extends utils.Adapter {
 
         const prevRows = this._lastHistoryRows;
         const prevMaxTs = prevRows.reduce((m, r) => Math.max(m, r.ts), 0);
-        const newMaxTs  = rows.reduce((m, r) => Math.max(m, r.ts), 0);
+        const newMaxTs = rows.reduce((m, r) => Math.max(m, r.ts), 0);
 
         if (this._isHistoryParseSuspicious(prevRows, rows)) {
-            this._log('WARN',
+            this._log(
+                'WARN',
                 `LogDaten.dat wirkt unvollständig (${rows.length} Punkte, zuvor ${prevRows.length}, ` +
-                `${rows[0].date.substring(0,10)} – ${rows[rows.length-1].date.substring(0,10)}) – ` +
-                `Cache wird per Merge aktualisiert, ältere Punkte bleiben erhalten`
+                    `${rows[0].date.substring(0, 10)} – ${rows[rows.length - 1].date.substring(0, 10)}) – ` +
+                    `Cache wird per Merge aktualisiert, ältere Punkte bleiben erhalten`,
             );
         } else if (prevRows.length && newMaxTs < prevMaxTs - 45 * 60 * 1000) {
-            this._log('WARN',
+            this._log(
+                'WARN',
                 `LogDaten.dat endet früher als Cache (${new Date(newMaxTs).toISOString()} vs. ` +
-                `${new Date(prevMaxTs).toISOString()}) – Cache wird per Merge beibehalten`
+                    `${new Date(prevMaxTs).toISOString()}) – Cache wird per Merge beibehalten`,
             );
         }
 
         const merged = this._mergeHistoryRows(prevRows, rows);
-        const added  = merged.length - prevRows.length;
-        const removed = (prevRows.length + rows.length) - merged.length;
+        const added = merged.length - prevRows.length;
+        const removed = prevRows.length + rows.length - merged.length;
         this._lastHistoryRows = merged;
         if (removed > 0) {
             this._log('INFO', `${removed} doppelte History-Punkte beim Merge entfernt`);
@@ -1177,17 +1496,14 @@ class KostalPikoAdapter extends utils.Adapter {
             this._log('INFO', `${added} neue Punkte per Merge (gesamt ${merged.length})`);
         }
 
-        await this._saveHistoryCache().catch(e =>
-            this._log('WARN', `History-Cache speichern: ${e.message}`)
-        );
-        await this._refreshAutoYields().catch(e =>
-            this._log('WARN', `Monatserträge aktualisieren: ${e.message}`)
-        );
+        await this._saveHistoryCache().catch(e => this._log('WARN', `History-Cache speichern: ${e.message}`));
+        await this._refreshAutoYields().catch(e => this._log('WARN', `Monatserträge aktualisieren: ${e.message}`));
 
         const allRows = this._lastHistoryRows;
-        this._log('INFO',
+        this._log(
+            'INFO',
             `${allRows.length} Datenpunkte gesamt | ` +
-            `${allRows[0].date.substring(0,10)} – ${allRows[allRows.length-1].date.substring(0,10)}`
+                `${allRows[0].date.substring(0, 10)} – ${allRows[allRows.length - 1].date.substring(0, 10)}`,
         );
 
         // Deduplication: bei syncAll Cursor auf 0 setzen → alles übertragen
@@ -1197,24 +1513,20 @@ class KostalPikoAdapter extends utils.Adapter {
         }
 
         // Nur neue Zeilen importieren (gegen gesamte Historie inkl. Cache)
-        const newRows = syncAll
-            ? allRows.filter(r => r.ts > 0)
-            : allRows.filter(r => r.ts > this._lastImportedTs);
+        const newRows = syncAll ? allRows.filter(r => r.ts > 0) : allRows.filter(r => r.ts > this._lastImportedTs);
         this._log('INFO', `${newRows.length} Datenpunkte ${syncAll ? '(alle)' : '(neu)'} → InfluxDB`);
 
         if (newRows.length === 0) {
             this._lastImportIso = new Date().toISOString();
-            await this.setStateAsync('history.lastImport',  { val: this._lastImportIso, ack: true });
+            await this.setStateAsync('history.lastImport', { val: this._lastImportIso, ack: true });
             await this.setStateAsync('history.recordCount', { val: allRows.length, ack: true });
-            await this._refreshAutoYields().catch(e =>
-                this._log('WARN', `Monatserträge aktualisieren: ${e.message}`)
-            );
+            await this._refreshAutoYields().catch(e => this._log('WARN', `Monatserträge aktualisieren: ${e.message}`));
             this._historyLoading = false;
             return;
         }
 
         let influxSent = 0;
-        let maxTs      = this._lastImportedTs;
+        let maxTs = this._lastImportedTs;
 
         for (const row of newRows) {
             await this._writeHistoryRow(row);
@@ -1224,26 +1536,30 @@ class KostalPikoAdapter extends utils.Adapter {
                 influxSent += n;
             }
 
-            if (row.ts > maxTs) maxTs = row.ts;
+            if (row.ts > maxTs) {
+                maxTs = row.ts;
+            }
         }
 
         // Cursor speichern
         this._lastImportedTs = maxTs;
-        await this.setStateAsync('history.lastImportedTs', { val: maxTs,                         ack: true });
+        await this.setStateAsync('history.lastImportedTs', { val: maxTs, ack: true });
         this._lastImportIso = new Date().toISOString();
-        await this.setStateAsync('history.lastImport',     { val: this._lastImportIso,          ack: true });
-        await this.setStateAsync('history.recordCount',    { val: allRows.length,               ack: true });
-        await this.setStateAsync('history.newRecords',     { val: newRows.length,                 ack: true });
-        await this.setStateAsync('history.oldestRecord',   { val: allRows[0].date,                ack: true });
-        await this.setStateAsync('history.newestRecord',   { val: allRows[allRows.length-1].date, ack: true });
+        await this.setStateAsync('history.lastImport', { val: this._lastImportIso, ack: true });
+        await this.setStateAsync('history.recordCount', { val: allRows.length, ack: true });
+        await this.setStateAsync('history.newRecords', { val: newRows.length, ack: true });
+        await this.setStateAsync('history.oldestRecord', { val: allRows[0].date, ack: true });
+        await this.setStateAsync('history.newestRecord', { val: allRows[allRows.length - 1].date, ack: true });
         if (this._cfg.influxEnable) {
-            await this.setStateAsync('history.influxSent', { val: influxSent,                     ack: true });
+            await this.setStateAsync('history.influxSent', { val: influxSent, ack: true });
         }
 
         this._historyLoading = false;
-        this._log('INFO',
-            `Sync ${syncAll ? '(Vollsync)' : ''} fertig: ${newRows.length} Punkte` +
-            (this._cfg.influxEnable ? `, ${influxSent} → ${this._cfg.influxInstance}` : '')
+        this._log(
+            'INFO',
+            `Sync ${syncAll ? '(Vollsync)' : ''} fertig: ${newRows.length} Punkte${
+                this._cfg.influxEnable ? `, ${influxSent} → ${this._cfg.influxInstance}` : ''
+            }`,
         );
     }
 
@@ -1252,18 +1568,22 @@ class KostalPikoAdapter extends utils.Adapter {
     async _writeHistoryRow(row) {
         for (const def of HISTORY_STATES) {
             const val = this._calcHistVal(row, def);
-            if (val === null) continue;
+            if (val === null) {
+                continue;
+            }
             try {
                 // ts = historischer UNIX-Timestamp in ms
                 // Der ioBroker InfluxDB-Adapter schreibt diesen ts in die DB
                 await this.setStateAsync(def.id, {
                     val,
-                    ack : true,
-                    ts  : row.ts,  // ← DAS ist der Schlüssel für korrekte Zeitreihen
-                    q   : 0,
+                    ack: true,
+                    ts: row.ts, // ← DAS ist der Schlüssel für korrekte Zeitreihen
+                    q: 0,
                 });
             } catch (e) {
-                if (this._cfg.verbose) this._log('WARN', `${def.id}: ${e.message}`);
+                if (this._cfg.verbose) {
+                    this._log('WARN', `${def.id}: ${e.message}`);
+                }
             }
         }
     }
@@ -1274,16 +1594,20 @@ class KostalPikoAdapter extends utils.Adapter {
         const points = [];
         for (const def of HISTORY_STATES) {
             const val = this._calcHistVal(row, def);
-            if (val === null) continue;
+            if (val === null) {
+                continue;
+            }
             points.push({
-                id   : `${this.namespace}.${def.id}`,
+                id: `${this.namespace}.${def.id}`,
                 state: { val, ts: row.ts, ack: true, q: 0 },
             });
         }
-        if (!points.length) return 0;
+        if (!points.length) {
+            return 0;
+        }
 
-        await new Promise((resolve) => {
-            this.sendTo(this._cfg.influxInstance, 'storeState', points, (result) => {
+        await new Promise(resolve => {
+            this.sendTo(this._cfg.influxInstance, 'storeState', points, result => {
                 if (result && result.error) {
                     this._log('WARN', `InfluxDB sendTo: ${result.error}`);
                 }
@@ -1294,20 +1618,26 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     async _syncLiveToInflux(data) {
-        if (!this._cfg.influxEnable) return;
+        if (!this._cfg.influxEnable) {
+            return;
+        }
         const ts = Date.now();
         const points = [];
         for (const id of LIVE_INFLUX_STATES) {
-            if (data[id] === null || data[id] === undefined) continue;
+            if (data[id] === null || data[id] === undefined) {
+                continue;
+            }
             points.push({
-                id   : `${this.namespace}.${id}`,
+                id: `${this.namespace}.${id}`,
                 state: { val: data[id], ts, ack: true, q: 0 },
             });
         }
-        if (!points.length) return;
+        if (!points.length) {
+            return;
+        }
 
-        await new Promise((resolve) => {
-            this.sendTo(this._cfg.influxInstance, 'storeState', points, (result) => {
+        await new Promise(resolve => {
+            this.sendTo(this._cfg.influxInstance, 'storeState', points, result => {
                 if (result && result.error && this._cfg.verbose) {
                     this._log('WARN', `InfluxDB Live-Sync: ${result.error}`);
                 }
@@ -1320,7 +1650,9 @@ class KostalPikoAdapter extends utils.Adapter {
         const SLOT_MS = 15 * 60 * 1000;
         const bySlot = new Map();
         for (const r of rows) {
-            if (!r?.ts) continue;
+            if (!r?.ts) {
+                continue;
+            }
             const slot = Math.floor(r.ts / SLOT_MS);
             bySlot.set(slot, r);
         }
@@ -1328,65 +1660,103 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _mergeHistoryRows(prevRows, newRows) {
-        if (!prevRows.length) return this._dedupeHistoryRows(newRows);
-        if (!newRows.length) return this._dedupeHistoryRows(prevRows);
+        if (!prevRows.length) {
+            return this._dedupeHistoryRows(newRows);
+        }
+        if (!newRows.length) {
+            return this._dedupeHistoryRows(prevRows);
+        }
         return this._dedupeHistoryRows([...prevRows, ...newRows]);
     }
 
     _isHistoryParseSuspicious(prevRows, newRows) {
-        if (!prevRows.length || !newRows.length) return false;
-        if (prevRows.length < 100) return false;
+        if (!prevRows.length || !newRows.length) {
+            return false;
+        }
+        if (prevRows.length < 100) {
+            return false;
+        }
         const prevMax = prevRows[prevRows.length - 1].ts;
-        const newMax  = newRows[newRows.length - 1].ts;
+        const newMax = newRows[newRows.length - 1].ts;
         // Abgeschnittene Datei: neuester Punkt deutlich älter als im Cache (z. B. fehlender Nachmittag)
-        if (newMax < prevMax - 45 * 60 * 1000) return true;
-        if (newRows.length >= prevRows.length * 0.5) return false;
+        if (newMax < prevMax - 45 * 60 * 1000) {
+            return true;
+        }
+        if (newRows.length >= prevRows.length * 0.5) {
+            return false;
+        }
         const prevSpan = prevRows[prevRows.length - 1].ts - prevRows[0].ts;
-        const newSpan  = newRows[newRows.length - 1].ts - newRows[0].ts;
-        if (newRows.length < prevRows.length * 0.1) return true;
-        if (prevSpan > 7 * 86400000 && newSpan < 2 * 86400000) return true;
+        const newSpan = newRows[newRows.length - 1].ts - newRows[0].ts;
+        if (newRows.length < prevRows.length * 0.1) {
+            return true;
+        }
+        if (prevSpan > 7 * 86400000 && newSpan < 2 * 86400000) {
+            return true;
+        }
         return false;
     }
 
     _resolvePikoModelKey() {
         const cfgModel = (this._cfg.pikoModel || 'auto').toLowerCase();
-        if (cfgModel !== 'auto' && PIKO_SPECS[cfgModel]) return cfgModel;
+        if (cfgModel !== 'auto' && PIKO_SPECS[cfgModel]) {
+            return cfgModel;
+        }
         const live = (this._lastData['device.model'] || '').toLowerCase();
-        if (live.includes('10.1')) return 'piko10.1';
-        if (live.includes('8.3'))  return 'piko8.3';
-        if (live.includes('7.0'))  return 'piko7.0';
-        if (live.includes('5.5'))  return 'piko5.5';
-        if (live.includes('4.2'))  return 'piko4.2';
-        if (live.includes('3.6'))  return 'piko3.6';
-        if (live.includes('3.0'))  return 'piko3.0';
+        if (live.includes('10.1')) {
+            return 'piko10.1';
+        }
+        if (live.includes('8.3')) {
+            return 'piko8.3';
+        }
+        if (live.includes('7.0')) {
+            return 'piko7.0';
+        }
+        if (live.includes('5.5')) {
+            return 'piko5.5';
+        }
+        if (live.includes('4.2')) {
+            return 'piko4.2';
+        }
+        if (live.includes('3.6')) {
+            return 'piko3.6';
+        }
+        if (live.includes('3.0')) {
+            return 'piko3.0';
+        }
         return null;
     }
 
     _getInverterSpecs() {
         const key = this._resolvePikoModelKey();
         const spec = key ? PIKO_SPECS[key] : null;
-        if (!spec) return { enabled: false };
-        const activeStrings = [
-            this._cfg.string1Modules,
-            this._cfg.string2Modules,
-            this._cfg.string3Modules,
-        ].filter(n => n > 0).length || spec.strings;
-        const mppMin = activeStrings >= 2 ? (spec.mppMin2 || spec.mppMin1) : (spec.mppMin1 || spec.mppMin2);
+        if (!spec) {
+            return { enabled: false };
+        }
+        const activeStrings =
+            [this._cfg.string1Modules, this._cfg.string2Modules, this._cfg.string3Modules].filter(n => n > 0).length ||
+            spec.strings;
+        const mppMin = activeStrings >= 2 ? spec.mppMin2 || spec.mppMin1 : spec.mppMin1 || spec.mppMin2;
         return {
-            enabled    : true,
-            modelKey   : key,
-            modelName  : spec.name,
+            enabled: true,
+            modelKey: key,
+            modelName: spec.name,
             ...spec,
             mppMinActive: mppMin,
-            grid       : GRID_LIMITS_DE,
+            grid: GRID_LIMITS_DE,
         };
     }
 
     _checkStringInverterLimits(voltage, current, inv) {
-        if (!inv?.enabled || !voltage) return { ok:true, warnings:[] };
+        if (!inv?.enabled || !voltage) {
+            return { ok: true, warnings: [] };
+        }
         const w = [];
-        if (voltage > inv.dcMaxV) w.push(`Spannung ${voltage}V > Udcmax ${inv.dcMaxV}V`);
-        if (voltage < inv.dcMinV && current > 0.1) w.push(`Spannung ${voltage}V < Udcmin ${inv.dcMinV}V`);
+        if (voltage > inv.dcMaxV) {
+            w.push(`Spannung ${voltage}V > Udcmax ${inv.dcMaxV}V`);
+        }
+        if (voltage < inv.dcMinV && current > 0.1) {
+            w.push(`Spannung ${voltage}V < Udcmin ${inv.dcMinV}V`);
+        }
         if (inv.dcMaxA && current > inv.dcMaxA) {
             w.push(`Strom ${current}A > Idmax ${inv.dcMaxA}A`);
         }
@@ -1417,7 +1787,9 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     async _saveHistoryCache() {
-        if (!this._historyCachePath || !this._lastHistoryRows.length) return;
+        if (!this._historyCachePath || !this._lastHistoryRows.length) {
+            return;
+        }
         const dir = path.dirname(this._historyCachePath);
         await fs.promises.mkdir(dir, { recursive: true });
         try {
@@ -1425,32 +1797,40 @@ class KostalPikoAdapter extends utils.Adapter {
             await fs.promises.copyFile(this._historyCachePath, `${this._historyCachePath}.bak`);
         } catch (_) {}
         const payload = {
-            savedAt  : new Date().toISOString(),
+            savedAt: new Date().toISOString(),
             pikoEpoch: this._pikoEpoch,
-            rows     : this._lastHistoryRows.map(r => this._compactHistoryRow(r)),
+            rows: this._lastHistoryRows.map(r => this._compactHistoryRow(r)),
         };
         await fs.promises.writeFile(this._historyCachePath, JSON.stringify(payload), 'utf-8');
     }
 
     async _loadHistoryCache() {
-        if (!this._historyCachePath) return;
+        if (!this._historyCachePath) {
+            return;
+        }
         for (const file of [this._historyCachePath, `${this._historyCachePath}.bak`]) {
             try {
                 const raw = await fs.promises.readFile(file, 'utf-8');
                 const data = JSON.parse(raw);
-                if (!data.rows || !Array.isArray(data.rows) || data.rows.length < 10) continue;
+                if (!data.rows || !Array.isArray(data.rows) || data.rows.length < 10) {
+                    continue;
+                }
                 this._lastHistoryRows = this._dedupeHistoryRows(data.rows);
-                if (data.pikoEpoch) this._pikoEpoch = data.pikoEpoch;
+                if (data.pikoEpoch) {
+                    this._pikoEpoch = data.pikoEpoch;
+                }
                 const removed = data.rows.length - this._lastHistoryRows.length;
-                this._log('INFO',
-                    `History-Cache geladen: ${this._lastHistoryRows.length} Punkte` +
-                    (removed > 0 ? ` (${removed} Duplikate entfernt)` : '') +
-                    (data.savedAt ? ` (Stand ${data.savedAt.substring(0, 19).replace('T', ' ')})` : '') +
-                    (file.endsWith('.bak') ? ' [Backup]' : '')
+                this._log(
+                    'INFO',
+                    `History-Cache geladen: ${this._lastHistoryRows.length} Punkte${
+                        removed > 0 ? ` (${removed} Duplikate entfernt)` : ''
+                    }${
+                        data.savedAt ? ` (Stand ${data.savedAt.substring(0, 19).replace('T', ' ')})` : ''
+                    }${file.endsWith('.bak') ? ' [Backup]' : ''}`,
                 );
                 if (removed > 0) {
                     await this._saveHistoryCache().catch(e =>
-                        this._log('WARN', `History-Cache bereinigen: ${e.message}`)
+                        this._log('WARN', `History-Cache bereinigen: ${e.message}`),
                     );
                 }
                 return;
@@ -1469,17 +1849,19 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _defaultMonthlyYields() {
         const kwp = this._cfg.yieldInstalledKwp || this._getInstalledKwp();
-        let commissionYear = null;
-        if (this._pikoEpoch) commissionYear = new Date(this._pikoEpoch * 1000).getFullYear();
+        let _commissionYear = null;
+        if (this._pikoEpoch) {
+            _commissionYear = new Date(this._pikoEpoch * 1000).getFullYear();
+        }
         return {
-            savedAt       : new Date().toISOString(),
-            feedInTariff  : this._cfg.yieldFeedInTariff || 0.3925,
-            installedKwp  : kwp || 0,
-            plzRegion     : (this._cfg.yieldPlz || '').charAt(0) || '',
-            plz           : this._cfg.yieldPlz || '',
+            savedAt: new Date().toISOString(),
+            feedInTariff: this._cfg.yieldFeedInTariff || 0.3925,
+            installedKwp: kwp || 0,
+            plzRegion: (this._cfg.yieldPlz || '').charAt(0) || '',
+            plz: this._cfg.yieldPlz || '',
             regionalKwpRef: null,
-            extraYears    : [],
-            months        : {},
+            extraYears: [],
+            months: {},
         };
     }
 
@@ -1494,7 +1876,9 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     async _loadMonthlyYields() {
-        if (!this._yieldsCachePath) return;
+        if (!this._yieldsCachePath) {
+            return;
+        }
         const loaded = await this._readYieldsFile(this._yieldsCachePath);
         if (loaded) {
             this._monthlyYields = loaded;
@@ -1503,9 +1887,10 @@ class KostalPikoAdapter extends utils.Adapter {
             if (n < 3) {
                 const bak = await this._readYieldsFile(`${this._yieldsCachePath}.bak`);
                 if (bak && Object.keys(bak.months).length > n) {
-                    this._log('WARN',
+                    this._log(
+                        'WARN',
                         `Monatserträge wirken unvollständig (${n} Monate) – Backup hat ` +
-                        `${Object.keys(bak.months).length} Monate (Ertrag-Tab: „Backup wiederherstellen“)`
+                            `${Object.keys(bak.months).length} Monate (Ertrag-Tab: „Backup wiederherstellen“)`,
                     );
                 }
             }
@@ -1514,9 +1899,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const bak = await this._readYieldsFile(`${this._yieldsCachePath}.bak`);
         if (bak && Object.keys(bak.months).length) {
             this._monthlyYields = bak;
-            this._log('WARN',
-                `Monatserträge aus Backup wiederhergestellt: ${Object.keys(bak.months).length} Monate`
-            );
+            this._log('WARN', `Monatserträge aus Backup wiederhergestellt: ${Object.keys(bak.months).length} Monate`);
             await this._saveMonthlyYields();
             return;
         }
@@ -1527,7 +1910,9 @@ class KostalPikoAdapter extends utils.Adapter {
         try {
             const raw = await fs.promises.readFile(filePath, 'utf-8');
             const data = JSON.parse(raw);
-            if (!data.months || typeof data.months !== 'object') return null;
+            if (!data.months || typeof data.months !== 'object') {
+                return null;
+            }
             return {
                 ...this._defaultMonthlyYields(),
                 ...data,
@@ -1543,7 +1928,9 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     async _saveMonthlyYields() {
-        if (!this._yieldsCachePath || !this._monthlyYields) return;
+        if (!this._yieldsCachePath || !this._monthlyYields) {
+            return;
+        }
         const dir = path.dirname(this._yieldsCachePath);
         await fs.promises.mkdir(dir, { recursive: true });
         try {
@@ -1560,7 +1947,9 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _parseMonthKey(key) {
         const m = /^(\d{4})-(\d{2})$/.exec(key || '');
-        if (!m) return null;
+        if (!m) {
+            return null;
+        }
         return { year: parseInt(m[1]), month: parseInt(m[2]) };
     }
 
@@ -1568,8 +1957,8 @@ class KostalPikoAdapter extends utils.Adapter {
         return this._dedupeHistoryRows(this._lastHistoryRows).filter(r => {
             const parts = new Intl.DateTimeFormat('en', {
                 timeZone: 'Europe/Berlin',
-                year    : 'numeric',
-                month   : 'numeric',
+                year: 'numeric',
+                month: 'numeric',
             }).formatToParts(new Date(r.ts));
             const y = parseInt(parts.find(p => p.type === 'year').value, 10);
             const m = parseInt(parts.find(p => p.type === 'month').value, 10);
@@ -1583,11 +1972,15 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _calcMonthWhFromRows(rows) {
-        if (!rows.length) return 0;
+        if (!rows.length) {
+            return 0;
+        }
         const byDay = {};
         this._dedupeHistoryRows(rows).forEach(r => {
             const day = this._berlinDateKey(r.ts);
-            if (!byDay[day]) byDay[day] = [];
+            if (!byDay[day]) {
+                byDay[day] = [];
+            }
             byDay[day].push(r);
         });
         let totalKwh = 0;
@@ -1598,17 +1991,21 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     async _refreshAutoYields(options = {}) {
-        if (!this._monthlyYields) this._monthlyYields = this._defaultMonthlyYields();
+        if (!this._monthlyYields) {
+            this._monthlyYields = this._defaultMonthlyYields();
+        }
         if (!this._lastHistoryRows.length) {
             return { updated: 0, historyFrom: null, historyTo: null, monthsInHistory: 0 };
         }
 
-        const force     = !!options.force;
-        const fromYear  = options.fromYear ? parseInt(options.fromYear) : null;
+        const force = !!options.force;
+        const fromYear = options.fromYear ? parseInt(options.fromYear) : null;
         const fromMonth = options.fromMonth ? parseInt(options.fromMonth) : 1;
 
         const kwp = this._cfg.yieldInstalledKwp || this._getInstalledKwp();
-        if (kwp) this._monthlyYields.installedKwp = kwp;
+        if (kwp) {
+            this._monthlyYields.installedKwp = kwp;
+        }
         this._monthlyYields.feedInTariff = this._cfg.yieldFeedInTariff || this._monthlyYields.feedInTariff;
         if (this._cfg.yieldPlz) {
             this._monthlyYields.plzRegion = this._cfg.yieldPlz.charAt(0);
@@ -1616,7 +2013,9 @@ class KostalPikoAdapter extends utils.Adapter {
         }
 
         if (fromYear) {
-            if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+            if (!this._monthlyYields.extraYears) {
+                this._monthlyYields.extraYears = [];
+            }
             const cy = new Date().getFullYear();
             for (let y = fromYear; y <= cy; y++) {
                 if (!this._monthlyYields.extraYears.includes(y)) {
@@ -1633,7 +2032,9 @@ class KostalPikoAdapter extends utils.Adapter {
             const month = d.getMonth() + 1;
             if (fromYear) {
                 const beforeStart = year < fromYear || (year === fromYear && month < fromMonth);
-                if (beforeStart) return;
+                if (beforeStart) {
+                    return;
+                }
             }
             monthSet[this._monthKey(year, month)] = { year, month };
         });
@@ -1649,24 +2050,29 @@ class KostalPikoAdapter extends utils.Adapter {
             }
 
             const wh = this._calcMonthWhFromRows(this._getRowsForMonth(year, month));
-            if (wh <= 0) return;
+            if (wh <= 0) {
+                return;
+            }
 
             const maxWh = this._maxPlausibleMonthWh(kwp);
             if (wh > maxWh) {
-                this._log('WARN',
+                this._log(
+                    'WARN',
                     `Monatsertrag ${key}: ${wh} Wh unrealistisch (>${maxWh} Wh) – ` +
-                    `bitte „Auto-Werte löschen“ und erneut aus Historie berechnen`
+                        `bitte „Auto-Werte löschen“ und erneut aus Historie berechnen`,
                 );
                 return;
             }
 
             const now = new Date();
             const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-            if (!force && existing && existing.source === 'auto' && existing.wh === wh && !isCurrentMonth) return;
+            if (!force && existing && existing.source === 'auto' && existing.wh === wh && !isCurrentMonth) {
+                return;
+            }
 
             this._monthlyYields.months[key] = {
                 wh,
-                source   : 'auto',
+                source: 'auto',
                 updatedAt: new Date().toISOString(),
             };
             updated++;
@@ -1682,8 +2088,8 @@ class KostalPikoAdapter extends utils.Adapter {
             updated,
             skippedManual,
             monthsInHistory: Object.keys(monthSet).length,
-            historyFrom    : sorted.length ? sorted[0].date.substring(0, 10) : null,
-            historyTo      : sorted.length ? sorted[sorted.length - 1].date.substring(0, 10) : null,
+            historyFrom: sorted.length ? sorted[0].date.substring(0, 10) : null,
+            historyTo: sorted.length ? sorted[sorted.length - 1].date.substring(0, 10) : null,
         };
     }
 
@@ -1692,7 +2098,20 @@ class KostalPikoAdapter extends utils.Adapter {
         const months = data.months || {};
         const years = this._getYieldsYears(months, data.extraYears);
 
-        const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+        const monthNames = [
+            'Januar',
+            'Februar',
+            'März',
+            'April',
+            'Mai',
+            'Juni',
+            'Juli',
+            'August',
+            'September',
+            'Oktober',
+            'November',
+            'Dezember',
+        ];
         const grid = [];
         const monthStats = [];
 
@@ -1707,14 +2126,16 @@ class KostalPikoAdapter extends utils.Adapter {
                     wh,
                     source: entry?.source || null,
                 };
-                if (wh) values.push(wh);
+                if (wh) {
+                    values.push(wh);
+                }
             });
             if (values.length) {
                 const avg = values.reduce((s, v) => s + v, 0) / values.length;
                 row.stats = {
-                    avg : Math.round(avg),
-                    min : Math.min(...values),
-                    max : Math.max(...values),
+                    avg: Math.round(avg),
+                    min: Math.min(...values),
+                    max: Math.max(...values),
                 };
             }
             grid.push(row);
@@ -1732,36 +2153,43 @@ class KostalPikoAdapter extends utils.Adapter {
             for (let m = 1; m <= 12; m++) {
                 const key = this._monthKey(year, m);
                 const wh = months[key]?.wh;
-                if (wh > 0) sumWh += wh;
+                if (wh > 0) {
+                    sumWh += wh;
+                }
             }
             yearTotals[year] = sumWh;
-            yearEuro[year] = Math.round(sumWh / 1000 * tariff * 100) / 100;
-            yearKwp[year] = kwp > 0 ? Math.round(sumWh / 1000 / kwp * 10) / 10 : null;
+            yearEuro[year] = Math.round((sumWh / 1000) * tariff * 100) / 100;
+            yearKwp[year] = kwp > 0 ? Math.round((sumWh / 1000 / kwp) * 10) / 10 : null;
         });
 
         let totalWh = 0;
-        Object.values(yearTotals).forEach(v => { totalWh += v; });
-        const totalEuro = Math.round(totalWh / 1000 * tariff * 100) / 100;
-        const totalKwh  = Math.round(totalWh / 1000 * 10) / 10;
+        Object.values(yearTotals).forEach(v => {
+            totalWh += v;
+        });
+        const totalEuro = Math.round((totalWh / 1000) * tariff * 100) / 100;
+        const totalKwh = Math.round((totalWh / 1000) * 10) / 10;
 
         return {
             settings: {
-                feedInTariff : tariff,
-                installedKwp : kwp,
-                plzRegion    : data.plzRegion || (data.plz || '').charAt(0) || '',
-                plz          : data.plz || this._cfg.yieldPlz || '',
+                feedInTariff: tariff,
+                installedKwp: kwp,
+                plzRegion: data.plzRegion || (data.plz || '').charAt(0) || '',
+                plz: data.plz || this._cfg.yieldPlz || '',
                 regionalKwpRef: data.regionalKwpRef || null,
-                pikoEpoch    : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10) : null,
+                pikoEpoch: this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10) : null,
             },
             storagePath: this._yieldsCachePath || null,
-            backupPath : this._yieldsCachePath ? `${this._yieldsCachePath}.bak` : null,
+            backupPath: this._yieldsCachePath ? `${this._yieldsCachePath}.bak` : null,
             historyFrom: this._lastHistoryRows.length
                 ? [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts)[0].date.substring(0, 10)
                 : null,
-            historyTo  : this._lastHistoryRows.length
-                ? [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts).pop().date.substring(0, 10)
+            historyTo: this._lastHistoryRows.length
+                ? [...this._lastHistoryRows]
+                      .sort((a, b) => a.ts - b.ts)
+                      .pop()
+                      .date.substring(0, 10)
                 : null,
-            extraYears : data.extraYears || [],
+            extraYears: data.extraYears || [],
             years,
             grid,
             yearTotals,
@@ -1775,17 +2203,22 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     async _handleYieldsPost(body) {
-        if (!this._monthlyYields) this._monthlyYields = this._defaultMonthlyYields();
+        if (!this._monthlyYields) {
+            this._monthlyYields = this._defaultMonthlyYields();
+        }
         const action = body.action;
 
         if (action === 'setCell') {
             const year = parseInt(body.year);
             const month = parseInt(body.month);
-            if (!year || month < 1 || month > 12) throw new Error('Ungültiges Jahr/Monat');
+            if (!year || month < 1 || month > 12) {
+                throw new Error('Ungültiges Jahr/Monat');
+            }
             const key = this._monthKey(year, month);
-            const wh = body.wh === null || body.wh === '' || body.wh === undefined
-                ? null
-                : Math.round(parseFloat(String(body.wh).replace(',', '.')));
+            const wh =
+                body.wh === null || body.wh === '' || body.wh === undefined
+                    ? null
+                    : Math.round(parseFloat(String(body.wh).replace(',', '.')));
             if (wh === null || isNaN(wh)) {
                 delete this._monthlyYields.months[key];
             } else if (wh < 0) {
@@ -1793,7 +2226,7 @@ class KostalPikoAdapter extends utils.Adapter {
             } else {
                 this._monthlyYields.months[key] = {
                     wh,
-                    source   : 'manual',
+                    source: 'manual',
                     updatedAt: new Date().toISOString(),
                 };
             }
@@ -1804,16 +2237,22 @@ class KostalPikoAdapter extends utils.Adapter {
         if (action === 'setSettings') {
             if (body.feedInTariff !== undefined) {
                 const t = parseFloat(String(body.feedInTariff).replace(',', '.'));
-                if (!isNaN(t) && t >= 0) this._monthlyYields.feedInTariff = t;
+                if (!isNaN(t) && t >= 0) {
+                    this._monthlyYields.feedInTariff = t;
+                }
             }
             if (body.installedKwp !== undefined) {
                 const k = parseFloat(String(body.installedKwp).replace(',', '.'));
-                if (!isNaN(k) && k >= 0) this._monthlyYields.installedKwp = k;
+                if (!isNaN(k) && k >= 0) {
+                    this._monthlyYields.installedKwp = k;
+                }
             }
             if (body.plzRegion !== undefined) {
                 const p = String(body.plzRegion).trim();
                 this._monthlyYields.plzRegion = /^\d{5}$/.test(p) ? p.charAt(0) : p;
-                if (/^\d{5}$/.test(p)) this._monthlyYields.plz = p;
+                if (/^\d{5}$/.test(p)) {
+                    this._monthlyYields.plz = p;
+                }
             }
             if (body.plz !== undefined) {
                 const p = String(body.plz).trim();
@@ -1831,7 +2270,7 @@ class KostalPikoAdapter extends utils.Adapter {
                     this._monthlyYields.regionalKwpRef = null;
                 } else if (Array.isArray(body.regionalKwpRef) && body.regionalKwpRef.length === 12) {
                     this._monthlyYields.regionalKwpRef = body.regionalKwpRef.map(v =>
-                        v === null || v === '' ? null : parseFloat(String(v).replace(',', '.'))
+                        v === null || v === '' ? null : parseFloat(String(v).replace(',', '.')),
                     );
                 }
             }
@@ -1841,9 +2280,10 @@ class KostalPikoAdapter extends utils.Adapter {
 
         if (action === 'refreshAuto') {
             const result = await this._refreshAutoYields({ force: !!body.force });
-            const range = result.historyFrom && result.historyTo
-                ? ` (Historie: ${result.historyFrom} – ${result.historyTo})`
-                : '';
+            const range =
+                result.historyFrom && result.historyTo
+                    ? ` (Historie: ${result.historyFrom} – ${result.historyTo})`
+                    : '';
             return {
                 ok: true,
                 message: `${result.updated} Monat(e) aus Historie berechnet${range}`,
@@ -1859,10 +2299,12 @@ class KostalPikoAdapter extends utils.Adapter {
                 fromMonth,
                 force: true,
             });
-            const range = result.historyFrom && result.historyTo
-                ? `${result.historyFrom} – ${result.historyTo}`
-                : 'keine Historie';
-            let msg = `${result.updated} Monat(e) neu berechnet (ab ${String(fromMonth).padStart(2, '0')}/${fromYear}). ` +
+            const range =
+                result.historyFrom && result.historyTo
+                    ? `${result.historyFrom} – ${result.historyTo}`
+                    : 'keine Historie';
+            let msg =
+                `${result.updated} Monat(e) neu berechnet (ab ${String(fromMonth).padStart(2, '0')}/${fromYear}). ` +
                 `Historie im Cache: ${range}.`;
             if (result.historyFrom && result.historyFrom > `${fromYear}-${String(fromMonth).padStart(2, '0')}-01`) {
                 msg += ` Ältere Monate fehlen in der Historie – Backup/Import nutzen oder scripts/combine-yields.js auf dem Server.`;
@@ -1898,8 +2340,12 @@ class KostalPikoAdapter extends utils.Adapter {
 
         if (action === 'addYear') {
             const year = parseInt(body.year);
-            if (!year || year < 1990 || year > 2100) throw new Error('Ungültiges Jahr (1990–2100)');
-            if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+            if (!year || year < 1990 || year > 2100) {
+                throw new Error('Ungültiges Jahr (1990–2100)');
+            }
+            if (!this._monthlyYields.extraYears) {
+                this._monthlyYields.extraYears = [];
+            }
             if (!this._monthlyYields.extraYears.includes(year)) {
                 this._monthlyYields.extraYears.push(year);
                 this._monthlyYields.extraYears.sort((a, b) => a - b);
@@ -1911,12 +2357,16 @@ class KostalPikoAdapter extends utils.Adapter {
         if (action === 'fillYears') {
             const from = body.fromYear
                 ? parseInt(body.fromYear)
-                : (this._pikoEpoch ? new Date(this._pikoEpoch * 1000).getFullYear() : 2010);
+                : this._pikoEpoch
+                  ? new Date(this._pikoEpoch * 1000).getFullYear()
+                  : 2010;
             const to = body.toYear ? parseInt(body.toYear) : new Date().getFullYear();
             if (!from || from < 1990 || to > 2100 || from > to) {
                 throw new Error('Ungültiger Jahresbereich');
             }
-            if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+            if (!this._monthlyYields.extraYears) {
+                this._monthlyYields.extraYears = [];
+            }
             let added = 0;
             for (let y = from; y <= to; y++) {
                 if (!this._monthlyYields.extraYears.includes(y)) {
@@ -1931,7 +2381,9 @@ class KostalPikoAdapter extends utils.Adapter {
 
         if (action === 'removeYear') {
             const year = parseInt(body.year);
-            if (!year) throw new Error('Jahr fehlt');
+            if (!year) {
+                throw new Error('Jahr fehlt');
+            }
             if (this._monthlyYields.extraYears) {
                 this._monthlyYields.extraYears = this._monthlyYields.extraYears.filter(y => y !== year);
             }
@@ -1952,20 +2404,26 @@ class KostalPikoAdapter extends utils.Adapter {
                 const payload = body.data;
                 if (payload.feedInTariff !== undefined) {
                     const t = parseFloat(String(payload.feedInTariff).replace(',', '.'));
-                    if (!isNaN(t)) this._monthlyYields.feedInTariff = t;
+                    if (!isNaN(t)) {
+                        this._monthlyYields.feedInTariff = t;
+                    }
                 }
                 if (payload.installedKwp !== undefined) {
                     const k = parseFloat(String(payload.installedKwp).replace(',', '.'));
-                    if (!isNaN(k)) this._monthlyYields.installedKwp = k;
+                    if (!isNaN(k)) {
+                        this._monthlyYields.installedKwp = k;
+                    }
                 }
                 if (payload.plzRegion !== undefined) {
                     this._monthlyYields.plzRegion = String(payload.plzRegion).trim();
                 }
                 if (Array.isArray(payload.extraYears)) {
-                    this._monthlyYields.extraYears = [...new Set([
-                        ...(this._monthlyYields.extraYears || []),
-                        ...payload.extraYears.map(y => parseInt(y)).filter(Boolean),
-                    ])].sort((a, b) => a - b);
+                    this._monthlyYields.extraYears = [
+                        ...new Set([
+                            ...(this._monthlyYields.extraYears || []),
+                            ...payload.extraYears.map(y => parseInt(y)).filter(Boolean),
+                        ]),
+                    ].sort((a, b) => a - b);
                 }
                 if (mode === 'replace' && payload.months) {
                     this._monthlyYields.months = {};
@@ -1973,15 +2431,21 @@ class KostalPikoAdapter extends utils.Adapter {
                 if (payload.months && typeof payload.months === 'object') {
                     Object.entries(payload.months).forEach(([key, entry]) => {
                         const parsed = this._parseMonthKey(key);
-                        if (!parsed) return;
+                        if (!parsed) {
+                            return;
+                        }
                         const wh = typeof entry === 'object' ? entry.wh : entry;
                         const n = Math.round(parseFloat(String(wh).replace(',', '.')));
-                        if (!n || n <= 0) return;
+                        if (!n || n <= 0) {
+                            return;
+                        }
                         const existing = this._monthlyYields.months[key];
-                        if (mode === 'merge' && existing?.source === 'auto' && entry?.source !== 'manual') return;
+                        if (mode === 'merge' && existing?.source === 'auto' && entry?.source !== 'manual') {
+                            return;
+                        }
                         this._monthlyYields.months[key] = {
-                            wh       : n,
-                            source   : 'manual',
+                            wh: n,
+                            source: 'manual',
                             updatedAt: new Date().toISOString(),
                         };
                         imported++;
@@ -2002,26 +2466,61 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _importYieldsCsv(csv, mode) {
         const monthNames = {
-            januar: 1, jan: 1, februar: 2, feb: 2, märz: 3, mar: 3, maerz: 3,
-            april: 4, apr: 4, mai: 5, juni: 6, jun: 6, juli: 7, jul: 7,
-            august: 8, aug: 8, september: 9, sep: 9, oktober: 10, okt: 10,
-            november: 11, nov: 11, dezember: 12, dez: 12,
+            januar: 1,
+            jan: 1,
+            februar: 2,
+            feb: 2,
+            märz: 3,
+            mar: 3,
+            maerz: 3,
+            april: 4,
+            apr: 4,
+            mai: 5,
+            juni: 6,
+            jun: 6,
+            juli: 7,
+            jul: 7,
+            august: 8,
+            aug: 8,
+            september: 9,
+            sep: 9,
+            oktober: 10,
+            okt: 10,
+            november: 11,
+            nov: 11,
+            dezember: 12,
+            dez: 12,
         };
-        const lines = csv.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        if (lines.length < 2) return 0;
+        const lines = csv
+            .split(/\r?\n/)
+            .map(l => l.trim())
+            .filter(Boolean);
+        if (lines.length < 2) {
+            return 0;
+        }
 
         const sep = lines[0].includes(';') ? ';' : ',';
         const header = lines[0].split(sep).map(h => h.trim());
         const yearCols = [];
         header.forEach((h, i) => {
-            if (i === 0) return;
+            if (i === 0) {
+                return;
+            }
             const ym = h.match(/(\d{4})/);
-            if (ym) yearCols.push({ index: i, year: parseInt(ym[1]) });
+            if (ym) {
+                yearCols.push({ index: i, year: parseInt(ym[1]) });
+            }
         });
-        if (!yearCols.length) throw new Error('CSV: keine Jahres-Spalten gefunden');
+        if (!yearCols.length) {
+            throw new Error('CSV: keine Jahres-Spalten gefunden');
+        }
 
-        if (mode === 'replace') this._monthlyYields.months = {};
-        if (!this._monthlyYields.extraYears) this._monthlyYields.extraYears = [];
+        if (mode === 'replace') {
+            this._monthlyYields.months = {};
+        }
+        if (!this._monthlyYields.extraYears) {
+            this._monthlyYields.extraYears = [];
+        }
         yearCols.forEach(c => {
             if (!this._monthlyYields.extraYears.includes(c.year)) {
                 this._monthlyYields.extraYears.push(c.year);
@@ -2032,19 +2531,28 @@ class KostalPikoAdapter extends utils.Adapter {
         let imported = 0;
         for (let li = 1; li < lines.length; li++) {
             const cols = lines[li].split(sep).map(c => c.trim());
-            const monthKey = monthNames[cols[0].toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')];
-            if (!monthKey) continue;
+            const monthKey =
+                monthNames[cols[0].toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')];
+            if (!monthKey) {
+                continue;
+            }
             yearCols.forEach(({ index, year }) => {
                 const raw = cols[index];
-                if (!raw) return;
+                if (!raw) {
+                    return;
+                }
                 const n = Math.round(parseFloat(raw.replace(/\./g, '').replace(',', '.')));
-                if (!n || n <= 0) return;
+                if (!n || n <= 0) {
+                    return;
+                }
                 const key = this._monthKey(year, monthKey);
                 const existing = this._monthlyYields.months[key];
-                if (mode === 'merge' && existing?.source === 'auto') return;
+                if (mode === 'merge' && existing?.source === 'auto') {
+                    return;
+                }
                 this._monthlyYields.months[key] = {
-                    wh       : n,
-                    source   : 'manual',
+                    wh: n,
+                    source: 'manual',
                     updatedAt: new Date().toISOString(),
                 };
                 imported++;
@@ -2081,7 +2589,7 @@ class KostalPikoAdapter extends utils.Adapter {
             req.on('end', () => {
                 try {
                     resolve(data ? JSON.parse(data) : {});
-                } catch (e) {
+                } catch (_e) {
                     reject(new Error('Ungültiges JSON'));
                 }
             });
@@ -2091,9 +2599,13 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _getStringCount() {
         const fromData = parseInt(this._lastData['device.strings']);
-        if (fromData === 2 || fromData === 3) return fromData;
+        if (fromData === 2 || fromData === 3) {
+            return fromData;
+        }
         const model = (this._cfg.pikoModel || 'auto').toLowerCase();
-        if (model.includes('5.5') || model.includes('10.1')) return 3;
+        if (model.includes('5.5') || model.includes('10.1')) {
+            return 3;
+        }
         return 2;
     }
 
@@ -2108,13 +2620,17 @@ class KostalPikoAdapter extends utils.Adapter {
             if (def.id === 'history.efficiency.ratio') {
                 const dc = (row.dc1?.power || 0) + (row.dc2?.power || 0) + (row.dc3?.power || 0);
                 const ac = row.acTotalPower || 0;
-                if (dc < 50) return null;
-                return Math.round(ac / dc * 1000) / 10;
+                if (dc < 50) {
+                    return null;
+                }
+                return Math.round((ac / dc) * 1000) / 10;
             }
             return null;
         }
         const raw = row._raw[def.col];
-        if (raw === null || raw === undefined) return null;
+        if (raw === null || raw === undefined) {
+            return null;
+        }
         return Math.round(raw * def.factor * 1000) / 1000;
     }
 
@@ -2122,22 +2638,30 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _parseLogDaten(raw, pikoEpoch) {
         const lines = raw.split(/\r?\n/);
-        const rows  = [];
+        const rows = [];
 
         for (const line of lines) {
-            if (!line.trim()) continue;
+            if (!line.trim()) {
+                continue;
+            }
             const cols = line.split('\t').map(s => s.trim());
             const zeit = parseInt(cols[COL.ZEIT]);
-            if (isNaN(zeit) || zeit < 1000) continue;
+            if (isNaN(zeit) || zeit < 1000) {
+                continue;
+            }
 
             // Ereigniszeile erkennen (enthält Hex-Code wie "80001200h")
             const isEvent = cols.some(c => /^[0-9a-fA-F]{4,}h$/.test(c));
 
             // Nur normale Messzeilen (mind. 38 Spalten mit Zahlen)
-            if (!isEvent && cols.length < 38) continue;
-            if (isEvent) continue; // Ereigniszeilen vorerst überspringen
+            if (!isEvent && cols.length < 38) {
+                continue;
+            }
+            if (isEvent) {
+                continue;
+            } // Ereigniszeilen vorerst überspringen
 
-            const ts  = (pikoEpoch + zeit) * 1000; // ms
+            const ts = (pikoEpoch + zeit) * 1000; // ms
             const raw_nums = cols.map(c => {
                 const n = parseFloat(c);
                 return isNaN(n) ? null : n;
@@ -2148,21 +2672,36 @@ class KostalPikoAdapter extends utils.Adapter {
 
             rows.push({
                 ts,
-                date         : new Date(ts).toISOString(),
-                _raw         : raw_nums,
-                dc1: { voltage: int(COL.DC1_U), current: int(COL.DC1_I)/1000, power: int(COL.DC1_P), status: int(COL.DC1_S) },
-                dc2: { voltage: int(COL.DC2_U), current: int(COL.DC2_I)/1000, power: int(COL.DC2_P), status: int(COL.DC2_S) },
-                dc3: { voltage: int(COL.DC3_U), current: int(COL.DC3_I)/1000, power: int(COL.DC3_P), status: int(COL.DC3_S) },
-                ac1: { voltage: int(COL.AC1_U), current: int(COL.AC1_I)/1000, power: int(COL.AC1_P) },
-                ac2: { voltage: int(COL.AC2_U), current: int(COL.AC2_I)/1000, power: int(COL.AC2_P) },
-                ac3: { voltage: int(COL.AC3_U), current: int(COL.AC3_I)/1000, power: int(COL.AC3_P) },
-                frequency    : flt(COL.AC_F),
-                acStatus     : int(COL.AC_S),
-                errorCode    : int(COL.ERR),
-                ensStatus    : int(COL.ENS_S),
-                busStatus    : int(COL.KB_S),
-                acTotalPower : int(COL.AC1_P) + int(COL.AC2_P) + int(COL.AC3_P),
-                totalEnergy  : flt(COL.TOTAL_E),
+                date: new Date(ts).toISOString(),
+                _raw: raw_nums,
+                dc1: {
+                    voltage: int(COL.DC1_U),
+                    current: int(COL.DC1_I) / 1000,
+                    power: int(COL.DC1_P),
+                    status: int(COL.DC1_S),
+                },
+                dc2: {
+                    voltage: int(COL.DC2_U),
+                    current: int(COL.DC2_I) / 1000,
+                    power: int(COL.DC2_P),
+                    status: int(COL.DC2_S),
+                },
+                dc3: {
+                    voltage: int(COL.DC3_U),
+                    current: int(COL.DC3_I) / 1000,
+                    power: int(COL.DC3_P),
+                    status: int(COL.DC3_S),
+                },
+                ac1: { voltage: int(COL.AC1_U), current: int(COL.AC1_I) / 1000, power: int(COL.AC1_P) },
+                ac2: { voltage: int(COL.AC2_U), current: int(COL.AC2_I) / 1000, power: int(COL.AC2_P) },
+                ac3: { voltage: int(COL.AC3_U), current: int(COL.AC3_I) / 1000, power: int(COL.AC3_P) },
+                frequency: flt(COL.AC_F),
+                acStatus: int(COL.AC_S),
+                errorCode: int(COL.ERR),
+                ensStatus: int(COL.ENS_S),
+                busStatus: int(COL.KB_S),
+                acTotalPower: int(COL.AC1_P) + int(COL.AC2_P) + int(COL.AC3_P),
+                totalEnergy: flt(COL.TOTAL_E),
             });
         }
 
@@ -2175,28 +2714,38 @@ class KostalPikoAdapter extends utils.Adapter {
     _fetchPage(path) {
         return new Promise((resolve, reject) => {
             const auth = Buffer.from(`${this._cfg.user}:${this._cfg.password}`).toString('base64');
-            const req  = http.request({
-                hostname: this._cfg.ip,
-                port    : this._cfg.port,
-                path,
-                method  : 'GET',
-                timeout : 15000,
-                headers : {
-                    'Authorization': `Basic ${auth}`,
-                    'User-Agent'   : `ioBroker-KostalPiko/${ADAPTER_VERSION}`,
+            const req = http.request(
+                {
+                    hostname: this._cfg.ip,
+                    port: this._cfg.port,
+                    path,
+                    method: 'GET',
+                    timeout: 15000,
+                    headers: {
+                        Authorization: `Basic ${auth}`,
+                        'User-Agent': `ioBroker-KostalPiko/${ADAPTER_VERSION}`,
+                    },
                 },
-            }, (res) => {
-                let data = '';
-                res.setEncoding('latin1'); // PIKO sendet windows-1252
-                res.on('data', c => data += c);
-                res.on('end', () => {
-                    if (res.statusCode === 401) return reject(new Error('Auth fehlgeschlagen (401)'));
-                    if (res.statusCode !== 200)  return reject(new Error(`HTTP ${res.statusCode} für ${path}`));
-                    resolve(data);
-                });
+                res => {
+                    let data = '';
+                    res.setEncoding('latin1'); // PIKO sendet windows-1252
+                    res.on('data', c => (data += c));
+                    res.on('end', () => {
+                        if (res.statusCode === 401) {
+                            return reject(new Error('Auth fehlgeschlagen (401)'));
+                        }
+                        if (res.statusCode !== 200) {
+                            return reject(new Error(`HTTP ${res.statusCode} für ${path}`));
+                        }
+                        resolve(data);
+                    });
+                },
+            );
+            req.on('timeout', () => {
+                req.destroy();
+                reject(new Error(`Timeout für ${path}`));
             });
-            req.on('timeout', () => { req.destroy(); reject(new Error(`Timeout für ${path}`)); });
-            req.on('error',   e  => reject(e));
+            req.on('error', e => reject(e));
             req.end();
         });
     }
@@ -2213,59 +2762,68 @@ class KostalPikoAdapter extends utils.Adapter {
     _parseMainPage(html) {
         // Alle bgcolor="#FFFFFF" Zellen in DOM-Reihenfolge sammeln (inkl. leere)
         const cells = [];
-        const re    = /bgcolor="#FFFFFF">\s*([\s\S]*?)\s*<\/td>/gi;
+        const re = /bgcolor="#FFFFFF">\s*([\s\S]*?)\s*<\/td>/gi;
         let m;
-        while ((m = re.exec(html)) !== null) cells.push(m[1].trim());
+        while ((m = re.exec(html)) !== null) {
+            cells.push(m[1].trim());
+        }
 
         // Status lesen
         const statusMatch = html.match(/Status<\/td>\s*<td[^>]*>\s*([^<]+?)\s*<\/td>/i);
-        const status      = statusMatch ? statusMatch[1].trim() : null;
+        const status = statusMatch ? statusMatch[1].trim() : null;
 
         // Offline: "x x x" in Messwert-Zellen (beide Modelle)
-        const isXxx = (s) => /^x\s+x\s+x$/i.test(s || '');
+        const isXxx = s => /^x\s+x\s+x$/i.test(s || '');
         const isOff = !status || status.toLowerCase() === 'aus' || cells.some(c => isXxx(c));
-        const isOn  = !isOff;
+        const isOn = !isOff;
 
         // Modell-Name: aus Config-Override oder HTML lesen
         let modelName;
         if (this._cfg && this._cfg.pikoModel !== 'auto') {
             const modelMap = {
-                'piko3.0':'PIKO 3.0','piko3.6':'PIKO 3.6','piko4.2':'PIKO 4.2',
-                'piko5.5':'PIKO 5.5','piko7.0':'PIKO 7.0','piko8.3':'PIKO 8.3',
-                'piko10.1':'PIKO 10.1',
+                'piko3.0': 'PIKO 3.0',
+                'piko3.6': 'PIKO 3.6',
+                'piko4.2': 'PIKO 4.2',
+                'piko5.5': 'PIKO 5.5',
+                'piko7.0': 'PIKO 7.0',
+                'piko8.3': 'PIKO 8.3',
+                'piko10.1': 'PIKO 10.1',
             };
             modelName = modelMap[this._cfg.pikoModel] || 'PIKO';
         } else {
-            const modelMatch = html.match(/<font[^>]*size="\+3"[^>]*>\s*([\w\s.]+)\s*<br/i) ||
-                               html.match(/>(PIKO\s+[\d.]+)</i);
+            const modelMatch =
+                html.match(/<font[^>]*size="\+3"[^>]*>\s*([\w\s.]+)\s*<br/i) || html.match(/>(PIKO\s+[\d.]+)</i);
             modelName = modelMatch ? modelMatch[1].trim() : 'PIKO';
         }
 
         // Strings bestimmen: aus Config-Override oder Auto-Erkennung über Zellenanzahl
         //   13 Zellen = 2 Strings (PIKO 3.6/4.2/7.0/8.3)
         //   15 Zellen = 3 Strings (PIKO 5.5/10.1)
-        const modelCfg   = this._cfg ? this._cfg.pikoModel : 'auto';
-        const modelStr3  = ['piko5.5','piko10.1'].includes(modelCfg);
-        const modelStr1  = modelCfg === 'piko3.0';
+        const modelCfg = this._cfg ? this._cfg.pikoModel : 'auto';
+        const modelStr3 = ['piko5.5', 'piko10.1'].includes(modelCfg);
         const has3Strings = modelCfg === 'auto' ? cells.length >= 15 : modelStr3;
 
         // Messwert-Parser
-        const toNum = (s) => {
-            if (!s || isXxx(s) || s === '&nbsp;') return 0;
+        const toNum = s => {
+            if (!s || isXxx(s) || s === '&nbsp;') {
+                return 0;
+            }
             const v = parseFloat(s.replace(',', '.'));
             return isNaN(v) ? 0 : v;
         };
-        const toEnergy = (s) => {
-            if (!s || isXxx(s)) return null;
+        const toEnergy = s => {
+            if (!s || isXxx(s)) {
+                return null;
+            }
             const v = parseFloat(s.replace(',', '.'));
             return isNaN(v) ? null : v;
         };
 
         const result = {
-            status           : status || 'Aus',
-            online           : isOn ? 1 : 0,
-            'device.strings' : has3Strings ? 3 : 2,
-            'device.model'   : modelName,
+            status: status || 'Aus',
+            online: isOn ? 1 : 0,
+            'device.strings': has3Strings ? 3 : 2,
+            'device.model': modelName,
         };
 
         if (cells.length >= 10) {
@@ -2274,36 +2832,42 @@ class KostalPikoAdapter extends utils.Adapter {
             // Energie immer lesen (auch offline gültig)
             const eTot = toEnergy(cells[1]);
             const eDay = toEnergy(cells[2]);
-            if (eTot !== null) result['energy.total'] = eTot;
-            if (eDay !== null) result['energy.today'] = eDay;
+            if (eTot !== null) {
+                result['energy.total'] = eTot;
+            }
+            if (eDay !== null) {
+                result['energy.today'] = eDay;
+            }
 
             // INTERLEAVED: String und L-Phase in gleicher HTML-Tabellenzeile
             // cells[3]=S1U, cells[4]=L1U, cells[5]=S1I, cells[6]=L1P
             // cells[7]=S2U, cells[8]=L2U, cells[9]=S2I, cells[10]=L2P
-            result['pv.string1.voltage'] = isOn ? toNum(cells[3])  : 0;
-            result['ac.l1.voltage']      = isOn ? toNum(cells[4])  : 0;
-            result['pv.string1.current'] = isOn ? toNum(cells[5])  : 0;
-            result['ac.l1.power']        = isOn ? toNum(cells[6])  : 0;
-            result['pv.string2.voltage'] = isOn ? toNum(cells[7])  : 0;
-            result['ac.l2.voltage']      = isOn ? toNum(cells[8])  : 0;
-            result['pv.string2.current'] = isOn ? toNum(cells[9])  : 0;
-            result['ac.l2.power']        = isOn ? toNum(cells[10]) : 0;
+            result['pv.string1.voltage'] = isOn ? toNum(cells[3]) : 0;
+            result['ac.l1.voltage'] = isOn ? toNum(cells[4]) : 0;
+            result['pv.string1.current'] = isOn ? toNum(cells[5]) : 0;
+            result['ac.l1.power'] = isOn ? toNum(cells[6]) : 0;
+            result['pv.string2.voltage'] = isOn ? toNum(cells[7]) : 0;
+            result['ac.l2.voltage'] = isOn ? toNum(cells[8]) : 0;
+            result['pv.string2.current'] = isOn ? toNum(cells[9]) : 0;
+            result['ac.l2.power'] = isOn ? toNum(cells[10]) : 0;
 
             if (has3Strings) {
                 // PIKO 5.5: cells[11]=S3U, cells[12]=L3U, cells[13]=S3I, cells[14]=L3P
                 result['pv.string3.voltage'] = isOn ? toNum(cells[11]) : 0;
-                result['ac.l3.voltage']      = isOn && cells.length > 12 ? toNum(cells[12]) : 0;
+                result['ac.l3.voltage'] = isOn && cells.length > 12 ? toNum(cells[12]) : 0;
                 result['pv.string3.current'] = isOn && cells.length > 13 ? toNum(cells[13]) : 0;
-                result['ac.l3.power']        = isOn && cells.length > 14 ? toNum(cells[14]) : 0;
+                result['ac.l3.power'] = isOn && cells.length > 14 ? toNum(cells[14]) : 0;
             } else {
                 // PIKO 8.3: cells[11]=L3U, cells[12]=L3P (keine String3-Zeile)
                 result['ac.l3.voltage'] = isOn && cells.length > 11 ? toNum(cells[11]) : 0;
-                result['ac.l3.power']   = isOn && cells.length > 12 ? toNum(cells[12]) : 0;
+                result['ac.l3.power'] = isOn && cells.length > 12 ? toNum(cells[12]) : 0;
             }
         }
 
         const busM = html.match(/name="[^"]*[Aa]dr[^"]*"[^>]*value="(\d+)"/i);
-        if (busM) result['rs485.busAddress'] = parseInt(busM[1]);
+        if (busM) {
+            result['rs485.busAddress'] = parseInt(busM[1]);
+        }
         return result;
     }
 
@@ -2313,78 +2877,112 @@ class KostalPikoAdapter extends utils.Adapter {
         const r = {};
         const re = /(\d+)\.\s+analoger\s+Eingang:\s*<b>([\d.,]+)V<\/b>/gi;
         let m;
-        while ((m = re.exec(html)) !== null) r[`info.analog${m[1]}`] = parseFloat(m[2].replace(',','.'));
+        while ((m = re.exec(html)) !== null) {
+            r[`info.analog${m[1]}`] = parseFloat(m[2].replace(',', '.'));
+        }
         const mm = html.match(/Modemstatus:\s*<b>([^<]+)<\/b>/i);
-        if (mm) r['info.modemStatus'] = mm[1].trim();
+        if (mm) {
+            r['info.modemStatus'] = mm[1].trim();
+        }
         const pm = html.match(/letzte\s+Verbindung\s+zum\s+Portal:\s*<b>([^<]+)<\/b>/i);
-        if (pm) r['info.lastPortalConnection'] = pm[1].trim();
+        if (pm) {
+            r['info.lastPortalConnection'] = pm[1].trim();
+        }
         const sm = html.match(/Anzahl\s+der\s+Energiepulse[^:]*:\s*<b>(\d+)<\/b>/i);
-        if (sm) r['info.s0Pulses'] = parseInt(sm[1]);
+        if (sm) {
+            r['info.s0Pulses'] = parseInt(sm[1]);
+        }
         return r;
     }
 
     _getModuleParams() {
         const presetKey = this._cfg.modulePreset;
-        const preset    = presetKey ? MODULE_PRESETS[presetKey] : null;
-        const manual    = !!this._cfg.moduleManualOverride;
+        const preset = presetKey ? MODULE_PRESETS[presetKey] : null;
+        const manual = !!this._cfg.moduleManualOverride;
 
-        let wp   = this._cfg.moduleWp;
-        let voc  = this._cfg.moduleVoc;
+        let wp = this._cfg.moduleWp;
+        let voc = this._cfg.moduleVoc;
         let vmpp = this._cfg.moduleVmpp;
 
         if (preset && !manual) {
-            wp   = preset.wp;
-            voc  = preset.voc;
+            wp = preset.wp;
+            voc = preset.voc;
             vmpp = preset.vmpp;
         } else if (preset) {
-            if (!wp)   wp   = preset.wp;
-            if (!voc)  voc  = preset.voc;
-            if (!vmpp) vmpp = preset.vmpp;
+            if (!wp) {
+                wp = preset.wp;
+            }
+            if (!voc) {
+                voc = preset.voc;
+            }
+            if (!vmpp) {
+                vmpp = preset.vmpp;
+            }
         }
 
-        if (!vmpp && voc) vmpp = Math.round(voc * VMPP_VOC_RATIO * 100) / 100;
+        if (!vmpp && voc) {
+            vmpp = Math.round(voc * VMPP_VOC_RATIO * 100) / 100;
+        }
 
         const vmppNoct = preset?.vmppNoct || (vmpp ? Math.round(vmpp * 0.898 * 100) / 100 : 0);
         const betaVmpp = preset?.betaVmpp ?? DEFAULT_BETA_VMPP;
         const betaPmax = preset?.betaPmax ?? betaVmpp;
-        const impp     = preset?.impp ?? 7.63;
-        const noctStd  = preset?.noct ?? 46;
-        const noctEff  = this._cfg.moduleNoctEff > 0 ? this._cfg.moduleNoctEff : noctStd;
+        const impp = preset?.impp ?? 7.63;
+        const noctStd = preset?.noct ?? 46;
+        const noctEff = this._cfg.moduleNoctEff > 0 ? this._cfg.moduleNoctEff : noctStd;
 
         return {
-            wp, voc, vmpp, vmppNoct, betaVmpp, betaPmax, impp,
-            noct: noctEff, noctStd, presetName: preset?.name || null, presetKey,
+            wp,
+            voc,
+            vmpp,
+            vmppNoct,
+            betaVmpp,
+            betaPmax,
+            impp,
+            noct: noctEff,
+            noctStd,
+            presetName: preset?.name || null,
+            presetKey,
         };
     }
 
     async _applyModulePresetToInstance(presetId, preset) {
         const instId = `system.adapter.${this.namespace}`;
-        const obj    = await this.getObjectAsync(instId);
-        if (!obj?.native) throw new Error('Instanz-Konfiguration nicht lesbar');
+        const obj = await this.getObjectAsync(instId);
+        if (!obj?.native) {
+            throw new Error('Instanz-Konfiguration nicht lesbar');
+        }
         const native = {
             ...obj.native,
             modulePreset: presetId,
-            moduleWp    : preset.wp,
-            moduleVoc   : preset.voc,
-            moduleVmpp  : preset.vmpp,
+            moduleWp: preset.wp,
+            moduleVoc: preset.voc,
+            moduleVmpp: preset.vmpp,
             moduleManualOverride: false,
         };
         await this.setForeignObjectAsync(instId, { ...obj, native });
         this._cfg.modulePreset = presetId;
-        this._cfg.moduleWp     = preset.wp;
-        this._cfg.moduleVoc    = preset.voc;
-        this._cfg.moduleVmpp   = preset.vmpp;
+        this._cfg.moduleWp = preset.wp;
+        this._cfg.moduleVoc = preset.voc;
+        this._cfg.moduleVmpp = preset.vmpp;
         this._cfg.moduleManualOverride = false;
     }
 
     async _syncModulePresetConfig() {
-        if (this._cfg.moduleManualOverride || !this._cfg.modulePreset) return;
+        if (this._cfg.moduleManualOverride || !this._cfg.modulePreset) {
+            return;
+        }
         const preset = MODULE_PRESETS[this._cfg.modulePreset];
-        if (!preset) return;
-        const needsSync = this._cfg.moduleWp !== preset.wp
-            || this._cfg.moduleVoc !== preset.voc
-            || this._cfg.moduleVmpp !== preset.vmpp;
-        if (!needsSync) return;
+        if (!preset) {
+            return;
+        }
+        const needsSync =
+            this._cfg.moduleWp !== preset.wp ||
+            this._cfg.moduleVoc !== preset.voc ||
+            this._cfg.moduleVmpp !== preset.vmpp;
+        if (!needsSync) {
+            return;
+        }
         try {
             await this._applyModulePresetToInstance(this._cfg.modulePreset, preset);
             this._log('INFO', `Modul-Vorlage "${preset.name}" in Instanz-Konfiguration übernommen`);
@@ -2395,7 +2993,9 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _getStringAnalysisConfig() {
         const { wp, voc, vmpp, vmppNoct, betaVmpp, impp } = this._getModuleParams();
-        if (!voc || !wp || !vmpp) return { enabled: false, strings: [] };
+        if (!voc || !wp || !vmpp) {
+            return { enabled: false, strings: [] };
+        }
         const inv = this._getInverterSpecs();
         const strings = [];
         for (const s of [
@@ -2403,68 +3003,81 @@ class KostalPikoAdapter extends utils.Adapter {
             { id: 2, count: this._cfg.string2Modules },
             { id: 3, count: this._cfg.string3Modules },
         ]) {
-            if (!s.count) continue;
-            const vocString  = voc * s.count;
-            const mppStc     = vmpp * s.count;
+            if (!s.count) {
+                continue;
+            }
+            const vocString = voc * s.count;
+            const mppStc = vmpp * s.count;
             const mppTypical = vmppNoct * s.count; // typische Betriebsspannung warm
             strings.push({
-                id              : s.id,
-                modules         : s.count,
-                expectedVoltage : Math.round(vocString * 10) / 10,
-                expectedMpp     : Math.round(mppStc * 10) / 10,
-                expectedPower   : wp * s.count,
-                vmppPerModule   : vmpp,
-                vmppStc         : vmpp,
+                id: s.id,
+                modules: s.count,
+                expectedVoltage: Math.round(vocString * 10) / 10,
+                expectedMpp: Math.round(mppStc * 10) / 10,
+                expectedPower: wp * s.count,
+                vmppPerModule: vmpp,
+                vmppStc: vmpp,
                 betaVmpp,
-                imppString      : Math.round(impp * s.count * 100) / 100,
-                mppMin          : Math.round(mppTypical * 0.88 * 10) / 10,
-                mppMax          : Math.round(mppStc * 1.06 * 10) / 10,
-                invDcMaxV       : inv.enabled ? inv.dcMaxV : null,
-                invDcMinV       : inv.enabled ? inv.dcMinV : null,
-                invMppMin       : inv.enabled ? inv.mppMinActive : null,
-                invMppMax       : inv.enabled ? inv.mppMax : null,
-                invDcMaxA       : inv.enabled ? inv.dcMaxA : null,
+                imppString: Math.round(impp * s.count * 100) / 100,
+                mppMin: Math.round(mppTypical * 0.88 * 10) / 10,
+                mppMax: Math.round(mppStc * 1.06 * 10) / 10,
+                invDcMaxV: inv.enabled ? inv.dcMaxV : null,
+                invDcMinV: inv.enabled ? inv.dcMinV : null,
+                invMppMin: inv.enabled ? inv.mppMinActive : null,
+                invMppMax: inv.enabled ? inv.mppMax : null,
+                invDcMaxA: inv.enabled ? inv.dcMaxA : null,
             });
         }
-        return { enabled: strings.length > 0, strings, vmpp, voc, betaVmpp, preset: this._cfg.modulePreset, noct: this._getModuleParams().noct, inverter: inv };
+        return {
+            enabled: strings.length > 0,
+            strings,
+            vmpp,
+            voc,
+            betaVmpp,
+            preset: this._cfg.modulePreset,
+            noct: this._getModuleParams().noct,
+            inverter: inv,
+        };
     }
 
     _getTemperatureAnalysis() {
         const cfg = this._getStringAnalysisConfig();
-        if (!cfg.enabled) return { enabled: false, strings: [], system: null };
+        if (!cfg.enabled) {
+            return { enabled: false, strings: [], system: null };
+        }
         const strings = cfg.strings.map(scfg => {
             const prefix = `string${scfg.id}`;
             const validRel = !!this._lastData[`${prefix}.tempValidRelative`];
             const validAbs = !!this._lastData[`${prefix}.tempValidAbsolute`];
-            const tempRaw  = this._lastData[`${prefix}.tempEquivalentC`];
-            const quality  = this._lastData[`${prefix}.tempQuality`] || 'UNGUELTIG';
-            const usable   = quality !== 'UNGUELTIG' && tempRaw;
+            const tempRaw = this._lastData[`${prefix}.tempEquivalentC`];
+            const quality = this._lastData[`${prefix}.tempQuality`] || 'UNGUELTIG';
+            const usable = quality !== 'UNGUELTIG' && tempRaw;
             return {
-                id             : scfg.id,
-                modules        : scfg.modules,
-                vmppPerModule  : this._lastData[`${prefix}.vmppPerModule`] || 0,
-                tempC          : usable ? tempRaw : null,
-                tempQuality    : quality,
-                uncertainty    : this._lastData[`${prefix}.tempUncertaintyK`] ?? null,
-                validRelative  : validRel,
-                validAbsolute  : validAbs,
-                tempDeltaK     : this._lastData[`${prefix}.tempDeltaK`] ?? 0,
-                tempLossW      : this._lastData[`${prefix}.tempLossW`] ?? 0,
-                powerAt25C     : this._lastData[`${prefix}.powerAt25C`] ?? 0,
-                mppUtilization : this._lastData[`${prefix}.mppUtilization`] ?? 0,
-                alert          : this._lastData[`${prefix}.tempAlert`] || 'UNBEKANNT',
+                id: scfg.id,
+                modules: scfg.modules,
+                vmppPerModule: this._lastData[`${prefix}.vmppPerModule`] || 0,
+                tempC: usable ? tempRaw : null,
+                tempQuality: quality,
+                uncertainty: this._lastData[`${prefix}.tempUncertaintyK`] ?? null,
+                validRelative: validRel,
+                validAbsolute: validAbs,
+                tempDeltaK: this._lastData[`${prefix}.tempDeltaK`] ?? 0,
+                tempLossW: this._lastData[`${prefix}.tempLossW`] ?? 0,
+                powerAt25C: this._lastData[`${prefix}.powerAt25C`] ?? 0,
+                mppUtilization: this._lastData[`${prefix}.mppUtilization`] ?? 0,
+                alert: this._lastData[`${prefix}.tempAlert`] || 'UNBEKANNT',
             };
         });
         return {
             enabled: strings.length > 0,
             strings,
-            system : {
-                deltaStrings    : this._lastData['temperature.deltaStrings'] ?? 0,
-                deltaValid      : !!this._lastData['temperature.deltaValid'],
-                totalLossW      : this._lastData['temperature.totalLossW'] ?? 0,
-                totalLossKwhDay : this._lastData['temperature.totalLossKwhDay'] ?? 0,
-                hottest         : this._lastData['temperature.hottest'] || '',
-                systemAlert     : this._lastData['temperature.systemAlert'] || 'UNBEKANNT',
+            system: {
+                deltaStrings: this._lastData['temperature.deltaStrings'] ?? 0,
+                deltaValid: !!this._lastData['temperature.deltaValid'],
+                totalLossW: this._lastData['temperature.totalLossW'] ?? 0,
+                totalLossKwhDay: this._lastData['temperature.totalLossKwhDay'] ?? 0,
+                hottest: this._lastData['temperature.hottest'] || '',
+                systemAlert: this._lastData['temperature.systemAlert'] || 'UNBEKANNT',
             },
         };
     }
@@ -2473,7 +3086,9 @@ class KostalPikoAdapter extends utils.Adapter {
 
     async _writeModuleStates() {
         const { wp, voc, vmpp } = this._getModuleParams();
-        if (!voc || !wp || !vmpp) return;
+        if (!voc || !wp || !vmpp) {
+            return;
+        }
 
         const strings = [
             { id: '1', count: this._cfg.string1Modules },
@@ -2482,34 +3097,37 @@ class KostalPikoAdapter extends utils.Adapter {
         ];
 
         for (const s of strings) {
-            if (!s.count) continue;
+            if (!s.count) {
+                continue;
+            }
             const expectedVoc = Math.round(voc * s.count * 10) / 10;
             const expectedMpp = Math.round(vmpp * s.count * 10) / 10;
             const expectedPower = wp * s.count;
-            await this.setStateAsync(`string${s.id}.expectedVoltage`,
-                { val: expectedMpp, ack: true });
-            await this.setStateAsync(`string${s.id}.expectedVoc`,
-                { val: expectedVoc, ack: true });
-            await this.setStateAsync(`string${s.id}.expectedPower`,
-                { val: expectedPower, ack: true });
+            await this.setStateAsync(`string${s.id}.expectedVoltage`, { val: expectedMpp, ack: true });
+            await this.setStateAsync(`string${s.id}.expectedVoc`, { val: expectedVoc, ack: true });
+            await this.setStateAsync(`string${s.id}.expectedPower`, { val: expectedPower, ack: true });
         }
     }
 
     // ─── Benachrichtigungen ─────────────────────────────────────────────────────
 
     _startNotifyTimer() {
-        if (this._notifyTimer) this.clearInterval(this._notifyTimer);
+        if (this._notifyTimer) {
+            this.clearInterval(this._notifyTimer);
+        }
         // Jede Minute prüfen ob ein Bericht fällig ist
         this._notifyTimer = this.setInterval(() => this._checkNotify(), 60 * 1000);
         this._log('SYSTEM', 'Benachrichtigungs-Timer gestartet');
     }
 
     _checkNotify() {
-        if (!this._cfg.notifyEnabled) return;
-        const now  = new Date();
-        const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        const dow  = now.getDay();  // 0=So, 1=Mo
-        const dom  = now.getDate(); // 1–31
+        if (!this._cfg.notifyEnabled) {
+            return;
+        }
+        const now = new Date();
+        const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const dow = now.getDay(); // 0=So, 1=Mo
+        const dom = now.getDate(); // 1–31
 
         // Tagesbericht
         if (this._cfg.notifyDaily && hhmm === this._cfg.notifyDailyTime) {
@@ -2547,8 +3165,10 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _getRowsForDate(date) {
         // Alle History-Rows für ein bestimmtes Datum
-        const start = new Date(date); start.setHours(0,0,0,0);
-        const end   = new Date(date); end.setHours(23,59,59,999);
+        const start = new Date(date);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(date);
+        end.setHours(23, 59, 59, 999);
         return this._lastHistoryRows.filter(r => {
             const ts = new Date(r.date).getTime();
             return ts >= start.getTime() && ts <= end.getTime();
@@ -2556,7 +3176,8 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _getPreviousCalendarWeek() {
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const thisMonday = new Date(today);
         thisMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
         const prevMonday = new Date(thisMonday);
@@ -2572,20 +3193,26 @@ class KostalPikoAdapter extends utils.Adapter {
 
     _getInstalledKwp() {
         const { moduleWp, string1Modules, string2Modules, string3Modules } = this._cfg;
-        if (!moduleWp) return 0;
+        if (!moduleWp) {
+            return 0;
+        }
         const modules = (string1Modules || 0) + (string2Modules || 0) + (string3Modules || 0);
         return modules > 0 ? (moduleWp * modules) / 1000 : 0;
     }
 
     _formatDuration(minutes) {
-        if (!minutes) return '0 min';
+        if (!minutes) {
+            return '0 min';
+        }
         const h = Math.floor(minutes / 60);
         const m = minutes % 60;
         return h > 0 ? `${h} h ${m} min` : `${m} min`;
     }
 
     _formatKwpLine(kwh, kwp) {
-        if (!kwp) return '';
+        if (!kwp) {
+            return '';
+        }
         return `📐 Spez. Ertrag: ${(kwh / kwp).toFixed(2)} kWh/kWp (Anlage: ${kwp.toFixed(2)} kWp)\n`;
     }
 
@@ -2598,23 +3225,26 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _parseRecipients(raw) {
-        if (!raw) return [];
-        return [...new Set(String(raw).split(/[,;]+/).map(s => s.trim()).filter(Boolean))];
+        if (!raw) {
+            return [];
+        }
+        return [
+            ...new Set(
+                String(raw)
+                    .split(/[,;]+/)
+                    .map(s => s.trim())
+                    .filter(Boolean),
+            ),
+        ];
     }
 
     _getRecipientsForReport(kind) {
         const primary = this._parseRecipients(this._cfg.notifyRecipient);
         if (kind === 'weekly') {
-            return [...new Set([
-                ...primary,
-                ...this._parseRecipients(this._cfg.notifyRecipientWeekly),
-            ])];
+            return [...new Set([...primary, ...this._parseRecipients(this._cfg.notifyRecipientWeekly)])];
         }
         if (kind === 'monthly') {
-            return [...new Set([
-                ...primary,
-                ...this._parseRecipients(this._cfg.notifyRecipientMonthly),
-            ])];
+            return [...new Set([...primary, ...this._parseRecipients(this._cfg.notifyRecipientMonthly)])];
         }
         return primary;
     }
@@ -2663,21 +3293,28 @@ ${bodyHtml}
     }
 
     _kpiHtml(items) {
-        const cells = items.map(i =>
-            `<div class="kpi"><div class="v">${this._escHtml(i.value)}</div><div class="l">${this._escHtml(i.label)}</div></div>`
-        ).join('');
+        const cells = items
+            .map(
+                i =>
+                    `<div class="kpi"><div class="v">${this._escHtml(i.value)}</div><div class="l">${this._escHtml(i.label)}</div></div>`,
+            )
+            .join('');
         return `<div class="kpis">${cells}</div>`;
     }
 
     _berlinTimeLabel(ts) {
         return new Intl.DateTimeFormat('de-DE', {
-            timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit',
+            timeZone: 'Europe/Berlin',
+            hour: '2-digit',
+            minute: '2-digit',
         }).format(new Date(ts));
     }
 
     _chartXLabels(n, sortedRows) {
         const labels = [];
-        if (!sortedRows.length) return labels;
+        if (!sortedRows.length) {
+            return labels;
+        }
         const step = Math.max(1, Math.floor(n / 8));
         for (let i = 0; i < n; i += step) {
             labels.push({ i, label: this._berlinTimeLabel(sortedRows[i].ts) });
@@ -2702,7 +3339,9 @@ ${bodyHtml}
         series.forEach(s => {
             const pts = [];
             s.points.forEach((v, i) => {
-                if (v != null && !isNaN(v)) pts.push(`${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`);
+                if (v != null && !isNaN(v)) {
+                    pts.push(`${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`);
+                }
             });
             if (pts.length >= 2) {
                 paths += `<polyline fill="none" stroke="${s.color}" stroke-width="1.4" points="${pts.join(' ')}" />`;
@@ -2711,8 +3350,8 @@ ${bodyHtml}
 
         let yLabels = '';
         for (let i = 0; i <= 4; i++) {
-            const v = Math.round(yMax * (4 - i) / 4);
-            const y = pad.top + plotH * i / 4;
+            const v = Math.round((yMax * (4 - i)) / 4);
+            const y = pad.top + (plotH * i) / 4;
             yLabels += `<text x="${pad.left - 4}" y="${y + 3}" text-anchor="end" font-size="8" fill="#666">${v}</text>`;
         }
         let xLabels = '';
@@ -2759,21 +3398,24 @@ ${rects}${xLabels}
     }
 
     _weatherReportHtml(reportDateKey, weatherOverride) {
-        const w = weatherOverride ||
-            (this._lastWeather?.date === reportDateKey ? this._lastWeather : null);
+        const w = weatherOverride || (this._lastWeather?.date === reportDateKey ? this._lastWeather : null);
         if (!w) {
             return `<div class="weather"><h3>🌤 Wetter</h3><p>Keine Wetterdaten für ${this._escHtml(reportDateKey)} – PLZ in der Konfiguration hinterlegen.</p></div>`;
         }
         const dateNote = w.historical
             ? `${reportDateKey}${w.place ? ` · ${w.place}` : ''} (Archiv)`
-            : (w.date === reportDateKey
-                ? `Stand ${w.date}${w.place ? ` · ${w.place}` : ''}`
-                : `Region ${w.place || w.plz} (Vorschau, Berichtstag: ${reportDateKey})`);
+            : w.date === reportDateKey
+              ? `Stand ${w.date}${w.place ? ` · ${w.place}` : ''}`
+              : `Region ${w.place || w.plz} (Vorschau, Berichtstag: ${reportDateKey})`;
         const precipParts = [];
         if (w.historical) {
-            if (w.precipMm != null && w.precipMm > 0) precipParts.push(`${w.precipMm} mm`);
+            if (w.precipMm != null && w.precipMm > 0) {
+                precipParts.push(`${w.precipMm} mm`);
+            }
         } else {
-            if (w.precipMm != null) precipParts.push(`${w.precipMm} mm bisher`);
+            if (w.precipMm != null) {
+                precipParts.push(`${w.precipMm} mm bisher`);
+            }
             if (w.precipCurrent != null && w.precipCurrent > 0) {
                 precipParts.push(`aktuell ${w.precipCurrent} mm/h`);
             }
@@ -2797,22 +3439,32 @@ ${rects}${xLabels}
         const kwp = this._getInstalledKwp();
         const lines = [];
         const spec = kwp > 0 ? totalKwh / kwp : null;
-        if (spec != null) lines.push(`Spez. Monatsertrag: <strong>${spec.toFixed(1)} kWh/kWp</strong> (Anlage ${kwp.toFixed(2)} kWp)`);
+        if (spec != null) {
+            lines.push(
+                `Spez. Monatsertrag: <strong>${spec.toFixed(1)} kWh/kWp</strong> (Anlage ${kwp.toFixed(2)} kWp)`,
+            );
+        }
 
         const prev = [];
         for (let y = year - 1; y >= year - 8; y--) {
             const entry = this._monthlyYields?.months?.[this._monthKey(y, month)];
-            if (entry?.wh > 0) prev.push({ year: y, kwh: entry.wh / 1000 });
+            if (entry?.wh > 0) {
+                prev.push({ year: y, kwh: entry.wh / 1000 });
+            }
         }
         if (prev.length) {
             const avgPrev = prev.reduce((s, p) => s + p.kwh, 0) / prev.length;
             const diff = totalKwh - avgPrev;
-            const diffPct = avgPrev > 0 ? (diff / avgPrev * 100) : 0;
-            const rows = prev.map(p => `<tr>
+            const diffPct = avgPrev > 0 ? (diff / avgPrev) * 100 : 0;
+            const rows = prev
+                .map(
+                    p => `<tr>
 ${this._tdCell(String(p.year))}
 ${this._tdCell(`${p.kwh.toFixed(1)} kWh`, true)}
 ${this._tdCell(kwp ? `${(p.kwh / kwp).toFixed(1)}` : '–', true)}
-</tr>`).join('');
+</tr>`,
+                )
+                .join('');
             lines.push(`${this._reportTableOpen()}<thead><tr>
 ${this._thCell('Vorjahr')}${this._thCell('Ertrag', true)}${this._thCell('kWh/kWp', true)}
 </tr></thead><tbody>${rows}</tbody>
@@ -2828,18 +3480,28 @@ ${this._tdCell(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? 
             const refKwhKwp = regional[month - 1];
             const refTotal = refKwhKwp * kwp;
             const delta = spec != null ? spec - refKwhKwp : null;
-            lines.push(`Regionaler Referenzwert (PLZ ${this._escHtml(this._monthlyYields.plz || this._cfg.yieldPlz || '')}): ` +
-                `<strong>${refKwhKwp.toFixed(1)} kWh/kWp</strong> ≈ ${refTotal.toFixed(0)} kWh` +
-                (delta != null ? ` · Abweichung: ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} kWh/kWp` : ''));
+            lines.push(
+                `Regionaler Referenzwert (PLZ ${this._escHtml(this._monthlyYields.plz || this._cfg.yieldPlz || '')}): ` +
+                    `<strong>${refKwhKwp.toFixed(1)} kWh/kWp</strong> ≈ ${refTotal.toFixed(0)} kWh${
+                        delta != null ? ` · Abweichung: ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} kWh/kWp` : ''
+                    }`,
+            );
         }
 
-        if (!lines.length) return '';
+        if (!lines.length) {
+            return '';
+        }
         return `<div class="cmp"><h3>📊 Vergleich &amp; Durchschnitt</h3>${lines.join('')}</div>`;
     }
 
     async _buildDailyReport(date, opts = {}) {
         const rows = this._getRowsForDate(date);
-        const dateStr = date.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const dateStr = date.toLocaleDateString('de-DE', {
+            weekday: 'long',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        });
         const dateKey = this._berlinDateKey(date.getTime());
         const model = this._lastData['device.model'] || 'PIKO';
         const kwp = this._getInstalledKwp();
@@ -2848,29 +3510,44 @@ ${this._tdCell(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? 
         const weatherData = await this._getWeatherForDate(dateKey);
 
         if (!rows.length) {
-            const text = `☀️ Kostal PIKO (${model}) – Tagesbericht\n📅 ${dateStr}\n\n⚠️ Keine Historiendaten vorhanden.\n` +
+            const text =
+                `☀️ Kostal PIKO (${model}) – Tagesbericht\n📅 ${dateStr}\n\n⚠️ Keine Historiendaten vorhanden.\n` +
                 `Bitte „Historiendaten laden“ aktivieren und Sync-Intervall prüfen.`;
-            const html = this._reportPageHtml('Tagesbericht', `${model} · ${dateStr}`,
-                '<p class="warn">Keine Historiendaten für diesen Tag. „Historiendaten laden“ aktivieren.</p>', opts.test);
+            const html = this._reportPageHtml(
+                'Tagesbericht',
+                `${model} · ${dateStr}`,
+                '<p class="warn">Keine Historiendaten für diesen Tag. „Historiendaten laden“ aktivieren.</p>',
+                opts.test,
+            );
             return { subject, text, html };
         }
 
         const stats = this._calcDayStats(rows);
         const sorted = [...rows].sort((a, b) => a.ts - b.ts);
         const stringCount = this._getStringCount();
-        const prodWindow = stats.firstProd && stats.lastProd
-            ? `${stats.firstProd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}–` +
-              `${stats.lastProd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
-            : '–';
+        const prodWindow =
+            stats.firstProd && stats.lastProd
+                ? `${stats.firstProd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}–` +
+                  `${stats.lastProd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
+                : '–';
 
         const acSeries = [{ label: 'AC gesamt', color: '#1565c0', points: sorted.map(r => r.acTotalPower || 0) }];
         const dcSeries = [
-            { label: 'DC gesamt', color: '#2e7d32', points: sorted.map(r =>
-                (r.dc1?.power || 0) + (r.dc2?.power || 0) + (r.dc3?.power || 0)) },
+            {
+                label: 'DC gesamt',
+                color: '#2e7d32',
+                points: sorted.map(r => (r.dc1?.power || 0) + (r.dc2?.power || 0) + (r.dc3?.power || 0)),
+            },
         ];
-        if (stringCount >= 1) dcSeries.push({ label: 'String 1', color: '#66bb6a', points: sorted.map(r => r.dc1?.power || 0) });
-        if (stringCount >= 2) dcSeries.push({ label: 'String 2', color: '#43a047', points: sorted.map(r => r.dc2?.power || 0) });
-        if (stringCount >= 3) dcSeries.push({ label: 'String 3', color: '#1b5e20', points: sorted.map(r => r.dc3?.power || 0) });
+        if (stringCount >= 1) {
+            dcSeries.push({ label: 'String 1', color: '#66bb6a', points: sorted.map(r => r.dc1?.power || 0) });
+        }
+        if (stringCount >= 2) {
+            dcSeries.push({ label: 'String 2', color: '#43a047', points: sorted.map(r => r.dc2?.power || 0) });
+        }
+        if (stringCount >= 3) {
+            dcSeries.push({ label: 'String 3', color: '#1b5e20', points: sorted.map(r => r.dc3?.power || 0) });
+        }
 
         const phaseSeries = [
             { label: 'L1', color: '#ef6c00', points: sorted.map(r => r.ac1?.power || 0) },
@@ -2886,7 +3563,9 @@ ${this._tdCell(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? 
             { value: this._formatDuration(stats.prodMinutes), label: `Erzeugung (${prodWindow})` },
             { value: `${stats.avgW} W`, label: 'Ø-Leistung' },
         ];
-        if (kwp) kpiItems.push({ value: `${(stats.kwh / kwp).toFixed(2)}`, label: 'kWh/kWp' });
+        if (kwp) {
+            kpiItems.push({ value: `${(stats.kwh / kwp).toFixed(2)}`, label: 'kWh/kWp' });
+        }
 
         let body = this._kpiHtml(kpiItems);
         body += `<div class="sec"><h2>AC-Leistung (15-min)</h2><div class="chart">${this._svgLineChart(680, 140, acSeries, { xLabels, unit: 'W' })}</div></div>`;
@@ -2896,7 +3575,12 @@ ${this._tdCell(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? 
             body += this._formatErrorCodesHtml(stats.errorCodes);
         }
         body += this._weatherReportHtml(dateKey, weatherData);
-        const html = this._reportPageHtml('Tagesbericht', `${model} · ${dateStr} · ${stats.dataPoints} Messpunkte`, body, opts.test);
+        const html = this._reportPageHtml(
+            'Tagesbericht',
+            `${model} · ${dateStr} · ${stats.dataPoints} Messpunkte`,
+            body,
+            opts.test,
+        );
 
         const hourly = [];
         for (let h = 0; h < 24; h++) {
@@ -2916,9 +3600,13 @@ ${this._tdCell(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? 
             `📊 Ø-Leistung (Tag):  ${stats.avgW} W`,
             `📡 Messpunkte:        ${stats.dataPoints} (15-min)`,
         ].filter(Boolean);
-        if (stats.errorCodes.length) lines.push(this._formatErrorCodesText(stats.errorCodes));
+        if (stats.errorCodes.length) {
+            lines.push(this._formatErrorCodesText(stats.errorCodes));
+        }
         const weatherLine = this._weatherSummaryText(weatherData);
-        if (weatherLine) lines.push(`🌤 Wetter: ${weatherLine}`);
+        if (weatherLine) {
+            lines.push(`🌤 Wetter: ${weatherLine}`);
+        }
         lines.push('', `Leistungskurve AC (5–21 Uhr):`, spark);
         return { subject, text: lines.join('\n'), html };
     }
@@ -2927,7 +3615,8 @@ ${this._tdCell(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? 
         const { days, weekNum, start } = this._getPreviousCalendarWeek();
         const model = this._lastData['device.model'] || 'PIKO';
         const kwp = this._getInstalledKwp();
-        const rangeStr = `${start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} – ` +
+        const rangeStr =
+            `${start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} – ` +
             `${days[6].toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
         const testPrefix = opts.test ? '[TEST] ' : '';
         const subject = `${testPrefix}${this._getReportSubjectTag()}Wochenbericht KW ${weekNum}`;
@@ -2948,11 +3637,19 @@ ${this._tdCell(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kWh (${diffPct >= 0 ? 
         dayStats.forEach(d => {
             const kwh = d.stats ? d.stats.kwh : 0;
             totalKwh += kwh;
-            if (d.rows.length) daysWithData++;
-            if (d.stats && d.stats.maxW > peakW) peakW = d.stats.maxW;
+            if (d.rows.length) {
+                daysWithData++;
+            }
+            if (d.stats && d.stats.maxW > peakW) {
+                peakW = d.stats.maxW;
+            }
             if (d.stats && kwh > 0) {
-                if (!bestDay || kwh > bestDay.kwh) bestDay = { date: d.date, kwh };
-                if (!worstDay || kwh < worstDay.kwh) worstDay = { date: d.date, kwh };
+                if (!bestDay || kwh > bestDay.kwh) {
+                    bestDay = { date: d.date, kwh };
+                }
+                if (!worstDay || kwh < worstDay.kwh) {
+                    worstDay = { date: d.date, kwh };
+                }
             }
             const label = d.date.toLocaleDateString('de-DE', { weekday: 'short' });
             bars.push({ label, value: kwh, color: kwh > 0 ? '#42a5f5' : '#bdbdbd' });
@@ -2972,7 +3669,9 @@ ${this._tdCell(d.rows.length ? this._escHtml(this._barForKwh(kwh)) : '–')}
             { value: `${avgKwh.toFixed(1)} kWh`, label: `Ø/Tag (${daysWithData} Tage)` },
             { value: peakW ? `${peakW} W` : '–', label: 'Wochenspitze' },
         ];
-        if (kwp) kpiItems.push({ value: `${(totalKwh / kwp).toFixed(1)}`, label: 'kWh/kWp' });
+        if (kwp) {
+            kpiItems.push({ value: `${(totalKwh / kwp).toFixed(1)}`, label: 'kWh/kWp' });
+        }
 
         let body = this._kpiHtml(kpiItems);
         body += `<div class="sec"><h2>Tageserträge KW ${weekNum}</h2><div class="chart">${this._svgBarChart(680, 160, bars)}</div></div>`;
@@ -2995,12 +3694,15 @@ ${this._thCell('Tag')}${this._thCell('kWh', true)}${this._thCell('Spitze', true)
             lines.push(`${label}  ${d.rows.length ? this._barForKwh(kwh) : '–'}  ${kwh.toFixed(1)} kWh`);
         });
         lines.push('', `📊 Wochensumme: ${totalKwh.toFixed(1)} kWh`, `📊 Ø pro Tag: ${avgKwh.toFixed(1)} kWh`);
-        if (kwp) lines.push(`📐 Spez. Ertrag: ${(totalKwh / kwp).toFixed(1)} kWh/kWp`);
+        if (kwp) {
+            lines.push(`📐 Spez. Ertrag: ${(totalKwh / kwp).toFixed(1)} kWh/kWp`);
+        }
         return { subject, text: lines.join('\n'), html };
     }
 
     _buildMonthlyReport(opts = {}) {
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const daysInMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
         const monthName = lastMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
@@ -3025,12 +3727,22 @@ ${this._thCell('Tag')}${this._thCell('kWh', true)}${this._thCell('Spitze', true)
             const stats = rows.length ? this._calcDayStats(rows) : null;
             const kwh = stats ? stats.kwh : 0;
             totalKwh += kwh;
-            if (rows.length) daysWithData++;
-            if (kwh > 0.1) daysWithYield++;
-            if (stats && stats.maxW > peakW) peakW = stats.maxW;
+            if (rows.length) {
+                daysWithData++;
+            }
+            if (kwh > 0.1) {
+                daysWithYield++;
+            }
+            if (stats && stats.maxW > peakW) {
+                peakW = stats.maxW;
+            }
             if (stats && kwh > 0) {
-                if (!bestDay || kwh > bestDay.kwh) bestDay = { date, kwh };
-                if (!worstDay || kwh < worstDay.kwh) worstDay = { date, kwh };
+                if (!bestDay || kwh > bestDay.kwh) {
+                    bestDay = { date, kwh };
+                }
+                if (!worstDay || kwh < worstDay.kwh) {
+                    worstDay = { date, kwh };
+                }
             }
             const spec = kwp > 0 && kwh > 0 ? (kwh / kwp).toFixed(2) : '–';
             const label = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -3050,7 +3762,9 @@ ${this._tdCell(stats ? String(stats.dataPoints) : '–', true)}
             { value: `${avgKwh.toFixed(1)} kWh`, label: `Ø/Ertragstag (${daysWithYield})` },
             { value: peakW ? `${peakW} W` : '–', label: 'Monatsspitze' },
         ];
-        if (kwp) kpiItems.push({ value: `${(totalKwh / kwp).toFixed(1)}`, label: 'kWh/kWp Monat' });
+        if (kwp) {
+            kpiItems.push({ value: `${(totalKwh / kwp).toFixed(1)}`, label: 'kWh/kWp Monat' });
+        }
 
         let body = this._kpiHtml(kpiItems);
         body += `<div class="sec"><h2>Tagesübersicht ${this._escHtml(monthName)}</h2>
@@ -3090,25 +3804,31 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             }
         }
         lines.push('', `📊 Monatssumme: ${totalKwh.toFixed(1)} kWh`, `📊 Ø pro Ertragstag: ${avgKwh.toFixed(1)} kWh`);
-        if (kwp) lines.push(`📐 Spez. Ertrag: ${(totalKwh / kwp).toFixed(1)} kWh/kWp`);
+        if (kwp) {
+            lines.push(`📐 Spez. Ertrag: ${(totalKwh / kwp).toFixed(1)} kWh/kWp`);
+        }
         return { subject, text: lines.join('\n'), html };
     }
 
     _sparkline(values) {
         // Unicode-Sparkline aus Werten: ▁▂▃▄▅▆▇█
-        const blocks = ['▁','▂','▃','▄','▅','▆','▇','█'];
+        const blocks = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
         const max = Math.max(...values) || 1;
-        return values.map(v => blocks[Math.min(7, Math.floor(v / max * 8))]).join('');
+        return values.map(v => blocks[Math.min(7, Math.floor((v / max) * 8))]).join('');
     }
 
     _calcDailyKwhFromPower(rows) {
-        if (!rows.length) return 0;
+        if (!rows.length) {
+            return 0;
+        }
         const totalWh = rows.reduce((sum, r) => sum + (r.acTotalPower || 0) * 0.25, 0);
         return Math.round(totalWh) / 1000;
     }
 
     _calcDailyKwh(rows) {
-        if (!rows.length) return 0;
+        if (!rows.length) {
+            return 0;
+        }
         const sorted = this._dedupeHistoryRows(rows);
         const powerKwh = this._calcDailyKwhFromPower(sorted);
         const withEnergy = sorted.filter(r => r.totalEnergy > 0);
@@ -3123,21 +3843,21 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
     }
 
     _calcDayStats(rows) {
-        if (!rows.length) return null;
+        if (!rows.length) {
+            return null;
+        }
         const sorted = [...rows].sort((a, b) => a.ts - b.ts);
         const kwh = this._calcDailyKwh(sorted);
         const peakRow = sorted.reduce((best, r) => (r.acTotalPower > best.acTotalPower ? r : best), sorted[0]);
         const producing = sorted.filter(r => r.acTotalPower >= 50);
-        const maxDc = Math.max(...sorted.map(r =>
-            (r.dc1?.power || 0) + (r.dc2?.power || 0) + (r.dc3?.power || 0)
-        ));
+        const maxDc = Math.max(...sorted.map(r => (r.dc1?.power || 0) + (r.dc2?.power || 0) + (r.dc3?.power || 0)));
         const errors = sorted.filter(r => r.errorCode && r.errorCode !== 0);
         const errorCodes = [...new Set(errors.map(r => r.errorCode))];
         const avgW = producing.length
             ? Math.round(producing.reduce((s, r) => s + r.acTotalPower, 0) / producing.length)
             : 0;
         const firstProd = producing.length ? new Date(producing[0].ts) : null;
-        const lastProd  = producing.length ? new Date(producing[producing.length - 1].ts) : null;
+        const lastProd = producing.length ? new Date(producing[producing.length - 1].ts) : null;
 
         return {
             kwh,
@@ -3154,12 +3874,14 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
     }
 
     _barForKwh(kwh, scale = 5) {
-        if (!kwh) return '–';
+        if (!kwh) {
+            return '–';
+        }
         return '▓'.repeat(Math.min(20, Math.round(kwh / scale))) || '▁';
     }
 
     async _sendNotify(text, subject, opts = {}) {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             const inst = this._cfg.notifyInstance;
             const recipients = opts.recipients || this._parseRecipients(this._cfg.notifyRecipient);
             if (!inst) {
@@ -3170,14 +3892,18 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             }
             const mailSubject = subject || 'Kostal PIKO Bericht';
             const payload = {
-                to      : recipients.join(', '),
-                subject : mailSubject,
+                to: recipients.join(', '),
+                subject: mailSubject,
                 text,
             };
-            if (opts.html) payload.html = opts.html;
+            if (opts.html) {
+                payload.html = opts.html;
+            }
             let settled = false;
-            const finish = (result) => {
-                if (settled) return;
+            const finish = result => {
+                if (settled) {
+                    return;
+                }
                 settled = true;
                 this.clearTimeout(timer);
                 resolve(result);
@@ -3186,7 +3912,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 this._log('WARN', `Benachrichtigung: Timeout (30s) via ${inst}`);
                 finish({ error: 'Timeout beim E-Mail-Versand (email-Adapter antwortet nicht)' });
             }, 30000);
-            this.sendTo(inst, 'send', payload, (result) => {
+            this.sendTo(inst, 'send', payload, result => {
                 if (result && result.error) {
                     this._log('WARN', `Benachrichtigung fehlgeschlagen (${inst}): ${result.error}`);
                     return finish({ error: result.error });
@@ -3205,9 +3931,13 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             html: built.html,
             recipients: this._getRecipientsForReport('daily'),
         });
-        if (result?.error) throw new Error(result.error);
+        if (result?.error) {
+            throw new Error(result.error);
+        }
         const stats = this._calcDayStats(this._getRowsForDate(yesterday));
-        if (stats) this._log('INFO', `Tagesbericht gesendet: ${stats.kwh.toFixed(2)} kWh`);
+        if (stats) {
+            this._log('INFO', `Tagesbericht gesendet: ${stats.kwh.toFixed(2)} kWh`);
+        }
     }
 
     async _sendWeeklyReport(opts = {}) {
@@ -3216,7 +3946,9 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             html: built.html,
             recipients: this._getRecipientsForReport('weekly'),
         });
-        if (result?.error) throw new Error(result.error);
+        if (result?.error) {
+            throw new Error(result.error);
+        }
         const { weekNum } = this._getPreviousCalendarWeek();
         this._log('INFO', `Wochenbericht gesendet (KW ${weekNum})`);
     }
@@ -3227,7 +3959,9 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             html: built.html,
             recipients: this._getRecipientsForReport('monthly'),
         });
-        if (result?.error) throw new Error(result.error);
+        if (result?.error) {
+            throw new Error(result.error);
+        }
         const today = new Date();
         const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const monthName = lastMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
@@ -3235,27 +3969,33 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
     }
 
     async _checkDayAlert() {
-        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-        const rows   = this._getRowsForDate(yesterday);
-        const stats  = rows.length ? this._calcDayStats(rows) : null;
-        const kwh    = stats ? stats.kwh : 0;
-        const thr    = this._cfg.notifyThresholdKwh;
-        const dateStr = yesterday.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-        const model  = this._lastData['device.model'] || 'PIKO';
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const rows = this._getRowsForDate(yesterday);
+        const stats = rows.length ? this._calcDayStats(rows) : null;
+        const kwh = stats ? stats.kwh : 0;
+        const thr = this._cfg.notifyThresholdKwh;
+        const dateStr = yesterday.toLocaleDateString('de-DE', {
+            weekday: 'long',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        });
+        const model = this._lastData['device.model'] || 'PIKO';
         const subject = `Kostal PIKO – Alarm ${dateStr}`;
 
         const alerts = [];
-        if (!rows.length) alerts.push('⚠️ Keine Historiendaten empfangen');
-        else if (thr > 0 && kwh < thr) alerts.push(`⚠️ Ertrag ${kwh.toFixed(2)} kWh unter Schwellwert ${thr} kWh`);
-        if (stats?.errorCodes?.length) alerts.push(`⚠️ Fehlercodes im Tagesverlauf: ${stats.errorCodes.join(', ')}`);
+        if (!rows.length) {
+            alerts.push('⚠️ Keine Historiendaten empfangen');
+        } else if (thr > 0 && kwh < thr) {
+            alerts.push(`⚠️ Ertrag ${kwh.toFixed(2)} kWh unter Schwellwert ${thr} kWh`);
+        }
+        if (stats?.errorCodes?.length) {
+            alerts.push(`⚠️ Fehlercodes im Tagesverlauf: ${stats.errorCodes.join(', ')}`);
+        }
 
         if (alerts.length) {
-            const lines = [
-                `🔔 Kostal PIKO (${model}) – Alarm`,
-                `📅 ${dateStr}`,
-                ``,
-                ...alerts,
-            ];
+            const lines = [`🔔 Kostal PIKO (${model}) – Alarm`, `📅 ${dateStr}`, ``, ...alerts];
             if (stats) {
                 lines.push(
                     ``,
@@ -3273,14 +4013,16 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
         const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
         d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
         const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
     }
 
     // ─── States anlegen ──────────────────────────────────────────────────────────
 
     async _ensureChannelPath(objectId) {
         const parts = objectId.split('.');
-        if (parts.length < 2) return;
+        if (parts.length < 2) {
+            return;
+        }
         let path = '';
         for (let i = 0; i < parts.length - 1; i++) {
             path = path ? `${path}.${parts[i]}` : parts[i];
@@ -3294,103 +4036,570 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
 
     async _ensureBaseStates() {
         const defs = [
-            { id:'info.connection',           type:'boolean', role:'indicator.connected', name:'Verbunden',                   def:false },
-            { id:'info.networkMode',          type:'string',  role:'text',               name:'Netzwerk-Modus (local/fritzwireguard)', def:'local' },
-            { id:'info.lastPoll',             type:'string',  role:'date',                name:'Letzter Poll',                def:'' },
-            { id:'status',                    type:'string',  role:'text',                name:'Betriebsstatus',              def:'Unbekannt' },
-            { id:'online',                    type:'number',  role:'value',               name:'Online (1=ja, 0=nein)',       def:0 },
-            { id:'ac.power',                  type:'number',  role:'value.power.active',  name:'AC-Leistung aktuell',         def:0, unit:'W' },
-            { id:'ac.l1.voltage',             type:'number',  role:'value.voltage',       name:'L1 Spannung',                 def:0, unit:'V' },
-            { id:'ac.l1.power',               type:'number',  role:'value.power.active',  name:'L1 Leistung',                 def:0, unit:'W' },
-            { id:'ac.l2.voltage',             type:'number',  role:'value.voltage',       name:'L2 Spannung',                 def:0, unit:'V' },
-            { id:'ac.l2.power',               type:'number',  role:'value.power.active',  name:'L2 Leistung',                 def:0, unit:'W' },
-            { id:'ac.l3.voltage',             type:'number',  role:'value.voltage',       name:'L3 Spannung',                 def:0, unit:'V' },
-            { id:'ac.l3.power',               type:'number',  role:'value.power.active',  name:'L3 Leistung',                 def:0, unit:'W' },
-            { id:'energy.total',              type:'number',  role:'value.energy',        name:'Gesamtenergie',               def:0, unit:'kWh' },
-            { id:'energy.today',              type:'number',  role:'value.energy',        name:'Tagesenergie',                def:0, unit:'kWh' },
-            { id:'pv.string1.voltage',        type:'number',  role:'value.voltage',       name:'String 1 Spannung',           def:0, unit:'V' },
-            { id:'pv.string1.current',        type:'number',  role:'value.current',       name:'String 1 Strom',             def:0, unit:'A' },
-            { id:'pv.string2.voltage',        type:'number',  role:'value.voltage',       name:'String 2 Spannung',           def:0, unit:'V' },
-            { id:'pv.string2.current',        type:'number',  role:'value.current',       name:'String 2 Strom',             def:0, unit:'A' },
-            { id:'pv.string3.voltage',        type:'number',  role:'value.voltage',       name:'String 3 Spannung',           def:0, unit:'V' },
-            { id:'pv.string3.current',        type:'number',  role:'value.current',       name:'String 3 Strom',             def:0, unit:'A' },
-            { id:'device.strings',            type:'number',  role:'value',               name:'Anzahl PV-Strings (2 oder 3)', def:2 },
-            { id:'device.model',              type:'string',  role:'text',                name:'Modell (PIKO 8.3 / PIKO 5.5)',  def:'' },
-            { id:'info.analog1',              type:'number',  role:'value.voltage',       name:'Analoger Eingang 1',          def:0, unit:'V' },
-            { id:'info.analog2',              type:'number',  role:'value.voltage',       name:'Analoger Eingang 2',          def:0, unit:'V' },
-            { id:'info.analog3',              type:'number',  role:'value.voltage',       name:'Analoger Eingang 3',          def:0, unit:'V' },
-            { id:'info.analog4',              type:'number',  role:'value.voltage',       name:'Analoger Eingang 4',          def:0, unit:'V' },
-            { id:'info.modemStatus',          type:'string',  role:'text',                name:'Modemstatus',                 def:'' },
-            { id:'info.lastPortalConnection', type:'string',  role:'text',                name:'Letzte Portal-Verbindung',    def:'' },
-            { id:'info.s0Pulses',             type:'number',  role:'value',               name:'S0-Energiepulse',             def:0 },
-            { id:'rs485.busAddress',          type:'number',  role:'value',               name:'RS485 Bus-Adresse',           def:255 },
+            { id: 'info.connection', type: 'boolean', role: 'indicator.connected', name: 'Verbunden', def: false },
+            {
+                id: 'info.networkMode',
+                type: 'string',
+                role: 'text',
+                name: 'Netzwerk-Modus (local/fritzwireguard)',
+                def: 'local',
+            },
+            { id: 'info.lastPoll', type: 'string', role: 'date', name: 'Letzter Poll', def: '' },
+            { id: 'status', type: 'string', role: 'text', name: 'Betriebsstatus', def: 'Unbekannt' },
+            { id: 'online', type: 'number', role: 'value', name: 'Online (1=ja, 0=nein)', def: 0 },
+            {
+                id: 'ac.power',
+                type: 'number',
+                role: 'value.power.active',
+                name: 'AC-Leistung aktuell',
+                def: 0,
+                unit: 'W',
+            },
+            { id: 'ac.l1.voltage', type: 'number', role: 'value.voltage', name: 'L1 Spannung', def: 0, unit: 'V' },
+            { id: 'ac.l1.power', type: 'number', role: 'value.power.active', name: 'L1 Leistung', def: 0, unit: 'W' },
+            { id: 'ac.l2.voltage', type: 'number', role: 'value.voltage', name: 'L2 Spannung', def: 0, unit: 'V' },
+            { id: 'ac.l2.power', type: 'number', role: 'value.power.active', name: 'L2 Leistung', def: 0, unit: 'W' },
+            { id: 'ac.l3.voltage', type: 'number', role: 'value.voltage', name: 'L3 Spannung', def: 0, unit: 'V' },
+            { id: 'ac.l3.power', type: 'number', role: 'value.power.active', name: 'L3 Leistung', def: 0, unit: 'W' },
+            { id: 'energy.total', type: 'number', role: 'value.energy', name: 'Gesamtenergie', def: 0, unit: 'kWh' },
+            { id: 'energy.today', type: 'number', role: 'value.energy', name: 'Tagesenergie', def: 0, unit: 'kWh' },
+            {
+                id: 'pv.string1.voltage',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 1 Spannung',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'pv.string1.current',
+                type: 'number',
+                role: 'value.current',
+                name: 'String 1 Strom',
+                def: 0,
+                unit: 'A',
+            },
+            {
+                id: 'pv.string2.voltage',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 2 Spannung',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'pv.string2.current',
+                type: 'number',
+                role: 'value.current',
+                name: 'String 2 Strom',
+                def: 0,
+                unit: 'A',
+            },
+            {
+                id: 'pv.string3.voltage',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 3 Spannung',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'pv.string3.current',
+                type: 'number',
+                role: 'value.current',
+                name: 'String 3 Strom',
+                def: 0,
+                unit: 'A',
+            },
+            { id: 'device.strings', type: 'number', role: 'value', name: 'Anzahl PV-Strings (2 oder 3)', def: 2 },
+            { id: 'device.model', type: 'string', role: 'text', name: 'Modell (PIKO 8.3 / PIKO 5.5)', def: '' },
+            {
+                id: 'info.analog1',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'Analoger Eingang 1',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'info.analog2',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'Analoger Eingang 2',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'info.analog3',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'Analoger Eingang 3',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'info.analog4',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'Analoger Eingang 4',
+                def: 0,
+                unit: 'V',
+            },
+            { id: 'info.modemStatus', type: 'string', role: 'text', name: 'Modemstatus', def: '' },
+            {
+                id: 'info.lastPortalConnection',
+                type: 'string',
+                role: 'text',
+                name: 'Letzte Portal-Verbindung',
+                def: '',
+            },
+            { id: 'info.s0Pulses', type: 'number', role: 'value', name: 'S0-Energiepulse', def: 0 },
+            { id: 'rs485.busAddress', type: 'number', role: 'value', name: 'RS485 Bus-Adresse', def: 255 },
             // Berechnete Soll-Werte (aus Modul-Konfiguration)
-            { id:'string1.expectedVoltage',   type:'number',  role:'value.voltage',       name:'String 1 Soll-Mpp-Spannung',  def:0, unit:'V' },
-            { id:'string1.expectedVoc',       type:'number',  role:'value.voltage',       name:'String 1 Soll-Voc',           def:0, unit:'V' },
-            { id:'string2.expectedVoltage',   type:'number',  role:'value.voltage',       name:'String 2 Soll-Mpp-Spannung',  def:0, unit:'V' },
-            { id:'string2.expectedVoc',       type:'number',  role:'value.voltage',       name:'String 2 Soll-Voc',           def:0, unit:'V' },
-            { id:'string3.expectedVoltage',   type:'number',  role:'value.voltage',       name:'String 3 Soll-Mpp-Spannung',  def:0, unit:'V' },
-            { id:'string3.expectedVoc',       type:'number',  role:'value.voltage',       name:'String 3 Soll-Voc',           def:0, unit:'V' },
-            { id:'string1.expectedPower',     type:'number',  role:'value.power',         name:'String 1 Soll-Leistung',      def:0, unit:'Wp' },
-            { id:'string2.expectedPower',     type:'number',  role:'value.power',         name:'String 2 Soll-Leistung',      def:0, unit:'Wp' },
-            { id:'string3.expectedPower',     type:'number',  role:'value.power',         name:'String 3 Soll-Leistung',      def:0, unit:'Wp' },
+            {
+                id: 'string1.expectedVoltage',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 1 Soll-Mpp-Spannung',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string1.expectedVoc',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 1 Soll-Voc',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string2.expectedVoltage',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 2 Soll-Mpp-Spannung',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string2.expectedVoc',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 2 Soll-Voc',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string3.expectedVoltage',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 3 Soll-Mpp-Spannung',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string3.expectedVoc',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 3 Soll-Voc',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string1.expectedPower',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 1 Soll-Leistung',
+                def: 0,
+                unit: 'Wp',
+            },
+            {
+                id: 'string2.expectedPower',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 2 Soll-Leistung',
+                def: 0,
+                unit: 'Wp',
+            },
+            {
+                id: 'string3.expectedPower',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 3 Soll-Leistung',
+                def: 0,
+                unit: 'Wp',
+            },
             // Vmpp-basierte Modultemperatur (pro String)
-            { id:'string1.vmppPerModule',     type:'number',  role:'value.voltage',       name:'String 1 Vmpp/Modul (gemessen)', def:0, unit:'V' },
-            { id:'string1.tempEquivalentC',   type:'number',  role:'value.temperature',   name:'String 1 \u00e4quiv. Temperatur', def:0, unit:'\u00b0C' },
-            { id:'string1.tempQuality',       type:'string',  role:'text',                name:'String 1 Temp.-Qualit\u00e4t',    def:'UNGUELTIG' },
-            { id:'string1.tempValidRelative', type:'boolean', role:'indicator',           name:'String 1 Temp. relativ valide', def:false },
-            { id:'string1.tempValidAbsolute', type:'boolean', role:'indicator',           name:'String 1 Temp. absolut valide', def:false },
-            { id:'string1.tempUncertaintyK',  type:'number',  role:'value',               name:'String 1 Temp.-Unsicherheit',   def:0, unit:'K' },
-            { id:'string1.tempDeltaK',        type:'number',  role:'value',               name:'String 1 \u0394T \u00fcber STC', def:0, unit:'K' },
-            { id:'string1.tempLossW',         type:'number',  role:'value.power',         name:'String 1 Temperaturverlust',    def:0, unit:'W' },
-            { id:'string1.powerAt25C',        type:'number',  role:'value.power',         name:'String 1 \u00e4quiv. STC-Leistung', def:0, unit:'W' },
-            { id:'string1.mppUtilization',    type:'number',  role:'value',               name:'String 1 MPP-Ausnutzung',       def:0, unit:'%' },
-            { id:'string1.tempAlert',         type:'string',  role:'text',                name:'String 1 Temperatur-Status',    def:'UNBEKANNT' },
-            { id:'string2.vmppPerModule',     type:'number',  role:'value.voltage',       name:'String 2 Vmpp/Modul (gemessen)', def:0, unit:'V' },
-            { id:'string2.tempEquivalentC',   type:'number',  role:'value.temperature',   name:'String 2 \u00e4quiv. Temperatur', def:0, unit:'\u00b0C' },
-            { id:'string2.tempQuality',       type:'string',  role:'text',                name:'String 2 Temp.-Qualit\u00e4t',    def:'UNGUELTIG' },
-            { id:'string2.tempValidRelative', type:'boolean', role:'indicator',           name:'String 2 Temp. relativ valide', def:false },
-            { id:'string2.tempValidAbsolute', type:'boolean', role:'indicator',           name:'String 2 Temp. absolut valide', def:false },
-            { id:'string2.tempUncertaintyK',  type:'number',  role:'value',               name:'String 2 Temp.-Unsicherheit',   def:0, unit:'K' },
-            { id:'string2.tempDeltaK',        type:'number',  role:'value',               name:'String 2 \u0394T \u00fcber STC', def:0, unit:'K' },
-            { id:'string2.tempLossW',         type:'number',  role:'value.power',         name:'String 2 Temperaturverlust',    def:0, unit:'W' },
-            { id:'string2.powerAt25C',        type:'number',  role:'value.power',         name:'String 2 \u00e4quiv. STC-Leistung', def:0, unit:'W' },
-            { id:'string2.mppUtilization',    type:'number',  role:'value',               name:'String 2 MPP-Ausnutzung',       def:0, unit:'%' },
-            { id:'string2.tempAlert',         type:'string',  role:'text',                name:'String 2 Temperatur-Status',    def:'UNBEKANNT' },
-            { id:'string3.vmppPerModule',     type:'number',  role:'value.voltage',       name:'String 3 Vmpp/Modul (gemessen)', def:0, unit:'V' },
-            { id:'string3.tempEquivalentC',   type:'number',  role:'value.temperature',   name:'String 3 \u00e4quiv. Temperatur', def:0, unit:'\u00b0C' },
-            { id:'string3.tempQuality',       type:'string',  role:'text',                name:'String 3 Temp.-Qualit\u00e4t',    def:'UNGUELTIG' },
-            { id:'string3.tempValidRelative', type:'boolean', role:'indicator',           name:'String 3 Temp. relativ valide', def:false },
-            { id:'string3.tempValidAbsolute', type:'boolean', role:'indicator',           name:'String 3 Temp. absolut valide', def:false },
-            { id:'string3.tempUncertaintyK',  type:'number',  role:'value',               name:'String 3 Temp.-Unsicherheit',   def:0, unit:'K' },
-            { id:'string3.tempDeltaK',        type:'number',  role:'value',               name:'String 3 \u0394T \u00fcber STC', def:0, unit:'K' },
-            { id:'string3.tempLossW',         type:'number',  role:'value.power',         name:'String 3 Temperaturverlust',    def:0, unit:'W' },
-            { id:'string3.powerAt25C',        type:'number',  role:'value.power',         name:'String 3 \u00e4quiv. STC-Leistung', def:0, unit:'W' },
-            { id:'string3.mppUtilization',    type:'number',  role:'value',               name:'String 3 MPP-Ausnutzung',       def:0, unit:'%' },
-            { id:'string3.tempAlert',         type:'string',  role:'text',                name:'String 3 Temperatur-Status',    def:'UNBEKANNT' },
-            { id:'temperature.deltaStrings',  type:'number',  role:'value',               name:'\u0394T String 1 \u2194 2',     def:0, unit:'K' },
-            { id:'temperature.deltaValid',    type:'boolean', role:'indicator',           name:'\u0394T String 1\u21942 valide', def:false },
-            { id:'temperature.totalLossW',      type:'number',  role:'value.power',         name:'Temperaturverlust gesamt',      def:0, unit:'W' },
-            { id:'temperature.totalLossKwhDay', type:'number',  role:'value.energy',        name:'Temperaturverlust heute',       def:0, unit:'kWh' },
-            { id:'temperature.hottest',         type:'string',  role:'text',                name:'Hei\u00dfester String',         def:'' },
-            { id:'temperature.systemAlert',     type:'string',  role:'text',                name:'System-Temperatur-Status',      def:'UNBEKANNT' },
-            { id:'dc.totalPower',             type:'number',  role:'value.power.active',  name:'DC-Gesamtleistung (berechnet)', def:0, unit:'W' },
-            { id:'efficiency.ratio',          type:'number',  role:'value',               name:'Wirkungsgrad DC\u2192AC',     def:0, unit:'%' },
-            { id:'efficiency.expected',       type:'number',  role:'value',               name:'Soll-Wirkungsgrad (temp.-korr.)', def:97, unit:'%' },
-            { id:'weather.sunshineHours',     type:'number',  role:'value',               name:'Sonnenstunden heute (Prognose)', def:0, unit:'h' },
-            { id:'weather.tempMax',           type:'number',  role:'value.temperature',   name:'Max.-Temperatur heute',       def:0, unit:'\u00b0C' },
-            { id:'weather.cloudCover',        type:'number',  role:'value',               name:'Bew\u00f6lkung heute (7\u201319h)', def:0, unit:'%' },
-            { id:'weather.precipitation',     type:'number',  role:'value',               name:'Niederschlag heute',          def:0, unit:'mm' },
-            { id:'weather.description',       type:'string',  role:'weather.forecast.0',  name:'Wetter heute (Text)',         def:'' },
-            { id:'weather.plz',               type:'string',  role:'text',                name:'Wetter-PLZ',                  def:'' },
-            { id:'weather.place',             type:'string',  role:'text',                name:'Wetter-Ort',                  def:'' },
-            { id:'weather.updatedAt',         type:'string',  role:'date',                name:'Wetter letzte Aktualisierung', def:'' },
+            {
+                id: 'string1.vmppPerModule',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 1 Vmpp/Modul (gemessen)',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string1.tempEquivalentC',
+                type: 'number',
+                role: 'value.temperature',
+                name: 'String 1 \u00e4quiv. Temperatur',
+                def: 0,
+                unit: '\u00b0C',
+            },
+            {
+                id: 'string1.tempQuality',
+                type: 'string',
+                role: 'text',
+                name: 'String 1 Temp.-Qualit\u00e4t',
+                def: 'UNGUELTIG',
+            },
+            {
+                id: 'string1.tempValidRelative',
+                type: 'boolean',
+                role: 'indicator',
+                name: 'String 1 Temp. relativ valide',
+                def: false,
+            },
+            {
+                id: 'string1.tempValidAbsolute',
+                type: 'boolean',
+                role: 'indicator',
+                name: 'String 1 Temp. absolut valide',
+                def: false,
+            },
+            {
+                id: 'string1.tempUncertaintyK',
+                type: 'number',
+                role: 'value',
+                name: 'String 1 Temp.-Unsicherheit',
+                def: 0,
+                unit: 'K',
+            },
+            {
+                id: 'string1.tempDeltaK',
+                type: 'number',
+                role: 'value',
+                name: 'String 1 \u0394T \u00fcber STC',
+                def: 0,
+                unit: 'K',
+            },
+            {
+                id: 'string1.tempLossW',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 1 Temperaturverlust',
+                def: 0,
+                unit: 'W',
+            },
+            {
+                id: 'string1.powerAt25C',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 1 \u00e4quiv. STC-Leistung',
+                def: 0,
+                unit: 'W',
+            },
+            {
+                id: 'string1.mppUtilization',
+                type: 'number',
+                role: 'value',
+                name: 'String 1 MPP-Ausnutzung',
+                def: 0,
+                unit: '%',
+            },
+            {
+                id: 'string1.tempAlert',
+                type: 'string',
+                role: 'text',
+                name: 'String 1 Temperatur-Status',
+                def: 'UNBEKANNT',
+            },
+            {
+                id: 'string2.vmppPerModule',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 2 Vmpp/Modul (gemessen)',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string2.tempEquivalentC',
+                type: 'number',
+                role: 'value.temperature',
+                name: 'String 2 \u00e4quiv. Temperatur',
+                def: 0,
+                unit: '\u00b0C',
+            },
+            {
+                id: 'string2.tempQuality',
+                type: 'string',
+                role: 'text',
+                name: 'String 2 Temp.-Qualit\u00e4t',
+                def: 'UNGUELTIG',
+            },
+            {
+                id: 'string2.tempValidRelative',
+                type: 'boolean',
+                role: 'indicator',
+                name: 'String 2 Temp. relativ valide',
+                def: false,
+            },
+            {
+                id: 'string2.tempValidAbsolute',
+                type: 'boolean',
+                role: 'indicator',
+                name: 'String 2 Temp. absolut valide',
+                def: false,
+            },
+            {
+                id: 'string2.tempUncertaintyK',
+                type: 'number',
+                role: 'value',
+                name: 'String 2 Temp.-Unsicherheit',
+                def: 0,
+                unit: 'K',
+            },
+            {
+                id: 'string2.tempDeltaK',
+                type: 'number',
+                role: 'value',
+                name: 'String 2 \u0394T \u00fcber STC',
+                def: 0,
+                unit: 'K',
+            },
+            {
+                id: 'string2.tempLossW',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 2 Temperaturverlust',
+                def: 0,
+                unit: 'W',
+            },
+            {
+                id: 'string2.powerAt25C',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 2 \u00e4quiv. STC-Leistung',
+                def: 0,
+                unit: 'W',
+            },
+            {
+                id: 'string2.mppUtilization',
+                type: 'number',
+                role: 'value',
+                name: 'String 2 MPP-Ausnutzung',
+                def: 0,
+                unit: '%',
+            },
+            {
+                id: 'string2.tempAlert',
+                type: 'string',
+                role: 'text',
+                name: 'String 2 Temperatur-Status',
+                def: 'UNBEKANNT',
+            },
+            {
+                id: 'string3.vmppPerModule',
+                type: 'number',
+                role: 'value.voltage',
+                name: 'String 3 Vmpp/Modul (gemessen)',
+                def: 0,
+                unit: 'V',
+            },
+            {
+                id: 'string3.tempEquivalentC',
+                type: 'number',
+                role: 'value.temperature',
+                name: 'String 3 \u00e4quiv. Temperatur',
+                def: 0,
+                unit: '\u00b0C',
+            },
+            {
+                id: 'string3.tempQuality',
+                type: 'string',
+                role: 'text',
+                name: 'String 3 Temp.-Qualit\u00e4t',
+                def: 'UNGUELTIG',
+            },
+            {
+                id: 'string3.tempValidRelative',
+                type: 'boolean',
+                role: 'indicator',
+                name: 'String 3 Temp. relativ valide',
+                def: false,
+            },
+            {
+                id: 'string3.tempValidAbsolute',
+                type: 'boolean',
+                role: 'indicator',
+                name: 'String 3 Temp. absolut valide',
+                def: false,
+            },
+            {
+                id: 'string3.tempUncertaintyK',
+                type: 'number',
+                role: 'value',
+                name: 'String 3 Temp.-Unsicherheit',
+                def: 0,
+                unit: 'K',
+            },
+            {
+                id: 'string3.tempDeltaK',
+                type: 'number',
+                role: 'value',
+                name: 'String 3 \u0394T \u00fcber STC',
+                def: 0,
+                unit: 'K',
+            },
+            {
+                id: 'string3.tempLossW',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 3 Temperaturverlust',
+                def: 0,
+                unit: 'W',
+            },
+            {
+                id: 'string3.powerAt25C',
+                type: 'number',
+                role: 'value.power',
+                name: 'String 3 \u00e4quiv. STC-Leistung',
+                def: 0,
+                unit: 'W',
+            },
+            {
+                id: 'string3.mppUtilization',
+                type: 'number',
+                role: 'value',
+                name: 'String 3 MPP-Ausnutzung',
+                def: 0,
+                unit: '%',
+            },
+            {
+                id: 'string3.tempAlert',
+                type: 'string',
+                role: 'text',
+                name: 'String 3 Temperatur-Status',
+                def: 'UNBEKANNT',
+            },
+            {
+                id: 'temperature.deltaStrings',
+                type: 'number',
+                role: 'value',
+                name: '\u0394T String 1 \u2194 2',
+                def: 0,
+                unit: 'K',
+            },
+            {
+                id: 'temperature.deltaValid',
+                type: 'boolean',
+                role: 'indicator',
+                name: '\u0394T String 1\u21942 valide',
+                def: false,
+            },
+            {
+                id: 'temperature.totalLossW',
+                type: 'number',
+                role: 'value.power',
+                name: 'Temperaturverlust gesamt',
+                def: 0,
+                unit: 'W',
+            },
+            {
+                id: 'temperature.totalLossKwhDay',
+                type: 'number',
+                role: 'value.energy',
+                name: 'Temperaturverlust heute',
+                def: 0,
+                unit: 'kWh',
+            },
+            { id: 'temperature.hottest', type: 'string', role: 'text', name: 'Hei\u00dfester String', def: '' },
+            {
+                id: 'temperature.systemAlert',
+                type: 'string',
+                role: 'text',
+                name: 'System-Temperatur-Status',
+                def: 'UNBEKANNT',
+            },
+            {
+                id: 'dc.totalPower',
+                type: 'number',
+                role: 'value.power.active',
+                name: 'DC-Gesamtleistung (berechnet)',
+                def: 0,
+                unit: 'W',
+            },
+            {
+                id: 'efficiency.ratio',
+                type: 'number',
+                role: 'value',
+                name: 'Wirkungsgrad DC\u2192AC',
+                def: 0,
+                unit: '%',
+            },
+            {
+                id: 'efficiency.expected',
+                type: 'number',
+                role: 'value',
+                name: 'Soll-Wirkungsgrad (temp.-korr.)',
+                def: 97,
+                unit: '%',
+            },
+            {
+                id: 'weather.sunshineHours',
+                type: 'number',
+                role: 'value',
+                name: 'Sonnenstunden heute (Prognose)',
+                def: 0,
+                unit: 'h',
+            },
+            {
+                id: 'weather.tempMax',
+                type: 'number',
+                role: 'value.temperature',
+                name: 'Max.-Temperatur heute',
+                def: 0,
+                unit: '\u00b0C',
+            },
+            {
+                id: 'weather.cloudCover',
+                type: 'number',
+                role: 'value',
+                name: 'Bew\u00f6lkung heute (7\u201319h)',
+                def: 0,
+                unit: '%',
+            },
+            {
+                id: 'weather.precipitation',
+                type: 'number',
+                role: 'value',
+                name: 'Niederschlag heute',
+                def: 0,
+                unit: 'mm',
+            },
+            {
+                id: 'weather.description',
+                type: 'string',
+                role: 'weather.forecast.0',
+                name: 'Wetter heute (Text)',
+                def: '',
+            },
+            { id: 'weather.plz', type: 'string', role: 'text', name: 'Wetter-PLZ', def: '' },
+            { id: 'weather.place', type: 'string', role: 'text', name: 'Wetter-Ort', def: '' },
+            { id: 'weather.updatedAt', type: 'string', role: 'date', name: 'Wetter letzte Aktualisierung', def: '' },
         ];
         for (const d of defs) {
             await this._ensureChannelPath(d.id);
-            const obj = { type:'state', common:{ name:d.name, type:d.type, role:d.role, read:true, write:false }, native:{} };
-            if (d.unit !== undefined) obj.common.unit = d.unit;
-            if (d.def  !== undefined) obj.common.def  = d.def;
+            const obj = {
+                type: 'state',
+                common: { name: d.name, type: d.type, role: d.role, read: true, write: false },
+                native: {},
+            };
+            if (d.unit !== undefined) {
+                obj.common.unit = d.unit;
+            }
+            if (d.def !== undefined) {
+                obj.common.def = d.def;
+            }
             await this.setObjectNotExistsAsync(d.id, obj);
             this._nodes[d.id] = { ...obj.common };
         }
@@ -3399,54 +4608,76 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
     async _ensureHistoryStates() {
         // Meta-States (History-Status)
         const meta = [
-            { id:'history.lastImport',     type:'string',  role:'date',  name:'Letzter History-Import',           def:'' },
-            { id:'history.lastImportedTs', type:'number',  role:'value', name:'Letzter importierter Timestamp ms', def:0 },
-            { id:'history.recordCount',    type:'number',  role:'value', name:'History-Datenpunkte gesamt',        def:0 },
-            { id:'history.newRecords',     type:'number',  role:'value', name:'Neue Punkte (letzter Import)',      def:0 },
-            { id:'history.oldestRecord',   type:'string',  role:'date',  name:'\u00c4ltester History-Eintrag',    def:'' },
-            { id:'history.newestRecord',   type:'string',  role:'date',  name:'Neuester History-Eintrag',         def:'' },
-            { id:'history.influxSent',     type:'number',  role:'value', name:'An InfluxDB gesendete Punkte',     def:0 },
-            { id:'history.pikoEpoch',      type:'string',  role:'date',  name:'PIKO Inbetriebnahme-Datum',        def:'' },
+            { id: 'history.lastImport', type: 'string', role: 'date', name: 'Letzter History-Import', def: '' },
+            {
+                id: 'history.lastImportedTs',
+                type: 'number',
+                role: 'value',
+                name: 'Letzter importierter Timestamp ms',
+                def: 0,
+            },
+            { id: 'history.recordCount', type: 'number', role: 'value', name: 'History-Datenpunkte gesamt', def: 0 },
+            { id: 'history.newRecords', type: 'number', role: 'value', name: 'Neue Punkte (letzter Import)', def: 0 },
+            {
+                id: 'history.oldestRecord',
+                type: 'string',
+                role: 'date',
+                name: '\u00c4ltester History-Eintrag',
+                def: '',
+            },
+            { id: 'history.newestRecord', type: 'string', role: 'date', name: 'Neuester History-Eintrag', def: '' },
+            { id: 'history.influxSent', type: 'number', role: 'value', name: 'An InfluxDB gesendete Punkte', def: 0 },
+            { id: 'history.pikoEpoch', type: 'string', role: 'date', name: 'PIKO Inbetriebnahme-Datum', def: '' },
         ];
         for (const d of meta) {
             await this._ensureChannelPath(d.id);
             await this.setObjectNotExistsAsync(d.id, {
-                type:'state', common:{ name:d.name, type:d.type, role:d.role, read:true, write:false, def:d.def }, native:{},
+                type: 'state',
+                common: { name: d.name, type: d.type, role: d.role, read: true, write: false, def: d.def },
+                native: {},
             });
-            this._nodes[d.id] = { name:d.name, type:d.type, role:d.role };
+            this._nodes[d.id] = { name: d.name, type: d.type, role: d.role };
         }
 
         // Messwert-States für InfluxDB
         for (const def of HISTORY_STATES) {
             await this._ensureChannelPath(def.id);
             await this.setObjectNotExistsAsync(def.id, {
-                type:'state',
-                common:{
-                    name : def.name,
-                    type : 'number',
-                    role : 'value',
-                    read : true,
+                type: 'state',
+                common: {
+                    name: def.name,
+                    type: 'number',
+                    role: 'value',
+                    read: true,
                     write: false,
-                    unit : def.unit,
+                    unit: def.unit,
                     // Hinweis für InfluxDB-Adapter-Config (erscheint in ioBroker Admin)
-                    desc : 'History-State: enthält historische ts-Werte f\u00fcr InfluxDB',
+                    desc: 'History-State: enthält historische ts-Werte f\u00fcr InfluxDB',
                 },
-                native:{},
+                native: {},
             });
-            this._nodes[def.id] = { name:def.name, type:'number', unit:def.unit };
+            this._nodes[def.id] = { name: def.name, type: 'number', unit: def.unit };
         }
     }
 
     async _writeStates(data, opts = {}) {
-        const merged = opts.skipDerived ? { ...data } : { ...data, ...this._calcDerivedStates({ ...this._lastData, ...data }) };
+        const merged = opts.skipDerived
+            ? { ...data }
+            : { ...data, ...this._calcDerivedStates({ ...this._lastData, ...data }) };
         const ts = Date.now();
         for (const [key, val] of Object.entries(merged)) {
-            if (val === null || val === undefined) continue;
-            try { await this.setStateAsync(key, { val, ack:true, ts }); } catch (_) {}
+            if (val === null || val === undefined) {
+                continue;
+            }
+            try {
+                await this.setStateAsync(key, { val, ack: true, ts });
+            } catch (_) {}
         }
         this._lastData = { ...this._lastData, ...merged, _ts: new Date().toISOString() };
         this._syncLiveToInflux(merged).catch(e => {
-            if (this._cfg.verbose) this._log('WARN', `Live Influx-Sync: ${e.message}`);
+            if (this._cfg.verbose) {
+                this._log('WARN', `Live Influx-Sync: ${e.message}`);
+            }
         });
     }
 
@@ -3459,13 +4690,13 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
 
             if (p === '/api/data') {
                 return this._json(res, {
-                    data               : this._lastData,
-                    nodes              : this._nodes,
-                    stringAnalysis     : this._getStringAnalysisConfig(),
+                    data: this._lastData,
+                    nodes: this._nodes,
+                    stringAnalysis: this._getStringAnalysisConfig(),
                     temperatureAnalysis: this._getTemperatureAnalysis(),
-                    inverterSpecs      : this._getInverterSpecs(),
-                    weather            : this._lastWeather,
-                    ts                 : new Date().toISOString(),
+                    inverterSpecs: this._getInverterSpecs(),
+                    weather: this._lastWeather,
+                    ts: new Date().toISOString(),
                 });
             }
             if (p === '/api/history') {
@@ -3477,44 +4708,51 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 const todayMeta = this._getTodayHistoryMeta();
                 return this._json(res, {
                     rows,
-                    pikoEpoch      : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
-                    recordCount    : this._lastHistoryRows.length,
-                    lastImported   : this._lastImportIso,
-                    newestRecord   : newest,
-                    todayNewest    : todayMeta.todayNewest,
-                    todayStale     : todayMeta.todayStale,
-                    todayAgeMin    : todayMeta.ageMin,
-                    loading        : this._historyLoading || false,
-                    stringAnalysis     : this._getStringAnalysisConfig(),
+                    pikoEpoch: this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
+                    recordCount: this._lastHistoryRows.length,
+                    lastImported: this._lastImportIso,
+                    newestRecord: newest,
+                    todayNewest: todayMeta.todayNewest,
+                    todayStale: todayMeta.todayStale,
+                    todayAgeMin: todayMeta.ageMin,
+                    loading: this._historyLoading || false,
+                    stringAnalysis: this._getStringAnalysisConfig(),
                     temperatureAnalysis: this._getTemperatureAnalysis(),
-                    stringCount        : this._getStringCount(),
-                    fromCache      : this._historyLoading && this._lastHistoryRows.length > 0,
+                    stringCount: this._getStringCount(),
+                    fromCache: this._historyLoading && this._lastHistoryRows.length > 0,
                 });
             }
-            if (p === '/api/logs')   return this._json(res, { logs: this._logBuffer });
-            if (p === '/api/status') return this._json(res, {
-                adapter        : ADAPTER_NAME,
-                version        : ADAPTER_VERSION,
-                ip             : this._cfg.ip,
-                port           : this._cfg.port,
-                interval       : this._cfg.pollInterval,
-                online         : this._lastData.online === 1,
-                historyEnable  : this._cfg.historyFetch,
-                syncInterval   : this._cfg.syncInterval,
-                influxEnable   : this._cfg.influxEnable,
-                influxInst     : this._cfg.influxInstance,
-                pikoEpoch      : this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
-                lastImported   : this._lastImportIso,
-            });
+            if (p === '/api/logs') {
+                return this._json(res, { logs: this._logBuffer });
+            }
+            if (p === '/api/status') {
+                return this._json(res, {
+                    adapter: ADAPTER_NAME,
+                    version: ADAPTER_VERSION,
+                    ip: this._cfg.ip,
+                    port: this._cfg.port,
+                    interval: this._cfg.pollInterval,
+                    online: this._lastData.online === 1,
+                    historyEnable: this._cfg.historyFetch,
+                    syncInterval: this._cfg.syncInterval,
+                    influxEnable: this._cfg.influxEnable,
+                    influxInst: this._cfg.influxInstance,
+                    pikoEpoch: this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
+                    lastImported: this._lastImportIso,
+                });
+            }
             if (p === '/api/trigger-history') {
                 this._lastHistoryFetch = 0;
                 this._fetchAndImportHistory(false).catch(e => this._log('ERROR', `Sync: ${e.message}`));
-                return this._json(res, { ok:true, message:'Sync gestartet (nur neue Datenpunkte)' });
+                return this._json(res, { ok: true, message: 'Sync gestartet (nur neue Datenpunkte)' });
             }
             if (p === '/api/sync-all') {
                 // Vollsync: Cursor zurücksetzen → alle ~6 Monate an InfluxDB
                 this._fetchAndImportHistory(true).catch(e => this._log('ERROR', `Vollsync: ${e.message}`));
-                return this._json(res, { ok:true, message:'Vollsync gestartet – alle Datenpunkte werden übertragen' });
+                return this._json(res, {
+                    ok: true,
+                    message: 'Vollsync gestartet – alle Datenpunkte werden übertragen',
+                });
             }
             if (p === '/api/yields' && req.method === 'GET') {
                 return this._json(res, this._buildYieldsApiResponse());
@@ -3524,43 +4762,47 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 if (fmt === 'csv') {
                     const csv = this._exportYieldsCsv();
                     res.writeHead(200, {
-                        'Content-Type'       : 'text/csv; charset=utf-8',
+                        'Content-Type': 'text/csv; charset=utf-8',
                         'Content-Disposition': `attachment; filename="kostalpiko-${this.namespace}-ertrag.csv"`,
                     });
-                    return res.end('\uFEFF' + csv);
+                    return res.end(`\uFEFF${csv}`);
                 }
                 const payload = {
                     ...this._monthlyYields,
                     exportedAt: new Date().toISOString(),
-                    namespace : this.namespace,
+                    namespace: this.namespace,
                 };
                 res.writeHead(200, {
-                    'Content-Type'       : 'application/json; charset=utf-8',
+                    'Content-Type': 'application/json; charset=utf-8',
                     'Content-Disposition': `attachment; filename="kostalpiko-${this.namespace}-ertrag.json"`,
                 });
                 return res.end(JSON.stringify(payload, null, 2));
             }
             if (p === '/api/yields' && req.method === 'POST') {
-                return this._readPostBody(req).then(async body => {
-                    try {
-                        const result = await this._handleYieldsPost(body);
-                        return this._json(res, { ...result, data: this._buildYieldsApiResponse() });
-                    } catch (e) {
-                        res.writeHead(400, { 'Content-Type':'application/json; charset=utf-8' });
+                return this._readPostBody(req)
+                    .then(async body => {
+                        try {
+                            const result = await this._handleYieldsPost(body);
+                            return this._json(res, { ...result, data: this._buildYieldsApiResponse() });
+                        } catch (e) {
+                            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+                            res.end(JSON.stringify({ ok: false, error: e.message }));
+                        }
+                    })
+                    .catch(e => {
+                        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
                         res.end(JSON.stringify({ ok: false, error: e.message }));
-                    }
-                }).catch(e => {
-                    res.writeHead(400, { 'Content-Type':'application/json; charset=utf-8' });
-                    res.end(JSON.stringify({ ok: false, error: e.message }));
-                });
+                    });
             }
-            if (p === '/api/ping') return this._json(res, { ok:true, adapter:ADAPTER_NAME, version:ADAPTER_VERSION });
+            if (p === '/api/ping') {
+                return this._json(res, { ok: true, adapter: ADAPTER_NAME, version: ADAPTER_VERSION });
+            }
             if (p === '/app.js') {
-                res.writeHead(200, { 'Content-Type':'application/javascript; charset=utf-8' });
+                res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
                 return res.end(APP_JS_CODE);
             }
 
-            res.writeHead(200, { 'Content-Type':'text/html; charset=utf-8' });
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(WEB_UI_HTML.replace(/__VERSION__/g, ADAPTER_VERSION));
         });
 
@@ -3569,21 +4811,31 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
     }
 
     _json(res, obj) {
-        res.writeHead(200, { 'Content-Type':'application/json; charset=utf-8', 'Access-Control-Allow-Origin':'*' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(obj, null, 2));
     }
 
     // ─── Logger ──────────────────────────────────────────────────────────────────
 
     _log(level, message) {
-        const entry = { ts:new Date().toISOString(), level, message };
+        const entry = { ts: new Date().toISOString(), level, message };
         this._logBuffer.unshift(entry);
-        if (this._logBuffer.length > this._maxLogs) this._logBuffer.pop();
+        if (this._logBuffer.length > this._maxLogs) {
+            this._logBuffer.pop();
+        }
         switch (level) {
-            case 'ERROR': this.log.error(message); break;
-            case 'WARN':  this.log.warn(message);  break;
-            case 'DEBUG': this.log.debug(message); break;
-            default:      this.log.info(message);  break;
+            case 'ERROR':
+                this.log.error(message);
+                break;
+            case 'WARN':
+                this.log.warn(message);
+                break;
+            case 'DEBUG':
+                this.log.debug(message);
+                break;
+            default:
+                this.log.info(message);
+                break;
         }
     }
 }
@@ -4060,11 +5312,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </html>`;
 
 if (require.main !== module) {
-    module.exports = (options) => new KostalPikoAdapter(options);
+    module.exports = options => new KostalPikoAdapter(options);
 } else {
     new KostalPikoAdapter();
 }
 // app.js wird aus admin/app.js geladen
 const APP_JS_CODE = fs.readFileSync(path.join(__dirname, 'admin', 'app.js'), 'utf-8');
-
-
