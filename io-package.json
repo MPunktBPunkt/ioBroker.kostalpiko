@@ -121,7 +121,7 @@
     "supportCustoms": false,
     "globalDependencies": [
       {
-        "admin": ">=7.6.17"
+        "admin": ">=7.6.20"
       }
     ],
     "extIcon": "https://raw.githubusercontent.com/MPunktBPunkt/ioBroker.kostalpiko/main/admin/kostal-piko-icon.svg",
