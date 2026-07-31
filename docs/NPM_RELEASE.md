@@ -16,15 +16,16 @@ Publishing läuft über **GitHub Actions** beim Pushen eines Versions-Tags (`v*.
 |------|------|
 | Provider | GitHub Actions |
 | Repository owner | `MPunktBPunkt` |
-| Repository name | `iobroker.kostalpiko` |
+| Repository name | `ioBroker.kostalpiko` |
 | Workflow filename | `test-and-release.yml` |
 | Environment | *(leer lassen)* |
 
 Referenz: [ioBroker Trusted Publishing](https://github.com/ioBroker/create-adapter/blob/master/docs/updates/20251013_trusted_deploy.md)
 
 > **Hinweis:** Beim allerersten Publish existiert das Paket noch nicht.  
-> Entweder Trusted Publisher **vor** dem Tag setzen (npm erlaubt das für neue Paketnamen),  
-> oder einmalig manuell von einem **sauberen Git-Checkout** publishen (siehe unten).
+> Trusted Publisher unter https://www.npmjs.com/settings/mpunktbpunkt/packages  
+> → **Add trusted publisher** (Paketname `iobroker.kostalpiko` eintragen).  
+> Alternativ nach erstem manuellen Publish unter Paket-Settings.
 
 ---
 
