@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.20",
+    "version": "0.6.21",
     "news": {
+      "0.6.21": {
+        "de": "Erstveröffentlichung auf npm; automatischer Deploy via GitHub Actions (Trusted Publishing)",
+        "en": "First npm release; automated deploy via GitHub Actions (Trusted Publishing)",
+        "ru": "Первый релиз на npm; автоматическая публикация через GitHub Actions (Trusted Publishing)",
+        "pt": "Primeiro lançamento no npm; deploy automático via GitHub Actions (Trusted Publishing)",
+        "nl": "Eerste npm-release; automatische deploy via GitHub Actions (Trusted Publishing)",
+        "fr": "Première publication npm ; déploiement automatique via GitHub Actions (Trusted Publishing)",
+        "it": "Prima release su npm; deploy automatico via GitHub Actions (Trusted Publishing)",
+        "es": "Primer lanzamiento en npm; despliegue automático vía GitHub Actions (Trusted Publishing)",
+        "pl": "Pierwsze wydanie na npm; automatyczny deploy przez GitHub Actions (Trusted Publishing)",
+        "uk": "Перший реліз на npm; автоматична публікація через GitHub Actions (Trusted Publishing)",
+        "zh-cn": "首次 npm 发布；通过 GitHub Actions 自动部署（Trusted Publishing）"
+      },
       "0.6.17": {
         "de": "Modul-Vorlage mit Datenblatt-Werten (SW 225 poly), Preset-Sync, NOCT_eff, Admin-Hilfen für Temperaturberechnung",
         "en": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
