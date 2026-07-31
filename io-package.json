@@ -28,19 +28,6 @@
         "pl": "Pierwsze wydanie na npm; automatyczny deploy przez GitHub Actions (Trusted Publishing)",
         "uk": "Перший реліз на npm; автоматична публікація через GitHub Actions (Trusted Publishing)",
         "zh-cn": "首次 npm 发布；通过 GitHub Actions 自动部署（Trusted Publishing）"
-      },
-      "0.6.20": {
-        "de": "Admin-Abhängigkeit auf >=7.6.17 gesenkt (jsonConfig; 7.8.23 nicht erforderlich)",
-        "en": "Lowered admin dependency to >=7.6.17 (jsonConfig; 7.8.23 not required)",
-        "ru": "Снижена зависимость admin до >=7.6.17 (jsonConfig; 7.8.23 не требуется)",
-        "pt": "Dependência admin reduzida para >=7.6.17 (jsonConfig; 7.8.23 não necessário)",
-        "nl": "Admin-afhankelijkheid verlaagd naar >=7.6.17 (jsonConfig; 7.8.23 niet vereist)",
-        "fr": "Dépendance admin abaissée à >=7.6.17 (jsonConfig ; 7.8.23 non requis)",
-        "it": "Dipendenza admin ridotta a >=7.6.17 (jsonConfig; 7.8.23 non richiesto)",
-        "es": "Dependencia admin reducida a >=7.6.17 (jsonConfig; 7.8.23 no requerido)",
-        "pl": "Zależność admin obniżona do >=7.6.17 (jsonConfig; 7.8.23 nie wymagane)",
-        "uk": "Знижено залежність admin до >=7.6.17 (jsonConfig; 7.8.23 не потрібно)",
-        "zh-cn": "Admin 依赖降至 >=7.6.17（jsonConfig；无需 7.8.23）"
       }
     },
     "titleLang": {
