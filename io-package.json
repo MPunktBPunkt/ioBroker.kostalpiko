@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.21",
+    "version": "0.6.22",
     "news": {
+      "0.6.22": {
+        "de": "README bereinigt: Changelog entfernt, Verlauf nur noch unter GitHub Releases",
+        "en": "README cleanup: changelog removed, history only on GitHub Releases",
+        "ru": "README: changelog удалён, история только на GitHub Releases",
+        "pt": "README: changelog removido, histórico apenas em GitHub Releases",
+        "nl": "README opgeschoond: changelog verwijderd, geschiedenis alleen op GitHub Releases",
+        "fr": "README épuré : changelog supprimé, historique uniquement sur GitHub Releases",
+        "it": "README ripulito: changelog rimosso, cronologia solo su GitHub Releases",
+        "es": "README limpio: changelog eliminado, historial solo en GitHub Releases",
+        "pl": "README: usunięto changelog, historia tylko na GitHub Releases",
+        "uk": "README: changelog видалено, історія лише на GitHub Releases",
+        "zh-cn": "README 精简：移除 changelog，版本历史见 GitHub Releases"
+      },
       "0.6.21": {
         "de": "Erstveröffentlichung auf npm; automatischer Deploy via GitHub Actions (Trusted Publishing)",
         "en": "First npm release; automated deploy via GitHub Actions (Trusted Publishing)",
@@ -15,45 +28,6 @@
         "pl": "Pierwsze wydanie na npm; automatyczny deploy przez GitHub Actions (Trusted Publishing)",
         "uk": "Перший реліз на npm; автоматична публікація через GitHub Actions (Trusted Publishing)",
         "zh-cn": "首次 npm 发布；通过 GitHub Actions 自动部署（Trusted Publishing）"
-      },
-      "0.6.17": {
-        "de": "Modul-Vorlage mit Datenblatt-Werten (SW 225 poly), Preset-Sync, NOCT_eff, Admin-Hilfen für Temperaturberechnung",
-        "en": "Module preset with datasheet values (SW 225 poly), preset sync, NOCT_eff, admin hints for temperature calculation",
-        "ru": "Пресет модуля по паспорту (SW 225 poly), синхронизация, NOCT_eff, подсказки админки для температуры",
-        "pt": "Preset de módulo com dados de folha (SW 225 poly), sync, NOCT_eff, ajudas admin para temperatura",
-        "nl": "Modulepreset met datasheet (SW 225 poly), sync, NOCT_eff, admin-hulp voor temperatuur",
-        "fr": "Préréglage module selon fiche technique (SW 225 poly), sync, NOCT_eff, aide admin température",
-        "it": "Preset modulo da scheda tecnica (SW 225 poly), sync, NOCT_eff, aiuti admin temperatura",
-        "es": "Preset de módulo con ficha técnica (SW 225 poly), sync, NOCT_eff, ayudas admin temperatura",
-        "pl": "Preset modułu z karty katalogowej (SW 225 poly), sync, NOCT_eff, podpowiedzi admin temperatury",
-        "uk": "Пресет модуля за паспортом (SW 225 poly), синхронізація, NOCT_eff, підказки адмінки для температури",
-        "zh-cn": "模块预设含数据表值（SW 225 poly）、同步、NOCT_eff、温度计算管理提示"
-      },
-      "0.6.18": {
-        "de": "News bereinigt (nur de/en, letzte 3 Versionen); extIcon GitHub-Pfad",
-        "en": "News trimmed (de/en only, last 3 versions); extIcon GitHub path",
-        "ru": "News сокращены (только de/en, последние версии); extIcon GitHub URL",
-        "pt": "News reduzidas (apenas de/en, últimas versões); extIcon URL GitHub",
-        "nl": "News ingekort (alleen de/en, laatste versies); extIcon GitHub-URL",
-        "fr": "News réduites (de/en seulement, dernières versions) ; extIcon URL GitHub",
-        "it": "News ridotte (solo de/en, ultime versioni); extIcon URL GitHub",
-        "es": "News reducidas (solo de/en, últimas versiones); extIcon URL GitHub",
-        "pl": "News skrócone (tylko de/en, ostatnie wersje); extIcon URL GitHub",
-        "uk": "News скорочено (лише de/en, останні версії); extIcon GitHub URL",
-        "zh-cn": "精简 news（仅 de/en，保留最近版本）；extIcon GitHub 路径"
-      },
-      "0.6.19": {
-        "de": "Repo-Checker: News-Übersetzungen, CI (Node 22+), Integrationstests",
-        "en": "Repo checker: news translations, CI (Node 22+), integration tests",
-        "ru": "Repo-checker: переводы news, CI (Node 22+), интеграционные тесты",
-        "pt": "Repo-checker: traduções news, CI (Node 22+), testes de integração",
-        "nl": "Repo-checker: news-vertalingen, CI (Node 22+), integratietests",
-        "fr": "Repo-checker : traductions news, CI (Node 22+), tests d'intégration",
-        "it": "Repo-checker: traduzioni news, CI (Node 22+), test di integrazione",
-        "es": "Repo-checker: traducciones news, CI (Node 22+), pruebas de integración",
-        "pl": "Repo-checker: tłumaczenia news, CI (Node 22+), testy integracyjne",
-        "uk": "Repo-checker: переклади news, CI (Node 22+), інтеграційні тести",
-        "zh-cn": "Repo-checker：news 翻译、CI（Node 22+）、集成测试"
       },
       "0.6.20": {
         "de": "Admin-Abhängigkeit auf >=7.6.17 gesenkt (jsonConfig; 7.8.23 nicht erforderlich)",
