@@ -55,5 +55,5 @@ jobs:
       - uses: ioBroker/testing-action-deploy@v1
         with:
           node-version: '24.x'
-          build: true
+          build: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
