@@ -42,9 +42,6 @@
     "url": "https://github.com/MPunktBPunkt/ioBroker.kostalpiko/issues"
   },
   "homepage": "https://github.com/MPunktBPunkt/ioBroker.kostalpiko#readme",
-  "publishConfig": {
-    "access": "public"
-  },
   "files": [
     "admin/",
     "docs/",
