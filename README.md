@@ -126,7 +126,18 @@ node /opt/iobroker/node_modules/iobroker.kostalpiko/scripts/combine-yields.js \
 
 ---
 
-**Release history:** [GitHub Releases](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases) · [Older changelogs](CHANGELOG_OLD.md)
+## Changelog
+
+### 0.6.22
+- README cleanup: compact changelog (last 3 versions); full history on GitHub Releases
+
+### 0.6.21
+- First npm release; automated deploy via GitHub Actions (Trusted Publishing)
+
+### 0.6.20
+- Lowered admin dependency to >=7.6.17 (jsonConfig; Admin 7.8.23 not required)
+
+**Older versions:** [GitHub Releases](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases) · [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 
 ---
 
