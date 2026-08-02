@@ -3,13 +3,13 @@
   "items": {
     "_h1": {
       "type": "header",
-      "text": "Wechselrichter-Verbindung",
+      "text": "_h1_text",
       "size": 4
     },
     "pikoModel": {
       "type": "select",
-      "label": "PIKO Modell",
-      "help": "Modell des Wechselrichters – bestimmt die Anzahl der PV-Strings",
+      "label": "pikoModel_label",
+      "help": "pikoModel_help",
       "options": [
         {
           "value": "auto",
@@ -53,13 +53,13 @@
     },
     "_h_network": {
       "type": "header",
-      "text": "Netzwerk-Zugang",
+      "text": "_h_network_text",
       "size": 4
     },
     "networkMode": {
       "type": "select",
-      "label": "Netzwerk-Modus",
-      "help": "Lokal: direkter Zugriff im gleichen Netzwerk. Via fritzwireguard: Zugriff über WireGuard-Tunnel der FritzBox (gleiche IP, anderes Netz).",
+      "label": "networkMode_label",
+      "help": "networkMode_help",
       "options": [
         {
           "value": "local",
@@ -79,8 +79,8 @@
     },
     "fritzwgInstance": {
       "type": "text",
-      "label": "fritzwireguard Instanz",
-      "help": "Name der fritzwireguard Adapter-Instanz, z. B. fritzwireguard.0",
+      "label": "fritzwgInstance_label",
+      "help": "fritzwgInstance_help",
       "default": "fritzwireguard.0",
       "sm": 4,
       "hidden": "data.networkMode !== 'fritzwireguard'",
@@ -91,9 +91,9 @@
     },
     "fritzwgConnectedState": {
       "type": "text",
-      "label": "State-ID: Verbindungsstatus",
-      "help": "Optionaler ioBroker State der anzeigt ob der WireGuard-Tunnel aktiv ist (boolean). Leer lassen = fritzwireguard.X.info.connection wird automatisch genutzt.",
-      "placeholder": "z. B. fritzwireguard.0.info.connection",
+      "label": "fritzwgConnectedState_label",
+      "help": "fritzwgConnectedState_help",
+      "placeholder": "fritzwgConnectedState_placeholder",
       "default": "",
       "sm": 8,
       "hidden": "data.networkMode !== 'fritzwireguard'",
@@ -104,8 +104,8 @@
     },
     "ip": {
       "type": "text",
-      "label": "IP-Adresse des Wechselrichters",
-      "help": "z. B. 192.168.178.30",
+      "label": "ip_label",
+      "help": "ip_help",
       "default": "192.168.178.30",
       "sm": 6,
       "xs": 12,
@@ -115,8 +115,8 @@
     },
     "port": {
       "type": "number",
-      "label": "HTTP-Port",
-      "help": "Standard: 80",
+      "label": "port_label",
+      "help": "port_help",
       "default": 80,
       "min": 1,
       "max": 65535,
@@ -128,7 +128,7 @@
     },
     "_btnTest": {
       "type": "sendTo",
-      "label": "Verbindung testen",
+      "label": "_btnTest_label",
       "command": "test",
       "jsonData": "{\"ip\": \"${data.ip}\", \"port\": ${data.port}, \"user\": \"${data.user}\", \"password\": \"${data.password}\"}",
       "sm": 12,
@@ -141,13 +141,13 @@
     },
     "_h2": {
       "type": "header",
-      "text": "Authentifizierung",
+      "text": "_h2_text",
       "size": 4
     },
     "user": {
       "type": "text",
-      "label": "Benutzername",
-      "help": "Standard: pvserver",
+      "label": "user_label",
+      "help": "user_help",
       "default": "pvserver",
       "sm": 4,
       "xs": 12,
@@ -157,8 +157,8 @@
     },
     "password": {
       "type": "password",
-      "label": "Passwort",
-      "help": "HTTP Basic Auth Passwort des PIKO-Webservers (Standard: pvwr)",
+      "label": "password_label",
+      "help": "password_help",
       "default": "pvwr",
       "sm": 4,
       "xs": 12,
@@ -168,13 +168,13 @@
     },
     "_h3": {
       "type": "header",
-      "text": "Live-Polling",
+      "text": "_h3_text",
       "size": 4
     },
     "pollInterval": {
       "type": "number",
-      "label": "Poll-Intervall (Sekunden)",
-      "help": "Wie oft werden die Live-Messwerte vom Wechselrichter abgerufen. Empfohlen: 30 Sekunden",
+      "label": "pollInterval_label",
+      "help": "pollInterval_help",
       "default": 30,
       "min": 1,
       "max": 3600,
@@ -186,12 +186,12 @@
     },
     "_h4": {
       "type": "header",
-      "text": "Historiendaten & InfluxDB-Synchronisation",
+      "text": "_h4_text",
       "size": 4
     },
     "_info4": {
       "type": "staticText",
-      "text": "Die LogDaten.dat enthält 15-Minuten-Messreihen der letzten ~6 Monate. Der Adapter lädt diese Datei automatisch in dem unten angegebenen Intervall, berechnet die echten Messzeitpunkte und überträgt neue Datenpunkte an InfluxDB. Die InfluxDB-Verbindung (Host, Port, Datenbank, Token) wird im ioBroker-Admin unter 'Adapter → InfluxDB' konfiguriert – nicht hier.",
+      "text": "_info4_text",
       "sm": 12,
       "xs": 12,
       "md": 12,
@@ -200,8 +200,8 @@
     },
     "historyFetch": {
       "type": "checkbox",
-      "label": "Historiendaten laden (LogDaten.dat)",
-      "help": "Lädt die Messdaten der letzten ~6 Monate vom PIKO und zeigt sie im Web-UI an. Kein InfluxDB nötig.",
+      "label": "historyFetch_label",
+      "help": "historyFetch_help",
       "default": false,
       "sm": 12,
       "xs": 12,
@@ -211,8 +211,8 @@
     },
     "influxSync": {
       "type": "checkbox",
-      "label": "Auch an InfluxDB senden",
-      "help": "Sendet die Historiendaten zusätzlich an InfluxDB für Langzeitauswertungen. Nur sinnvoll wenn InfluxDB-Adapter installiert ist.",
+      "label": "influxSync_label",
+      "help": "influxSync_help",
       "default": false,
       "sm": 12,
       "hidden": "!data.historyFetch",
@@ -223,8 +223,8 @@
     },
     "syncInterval": {
       "type": "number",
-      "label": "Sync-Intervall (Minuten)",
-      "help": "Wie oft wird LogDaten.dat abgerufen und neue Datenpunkte an InfluxDB übertragen? Empfohlen: 15 (entspricht dem Messintervall des PIKO)",
+      "label": "syncInterval_label",
+      "help": "syncInterval_help",
       "default": 15,
       "min": 1,
       "max": 1440,
@@ -236,8 +236,8 @@
     },
     "influxInstance": {
       "type": "text",
-      "label": "InfluxDB Adapter-Instanz",
-      "help": "Name der installierten InfluxDB-Instanz in ioBroker. Verbindungsdaten (Host, Port, DB, Token) werden dort konfiguriert.",
+      "label": "influxInstance_label",
+      "help": "influxInstance_help",
       "default": "influxdb.0",
       "sm": 4,
       "xs": 12,
@@ -247,13 +247,13 @@
     },
     "_h5": {
       "type": "header",
-      "text": "Web-Interface",
+      "text": "_h5_text",
       "size": 4
     },
     "webPort": {
       "type": "number",
-      "label": "Web-UI Port",
-      "help": "Port für das eingebaute Dashboard (Tabs: Daten, Historie, Nodes, Logs, System). Standard: 8092",
+      "label": "webPort_label",
+      "help": "webPort_help",
       "default": 8092,
       "min": 1,
       "max": 65535,
@@ -265,17 +265,17 @@
     },
     "_h6": {
       "type": "header",
-      "text": "Logging",
+      "text": "_h6_text",
       "size": 4
     },
     "_h_modules": {
       "type": "header",
-      "text": "PV-Modul & Temperaturberechnung",
+      "text": "_h_modules_text",
       "size": 4
     },
     "_info_modules": {
       "type": "staticText",
-      "text": "Für String-Analyse und Vmpp-Temperatur: Modul-Vorlage wählen und Module pro String eintragen (z. B. PIKO 5.5: 13+13, PIKO 8.3: 20+19). Ohne Vorlage oder ohne Modulanzahl keine Temperaturanzeige.",
+      "text": "_info_modules_text",
       "sm": 12,
       "xs": 12,
       "md": 12,
@@ -284,8 +284,8 @@
     },
     "modulePreset": {
       "type": "select",
-      "label": "Modul-Vorlage",
-      "help": "Übernimmt Datenblatt-Werte (Wp, Voc, Vmpp, β, NOCT). Danach nur noch Module pro String eintragen.",
+      "label": "modulePreset_label",
+      "help": "modulePreset_help",
       "options": [
         {
           "label": "Manuell / unbekannt",
@@ -309,7 +309,7 @@
     },
     "_preset_sw225poly": {
       "type": "staticText",
-      "text": "Automatisch: 225 Wp · Voc 36,8 V · Vmpp 29,5 V · Impp 7,63 A · β 0,48 %/K · NOCT 46 °C · Vmpp@NOCT 26,5 V",
+      "text": "_preset_sw225poly_text",
       "hidden": "data.modulePreset !== 'sw225poly' || data.moduleManualOverride",
       "sm": 12,
       "xs": 12,
@@ -319,7 +319,7 @@
     },
     "_preset_sw225mono": {
       "type": "staticText",
-      "text": "Automatisch: 225 Wp · Voc 37,3 V · Vmpp 29,7 V · Impp 7,63 A · β 0,43 %/K · NOCT 45 °C",
+      "text": "_preset_sw225mono_text",
       "hidden": "data.modulePreset !== 'sw225mono' || data.moduleManualOverride",
       "sm": 12,
       "xs": 12,
@@ -330,7 +330,7 @@
     "btnApplyModulePreset": {
       "type": "sendTo",
       "command": "applyModulePreset",
-      "label": "Preset-Werte übernehmen",
+      "label": "btnApplyModulePreset_label",
       "jsonData": "{\"preset\":\"{modulePreset}\"}",
       "hidden": "!data.modulePreset",
       "variant": "outlined",
@@ -342,8 +342,8 @@
     },
     "moduleManualOverride": {
       "type": "checkbox",
-      "label": "Modulwerte manuell überschreiben (Experte)",
-      "help": "Standard: Vorlage hat Vorrang. Nur aktivieren, wenn Ihr Modul vom Datenblatt abweicht.",
+      "label": "moduleManualOverride_label",
+      "help": "moduleManualOverride_help",
       "default": false,
       "hidden": "!data.modulePreset",
       "sm": 4,
@@ -354,8 +354,8 @@
     },
     "moduleNoctEff": {
       "type": "number",
-      "label": "Effektiver NOCT (°C, optional)",
-      "help": "0 = Datenblatt-NOCT (46 °C). PIKO 5.5 Dach oft ~34 °C, PIKO 8.3 oft ~46–61 °C – nur für erweiterte Plausibilität.",
+      "label": "moduleNoctEff_label",
+      "help": "moduleNoctEff_help",
       "default": 0,
       "min": 0,
       "max": 90,
@@ -368,8 +368,8 @@
     },
     "moduleWp": {
       "type": "number",
-      "label": "Modul-Leistung (Wp)",
-      "help": "Nennleistung eines Moduls, z. B. 225",
+      "label": "moduleWp_label",
+      "help": "moduleWp_help",
       "default": 0,
       "min": 0,
       "max": 1000,
@@ -382,8 +382,8 @@
     },
     "moduleVoc": {
       "type": "number",
-      "label": "Leerlaufspannung Voc (V)",
-      "help": "Leerlaufspannung bei STC (ohne Last), z. B. 36.8",
+      "label": "moduleVoc_label",
+      "help": "moduleVoc_help",
       "default": 0,
       "min": 0,
       "max": 100,
@@ -396,8 +396,8 @@
     },
     "moduleVmpp": {
       "type": "number",
-      "label": "MPP-Spannung Vmpp (V)",
-      "help": "Spannung am MPP bei STC, z. B. 29.5 – leer = auto aus Voc",
+      "label": "moduleVmpp_label",
+      "help": "moduleVmpp_help",
       "default": 0,
       "min": 0,
       "max": 100,
@@ -410,8 +410,8 @@
     },
     "string1Modules": {
       "type": "number",
-      "label": "String 1: Anzahl Module",
-      "help": "Module in String 1 (z. B. 13 bei PIKO 5.5, 20 bei PIKO 8.3)",
+      "label": "string1Modules_label",
+      "help": "string1Modules_help",
       "default": 0,
       "min": 0,
       "max": 50,
@@ -423,8 +423,8 @@
     },
     "string2Modules": {
       "type": "number",
-      "label": "String 2: Anzahl Module",
-      "help": "Module in String 2 (z. B. 13 bei PIKO 5.5, 19 bei PIKO 8.3)",
+      "label": "string2Modules_label",
+      "help": "string2Modules_help",
       "default": 0,
       "min": 0,
       "max": 50,
@@ -436,8 +436,8 @@
     },
     "string3Modules": {
       "type": "number",
-      "label": "String 3: Anzahl Module (nur PIKO 5.5)",
-      "help": "Anzahl Module in String 3 (nur bei PIKO 5.5)",
+      "label": "string3Modules_label",
+      "help": "string3Modules_help",
       "default": 0,
       "min": 0,
       "max": 50,
@@ -449,12 +449,12 @@
     },
     "_h_yields": {
       "type": "header",
-      "text": "Ertragsauswertung (Web-UI Tab „Ertrag“)",
+      "text": "_h_yields_text",
       "size": 4
     },
     "_info_yields": {
       "type": "staticText",
-      "text": "Monatliche Erträge werden in iobroker-data gespeichert. Historische Monate können im Web-UI manuell eingetragen werden. Automatische Monate werden aus LogDaten.dat berechnet (letzte ~6 Monate).",
+      "text": "_info_yields_text",
       "sm": 12,
       "xs": 12,
       "md": 12,
@@ -463,8 +463,8 @@
     },
     "yieldFeedInTariff": {
       "type": "number",
-      "label": "Einspeisevergütung (€/kWh)",
-      "help": "Vergütung für die €-Berechnung, z. B. 0,3925 für 39,25 ct/kWh",
+      "label": "yieldFeedInTariff_label",
+      "help": "yieldFeedInTariff_help",
       "default": 0.3925,
       "min": 0,
       "max": 2,
@@ -477,8 +477,8 @@
     },
     "yieldInstalledKwp": {
       "type": "number",
-      "label": "Installierte Leistung (kWp, 0=auto)",
-      "help": "0 = aus Modul-Konfiguration berechnen (Wp × Module)",
+      "label": "yieldInstalledKwp_label",
+      "help": "yieldInstalledKwp_help",
       "default": 0,
       "min": 0,
       "max": 500,
@@ -491,8 +491,8 @@
     },
     "yieldPlz": {
       "type": "text",
-      "label": "Postleitzahl (5-stellig)",
-      "help": "Für Wetter/Sonnenerwartung auf dem Daten-Tab und regionalen Ertragsvergleich (ertragsdatenbank.de)",
+      "label": "yieldPlz_label",
+      "help": "yieldPlz_help",
       "default": "87781",
       "sm": 4,
       "xs": 12,
@@ -502,7 +502,7 @@
     },
     "verbose": {
       "type": "checkbox",
-      "label": "Ausführliches Logging (Debug)",
+      "label": "verbose_label",
       "default": false,
       "sm": 6,
       "xs": 12,
@@ -512,12 +512,12 @@
     },
     "_h_notify": {
       "type": "header",
-      "text": "Benachrichtigungen",
+      "text": "_h_notify_text",
       "size": 4
     },
     "_info_notify": {
       "type": "staticText",
-      "text": "Berichte per E-Mail (HTML). Basis: LogDaten.dat – „Historiendaten laden“ muss aktiv sein. SMTP-Zugangsdaten werden im ioBroker E-Mail-Adapter konfiguriert, nicht hier.",
+      "text": "_info_notify_text",
       "sm": 12,
       "hidden": "!data.notifyEnabled",
       "xs": 12,
@@ -527,7 +527,7 @@
     },
     "notifyEnabled": {
       "type": "checkbox",
-      "label": "Benachrichtigungen aktivieren",
+      "label": "notifyEnabled_label",
       "default": false,
       "sm": 12,
       "xs": 12,
@@ -537,9 +537,9 @@
     },
     "reportLabel": {
       "type": "text",
-      "label": "Berichts-Kennung (Betreff)",
-      "help": "Optionaler Name für E-Mail-Betreffzeilen, z. B. „Kleiner“ oder „Grosser“. Leer = Instanz-Titel aus ioBroker.",
-      "placeholder": "z. B. Kleiner",
+      "label": "reportLabel_label",
+      "help": "reportLabel_help",
+      "placeholder": "reportLabel_placeholder",
       "default": "",
       "sm": 4,
       "hidden": "!data.notifyEnabled",
@@ -550,8 +550,8 @@
     },
     "notifyInstanceEmail": {
       "type": "text",
-      "label": "E-Mail-Instanz",
-      "help": "Name der ioBroker E-Mail-Adapter-Instanz, z. B. email.0",
+      "label": "notifyInstanceEmail_label",
+      "help": "notifyInstanceEmail_help",
       "default": "email.0",
       "sm": 4,
       "hidden": "!data.notifyEnabled",
@@ -562,9 +562,9 @@
     },
     "notifyRecipient": {
       "type": "text",
-      "label": "Empfänger (Hauptadresse)",
-      "help": "Eine oder mehrere E-Mail-Adressen, kommagetrennt. Gilt für Tagesbericht und Alarm; Wochen-/Monatsbericht zusätzlich zu optionalen Zusatzempfängern.",
-      "placeholder": "z. B. user@example.com oder user@a.com, partner@b.com",
+      "label": "notifyRecipient_label",
+      "help": "notifyRecipient_help",
+      "placeholder": "notifyRecipient_placeholder",
       "default": "",
       "sm": 12,
       "hidden": "!data.notifyEnabled",
@@ -575,9 +575,9 @@
     },
     "notifyRecipientWeekly": {
       "type": "text",
-      "label": "Zusätzliche Empfänger Wochenbericht",
-      "help": "Optional – kommagetrennte E-Mail-Adressen, zusätzlich zur Hauptadresse",
-      "placeholder": "z. B. partner@example.com",
+      "label": "notifyRecipientWeekly_label",
+      "help": "notifyRecipientWeekly_help",
+      "placeholder": "notifyRecipientWeekly_placeholder",
       "default": "",
       "sm": 6,
       "hidden": "!data.notifyEnabled || !data.notifyWeekly",
@@ -588,9 +588,9 @@
     },
     "notifyRecipientMonthly": {
       "type": "text",
-      "label": "Zusätzliche Empfänger Monatsbericht",
-      "help": "Optional – kommagetrennte E-Mail-Adressen, zusätzlich zur Hauptadresse",
-      "placeholder": "z. B. buchhaltung@example.com",
+      "label": "notifyRecipientMonthly_label",
+      "help": "notifyRecipientMonthly_help",
+      "placeholder": "notifyRecipientMonthly_placeholder",
       "default": "",
       "sm": 6,
       "hidden": "!data.notifyEnabled || !data.notifyMonthly",
@@ -601,14 +601,14 @@
     },
     "_h_notify_daily": {
       "type": "header",
-      "text": "Tagesbericht",
+      "text": "_h_notify_daily_text",
       "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "notifyDaily": {
       "type": "checkbox",
-      "label": "Tagesbericht aktivieren",
-      "help": "Täglich ein Bericht mit Leistungskurve des Vortags",
+      "label": "notifyDaily_label",
+      "help": "notifyDaily_help",
       "default": false,
       "sm": 4,
       "hidden": "!data.notifyEnabled",
@@ -619,7 +619,7 @@
     },
     "notifyDailyTime": {
       "type": "text",
-      "label": "Uhrzeit (HH:MM)",
+      "label": "notifyDailyTime_label",
       "default": "07:00",
       "sm": 3,
       "hidden": "!data.notifyEnabled || !data.notifyDaily",
@@ -630,14 +630,14 @@
     },
     "_h_notify_weekly": {
       "type": "header",
-      "text": "Wochenbericht",
+      "text": "_h_notify_weekly_text",
       "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "notifyWeekly": {
       "type": "checkbox",
-      "label": "Wochenbericht aktivieren",
-      "help": "Jeden Montag: Tagesleistungen der Vorwoche",
+      "label": "notifyWeekly_label",
+      "help": "notifyWeekly_help",
       "default": false,
       "sm": 4,
       "hidden": "!data.notifyEnabled",
@@ -648,7 +648,7 @@
     },
     "notifyWeeklyTime": {
       "type": "text",
-      "label": "Uhrzeit (HH:MM)",
+      "label": "notifyWeeklyTime_label",
       "default": "07:00",
       "sm": 3,
       "hidden": "!data.notifyEnabled || !data.notifyWeekly",
@@ -659,14 +659,14 @@
     },
     "_h_notify_monthly": {
       "type": "header",
-      "text": "Monatsbericht",
+      "text": "_h_notify_monthly_text",
       "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "notifyMonthly": {
       "type": "checkbox",
-      "label": "Monatsbericht aktivieren",
-      "help": "Am 1. des Monats: alle Tagesleistungen des Vormonats",
+      "label": "notifyMonthly_label",
+      "help": "notifyMonthly_help",
       "default": false,
       "sm": 4,
       "hidden": "!data.notifyEnabled",
@@ -677,7 +677,7 @@
     },
     "notifyMonthlyTime": {
       "type": "text",
-      "label": "Uhrzeit (HH:MM)",
+      "label": "notifyMonthlyTime_label",
       "default": "07:00",
       "sm": 3,
       "hidden": "!data.notifyEnabled || !data.notifyMonthly",
@@ -688,14 +688,14 @@
     },
     "_h_notify_alert": {
       "type": "header",
-      "text": "Alarm",
+      "text": "_h_notify_alert_text",
       "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "notifyAlert": {
       "type": "checkbox",
-      "label": "Alarm aktivieren",
-      "help": "Benachrichtigung wenn Vortag keine Daten oder unter Schwellwert",
+      "label": "notifyAlert_label",
+      "help": "notifyAlert_help",
       "default": false,
       "sm": 4,
       "hidden": "!data.notifyEnabled",
@@ -706,7 +706,7 @@
     },
     "notifyAlertTime": {
       "type": "text",
-      "label": "Uhrzeit (HH:MM)",
+      "label": "notifyAlertTime_label",
       "default": "07:00",
       "sm": 3,
       "hidden": "!data.notifyEnabled || !data.notifyAlert",
@@ -717,8 +717,8 @@
     },
     "notifyThresholdKwh": {
       "type": "number",
-      "label": "Schwellwert (kWh, 0=deaktiviert)",
-      "help": "Alarm wenn Tagesertrag unter diesem Wert liegt",
+      "label": "notifyThresholdKwh_label",
+      "help": "notifyThresholdKwh_help",
       "default": 0,
       "min": 0,
       "sm": 4,
@@ -730,13 +730,13 @@
     },
     "_h_notify_test": {
       "type": "header",
-      "text": "Testberichte (Vorschau per E-Mail)",
+      "text": "_h_notify_test_text",
       "size": 5,
       "hidden": "!data.notifyEnabled"
     },
     "_info_notify_test": {
       "type": "staticText",
-      "text": "Sendet sofort einen Testbericht an die konfigurierten Empfänger – Betreff mit [TEST]. HTML-Layout im DIN-A4-Format mit Kurven (Tag), Balkendiagramm (Woche) bzw. Tabelle (Monat).",
+      "text": "_info_notify_test_text",
       "sm": 12,
       "hidden": "!data.notifyEnabled",
       "xs": 12,
@@ -746,7 +746,7 @@
     },
     "_btnTestDaily": {
       "type": "sendTo",
-      "label": "Test Tagesbericht senden",
+      "label": "_btnTestDaily_label",
       "command": "testReportDaily",
       "sm": 4,
       "variant": "outlined",
@@ -759,7 +759,7 @@
     },
     "_btnTestWeekly": {
       "type": "sendTo",
-      "label": "Test Wochenbericht senden",
+      "label": "_btnTestWeekly_label",
       "command": "testReportWeekly",
       "sm": 4,
       "variant": "outlined",
@@ -772,7 +772,7 @@
     },
     "_btnTestMonthly": {
       "type": "sendTo",
-      "label": "Test Monatsbericht senden",
+      "label": "_btnTestMonthly_label",
       "command": "testReportMonthly",
       "sm": 4,
       "variant": "outlined",
@@ -784,5 +784,5 @@
       "xl": 4
     }
   },
-  "i18n": false
+  "i18n": true
 }
