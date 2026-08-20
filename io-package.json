@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.22",
+    "version": "0.6.23",
     "news": {
+      "0.6.23": {
+        "de": "Admin-i18n: fehlende Übersetzungen ergänzt (E5606); release-script und adapter-dev",
+        "en": "Admin i18n: missing translations added (E5606); release-script and adapter-dev",
+        "ru": "Admin i18n: добавлены недостающие переводы (E5606); release-script и adapter-dev",
+        "pt": "Admin i18n: traduções em falta adicionadas (E5606); release-script e adapter-dev",
+        "nl": "Admin i18n: ontbrekende vertalingen toegevoegd (E5606); release-script en adapter-dev",
+        "fr": "Admin i18n : traductions manquantes ajoutées (E5606) ; release-script et adapter-dev",
+        "it": "Admin i18n: aggiunte traduzioni mancanti (E5606); release-script e adapter-dev",
+        "es": "Admin i18n: traducciones faltantes añadidas (E5606); release-script y adapter-dev",
+        "pl": "Admin i18n: dodano brakujące tłumaczenia (E5606); release-script i adapter-dev",
+        "uk": "Admin i18n: додано відсутні переклади (E5606); release-script та adapter-dev",
+        "zh-cn": "Admin i18n：补全缺失翻译（E5606）；release-script 与 adapter-dev"
+      },
       "0.6.22": {
         "de": "README bereinigt: Changelog entfernt, Verlauf nur noch unter GitHub Releases",
         "en": "README cleanup: changelog removed, history only on GitHub Releases",

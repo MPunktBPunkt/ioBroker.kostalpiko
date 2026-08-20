@@ -24,7 +24,7 @@ async function translateFile(en, lang) {
         if (typeof value !== 'string' || !value.trim()) {
             continue;
         }
-        if (countWords(value) <= MIN_WORDS) {
+        if (countWords(value) < MIN_WORDS) {
             continue;
         }
 
