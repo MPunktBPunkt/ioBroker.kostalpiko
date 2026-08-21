@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.23
+ * Version: 0.6.24
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -16,7 +16,7 @@ const url = require('node:url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.23';
+const ADAPTER_VERSION = '0.6.24';
 
 const POLL_URLS = {
     main: '/index.fhtml',
@@ -4579,7 +4579,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             {
                 id: 'weather.description',
                 type: 'string',
-                role: 'weather.forecast.0',
+                role: 'weather.state.forecast.0',
                 name: 'Wetter heute (Text)',
                 def: '',
             },
@@ -4603,6 +4603,10 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             await this.setObjectNotExistsAsync(d.id, obj);
             this._nodes[d.id] = { ...obj.common };
         }
+        // E1008: migrate invalid role on existing installations
+        await this.extendObjectAsync('weather.description', {
+            common: { role: 'weather.state.forecast.0' },
+        });
     }
 
     async _ensureHistoryStates() {
