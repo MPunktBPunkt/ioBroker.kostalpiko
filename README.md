@@ -68,16 +68,15 @@ Manufacturer: [Kostal Solar Electric](https://www.kostal-solar-electric.com/)
 
 ## Installation & update
 
+Install and update via the ioBroker Admin UI (Adapters tab) or the command line:
+
 ```bash
-iobroker url https://github.com/MPunktBPunkt/iobroker.kostalpiko
 iobroker add kostalpiko          # first install only
 iobroker update kostalpiko
 iobroker restart kostalpiko
 ```
 
-**Releases:** [github.com/MPunktBPunkt/iobroker.kostalpiko/releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
-
-Details: [INSTALLATION.md](./INSTALLATION.md) · API overview: [Schnittstellen.md](./Schnittstellen.md)
+Details: [INSTALLATION.md](./INSTALLATION.md) · API overview: [Schnittstellen.md](./Schnittstellen.md) · [Release notes](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
 
 ---
 
