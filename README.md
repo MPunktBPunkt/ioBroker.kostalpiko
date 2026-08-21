@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.6.23-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
+[![Version](https://img.shields.io/badge/version-0.6.24-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
@@ -127,14 +127,14 @@ node /opt/iobroker/node_modules/iobroker.kostalpiko/scripts/combine-yields.js \
 
 ## Changelog
 
+### 0.6.24
+- Fix object role `weather.description`: use valid `weather.state.forecast.0` (E1008)
+
 ### 0.6.23
 - Admin i18n: missing translations added (E5606); release-script and adapter-dev
 
 ### 0.6.22
 - README cleanup: compact changelog (last 3 versions); full history on GitHub Releases
-
-### 0.6.21
-- First npm release; automated deploy via GitHub Actions (Trusted Publishing)
 
 **Older versions:** [GitHub Releases](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases) · [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 

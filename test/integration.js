@@ -60,6 +60,8 @@ tests.integration(path.join(__dirname, '..'), {
                 expect(precip.common.type).to.equal('number');
                 expect(precip.common.read).to.equal(true);
                 expect(precip.common.write).to.equal(false);
+                const desc = await waitForObject(harness, 'weather.description');
+                expect(desc.common.role).to.equal('weather.state.forecast.0');
             });
 
             it('creates history meta states', async () => {

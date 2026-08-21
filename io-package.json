@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.23",
+    "version": "0.6.24",
     "news": {
+      "0.6.24": {
+        "de": "Objekt-Rolle weather.description: weather.state.forecast.0 (E1008)",
+        "en": "Object role weather.description: weather.state.forecast.0 (E1008)",
+        "ru": "Роль weather.description: weather.state.forecast.0 (E1008)",
+        "pt": "Função weather.description: weather.state.forecast.0 (E1008)",
+        "nl": "Objectrol weather.description: weather.state.forecast.0 (E1008)",
+        "fr": "Rôle weather.description : weather.state.forecast.0 (E1008)",
+        "it": "Ruolo weather.description: weather.state.forecast.0 (E1008)",
+        "es": "Rol weather.description: weather.state.forecast.0 (E1008)",
+        "pl": "Rola weather.description: weather.state.forecast.0 (E1008)",
+        "uk": "Роль weather.description: weather.state.forecast.0 (E1008)",
+        "zh-cn": "weather.description 角色：weather.state.forecast.0（E1008）"
+      },
       "0.6.23": {
         "de": "Admin-i18n: fehlende Übersetzungen ergänzt (E5606); release-script und adapter-dev",
         "en": "Admin i18n: missing translations added (E5606); release-script and adapter-dev",
@@ -28,19 +41,6 @@
         "pl": "README: usunięto changelog, historia tylko na GitHub Releases",
         "uk": "README: changelog видалено, історія лише на GitHub Releases",
         "zh-cn": "README 精简：移除 changelog，版本历史见 GitHub Releases"
-      },
-      "0.6.21": {
-        "de": "Erstveröffentlichung auf npm; automatischer Deploy via GitHub Actions (Trusted Publishing)",
-        "en": "First npm release; automated deploy via GitHub Actions (Trusted Publishing)",
-        "ru": "Первый релиз на npm; автоматическая публикация через GitHub Actions (Trusted Publishing)",
-        "pt": "Primeiro lançamento no npm; deploy automático via GitHub Actions (Trusted Publishing)",
-        "nl": "Eerste npm-release; automatische deploy via GitHub Actions (Trusted Publishing)",
-        "fr": "Première publication npm ; déploiement automatique via GitHub Actions (Trusted Publishing)",
-        "it": "Prima release su npm; deploy automatico via GitHub Actions (Trusted Publishing)",
-        "es": "Primer lanzamiento en npm; despliegue automático vía GitHub Actions (Trusted Publishing)",
-        "pl": "Pierwsze wydanie na npm; automatyczny deploy przez GitHub Actions (Trusted Publishing)",
-        "uk": "Перший реліз на npm; автоматична публікація через GitHub Actions (Trusted Publishing)",
-        "zh-cn": "首次 npm 发布；通过 GitHub Actions 自动部署（Trusted Publishing）"
       }
     },
     "titleLang": {
