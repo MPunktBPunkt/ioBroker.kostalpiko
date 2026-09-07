@@ -32,15 +32,15 @@
       "0.6.29": {
         "de": "kWh/kWp nutzt Modul-Vorlage (z. B. SW 225) und String-Anzahl, wenn das kWp-Feld leer ist",
         "en": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "ru": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "pt": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "nl": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "fr": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "it": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "es": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "pl": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "uk": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
-        "zh-cn": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty"
+        "ru": "kWh/kWp использует шаблон модулей (например SW 225) и число стрингов, если поле kWp пустое",
+        "pt": "kWh/kWp usa o preset de módulos (p.ex. SW 225) e a contagem de strings quando o campo kWp está vazio",
+        "nl": "kWh/kWp gebruikt module-preset (bijv. SW 225) en string-aantal als het kWp-veld leeg is",
+        "fr": "kWh/kWp utilise le préréglage de modules (p.ex. SW 225) et le nombre de strings si le champ kWp est vide",
+        "it": "kWh/kWp usa il preset moduli (es. SW 225) e il numero di stringhe se il campo kWp è vuoto",
+        "es": "kWh/kWp usa la plantilla de módulos (p. ej. SW 225) y el número de strings si el campo kWp está vacío",
+        "pl": "kWh/kWp używa presetu modułów (np. SW 225) i liczby stringów, gdy pole kWp jest puste",
+        "uk": "kWh/kWp використовує шаблон модулів (напр. SW 225) і кількість стрінгів, якщо поле kWp порожнє",
+        "zh-cn": "当 kWp 字段为空时，kWh/kWp 使用模块预设（如 SW 225）和组串数量"
       },
       "0.6.28": {
         "de": "Ertragstabelle überlebt Adapter-Updates (Speicher in iobroker-data); JSON-Snapshot als State; InfluxDB als Backup/Restore und Grafana-Serie",
