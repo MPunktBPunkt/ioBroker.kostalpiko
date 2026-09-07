@@ -922,9 +922,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 const todayMeta = this._getTodayHistoryMeta();
                 const intervalDue = now - this._lastHistoryFetch >= intervalMs;
                 const staleDue =
-                    todayMeta.todayStale &&
-                    !this._historyLoading &&
-                    now - this._lastStaleHistoryFetch >= 5 * 60 * 1000;
+                    todayMeta.todayStale && !this._historyLoading && now - this._lastStaleHistoryFetch >= 5 * 60 * 1000;
                 if (wokeUp || intervalDue || staleDue) {
                     if (intervalDue || wokeUp) {
                         this._lastHistoryFetch = now;
@@ -2020,7 +2018,7 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _compactHistoryRow(row) {
-        const dc = (d) =>
+        const dc = d =>
             d
                 ? {
                       voltage: d.voltage || 0,
@@ -2028,7 +2026,7 @@ class KostalPikoAdapter extends utils.Adapter {
                       power: d.power || 0,
                   }
                 : { voltage: 0, current: 0, power: 0 };
-        const ac = (a) =>
+        const ac = a =>
             a
                 ? {
                       voltage: a.voltage || 0,
@@ -2095,7 +2093,7 @@ class KostalPikoAdapter extends utils.Adapter {
         if (!this._historyApiCache) {
             this._historyApiCache = JSON.stringify(this._buildHistoryApiPayload());
         }
-        // Cache nur kurz halten – verhindert Leak bei häufigen Requests, gibt ~3 MB frei wenn UI zu
+        // Cache nur kurz halten – verhindert Leak bei häufigen Requests, gibt ~3 MB frei wenn UI zu
         if (this._historyApiCacheTimer) {
             this.clearTimeout(this._historyApiCacheTimer);
         }
