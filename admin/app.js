@@ -953,7 +953,7 @@ function renderYields(){
       bits.push('History-Cache: '+yieldsData.historyFrom+' – '+yieldsData.historyTo);
     }
     if(yieldsData.backupPath) bits.push('Backup: '+yieldsData.backupPath);
-    if(yieldsData.influxBackup) bits.push('InfluxDB: '+(yieldsData.influxInstance||'aktiv')+' → yield.monthly');
+    if(yieldsData.influxBackup) bits.push('InfluxDB: '+(yieldsData.influxInstance||'aktiv')+' → Snapshot + yield.monthly (Retention)');
     hr.textContent=bits.join(' · ');
   }
 
@@ -1172,7 +1172,7 @@ window.restoreYieldsBackup=function(){
   postYield({action:'restoreBackup'});
 };
 window.restoreYieldsInflux=function(){
-  if(!confirm('Monatserträge aus InfluxDB laden und mit der Tabelle zusammenführen?\n\nManuelle (blaue) Werte bleiben erhalten. Grafana-Serie: yield.monthly')) return;
+  if(!confirm('Monatserträge aus InfluxDB laden und mit der Tabelle zusammenführen?\n\nManuelle (blaue) Werte bleiben erhalten. Quelle: JSON-Snapshot, sonst yield.monthly')) return;
   yieldMsg('Lade aus InfluxDB…');
   postYield({action:'restoreFromInflux',mode:'merge'});
 };

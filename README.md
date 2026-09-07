@@ -1,6 +1,6 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.6.29-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
+[![Version](https://img.shields.io/badge/version-0.6.31-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
@@ -126,6 +126,13 @@ node /opt/iobroker/node_modules/iobroker.kostalpiko/scripts/combine-yields.js \
 ---
 
 ## Changelog
+
+### 0.6.31
+- Less log spam: history sync only while inverter is awake (status not „Aus“); quieter retries
+- Memory: tighter history objects, incremental merge, short-lived history API JSON cache
+
+### 0.6.30
+- InfluxDB: do not write monthly yields older than the retention policy (stops log flood); full table stored as JSON snapshot with current timestamp
 
 ### 0.6.29
 - kWh/kWp uses module preset (e.g. SW 225) × string counts when the kWp field is empty

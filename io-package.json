@@ -1,8 +1,34 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.29",
+    "version": "0.6.31",
     "news": {
+      "0.6.31": {
+        "de": "Weniger Log-Spam (History nur bei aktivem WR); Memory: kompaktere Historie, API-Cache-TTL",
+        "en": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "ru": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "pt": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "nl": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "fr": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "it": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "es": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "pl": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "uk": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
+        "zh-cn": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL"
+      },
+      "0.6.30": {
+        "de": "InfluxDB: keine Monatswerte außerhalb der Retention (Log-Flut); volle Tabelle als JSON-Snapshot",
+        "en": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "ru": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "pt": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "nl": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "fr": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "it": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "es": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "pl": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "uk": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
+        "zh-cn": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot"
+      },
       "0.6.29": {
         "de": "kWh/kWp nutzt Modul-Vorlage (z. B. SW 225) und String-Anzahl, wenn das kWp-Feld leer ist",
         "en": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",

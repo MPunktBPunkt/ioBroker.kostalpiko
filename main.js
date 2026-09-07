@@ -3,7 +3,7 @@
 /**
  * ioBroker Kostal PIKO Adapter
  * Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping
- * Version: 0.6.29
+ * Version: 0.6.31
  */
 
 const utils = require('@iobroker/adapter-core');
@@ -16,7 +16,7 @@ const url = require('node:url');
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 const ADAPTER_NAME = 'kostalpiko';
-const ADAPTER_VERSION = '0.6.29';
+const ADAPTER_VERSION = '0.6.31';
 const WEATHER_HISTORY_CACHE_MAX = 400;
 
 const POLL_URLS = {
@@ -344,7 +344,7 @@ class KostalPikoAdapter extends utils.Adapter {
         this._pollTimer = null;
         this._webServer = null;
         this._logBuffer = [];
-        this._maxLogs = 500;
+        this._maxLogs = 100;
         this._lastData = {};
         this._lastHistoryRows = [];
         this._lastNotifySent = {}; // pro Berichtstyp, verhindert doppeltes Senden
@@ -362,10 +362,16 @@ class KostalPikoAdapter extends utils.Adapter {
         this._weatherGeoCache = null;
         this._weatherHistoryCache = new Map();
         this._historyApiCache = null;
+        this._historyApiCacheTimer = null;
         this._historySyncActive = false;
         this._instanceDisplayName = '';
         this._tempLossKwhDay = 0;
         this._tempLossDayDate = '';
+        this._lastPollOk = false;
+        this._inverterWasAwake = null; // null = noch kein Poll; false = Aus; true = aktiv
+        this._lastHistorySkipLog = 0;
+        this._lastPollErrorLog = 0;
+        this._lastPollErrorMsg = '';
 
         this.on('ready', this._onReady.bind(this));
         this.on('stateChange', this._onStateChange.bind(this));
@@ -491,7 +497,10 @@ class KostalPikoAdapter extends utils.Adapter {
 
         if (this._cfg.historyFetch) {
             this.setTimeout(() => {
-                this._fetchAndImportHistory(false).catch(e => this._log('WARN', `Startup History-Fetch: ${e.message}`));
+                this._fetchAndImportHistory(false).catch(e => {
+                    const msg = e && e.message ? e.message : String(e);
+                    this._log(this._isInverterAwake() ? 'WARN' : 'DEBUG', `Startup History-Fetch: ${msg}`);
+                });
             }, 5000);
         }
 
@@ -727,6 +736,12 @@ class KostalPikoAdapter extends utils.Adapter {
             if (this._notifyTimer) {
                 this.clearInterval(this._notifyTimer);
             }
+            if (this._influxYieldSyncTimer) {
+                this.clearTimeout(this._influxYieldSyncTimer);
+            }
+            if (this._historyApiCacheTimer) {
+                this.clearTimeout(this._historyApiCacheTimer);
+            }
             if (this._webServer) {
                 this._webServer.close();
             }
@@ -745,10 +760,16 @@ class KostalPikoAdapter extends utils.Adapter {
         try {
             const st = await this.getForeignStateAsync(stateId);
             if (!st || !st.val) {
-                this._log(
-                    'WARN',
-                    `WireGuard-Tunnel nicht aktiv (${stateId} = ${st ? st.val : 'null'}) → Poll übersprungen`,
-                );
+                const now = Date.now();
+                if (now - (this._lastWgSkipLog || 0) >= 15 * 60 * 1000) {
+                    this._lastWgSkipLog = now;
+                    this._log(
+                        'WARN',
+                        `WireGuard-Tunnel nicht aktiv (${stateId} = ${st ? st.val : 'null'}) → Poll übersprungen`,
+                    );
+                } else {
+                    this._log('DEBUG', `WireGuard-Tunnel nicht aktiv (${stateId}) → Poll übersprungen`);
+                }
                 return false;
             }
             if (this._cfg.verbose) {
@@ -762,6 +783,41 @@ class KostalPikoAdapter extends utils.Adapter {
             );
             return false;
         }
+    }
+
+    _isInverterAwake() {
+        if (!this._lastPollOk) {
+            return false;
+        }
+        if (this._lastData.online === 1) {
+            return true;
+        }
+        const status = String(this._lastData.status || '')
+            .trim()
+            .toLowerCase();
+        return !!status && status !== 'aus' && status !== 'offline' && status !== 'unbekannt';
+    }
+
+    _logHistorySkip(reason) {
+        const now = Date.now();
+        if (now - this._lastHistorySkipLog < 60 * 60 * 1000) {
+            return;
+        }
+        this._lastHistorySkipLog = now;
+        this._log('DEBUG', `History-Sync pausiert – ${reason}`);
+    }
+
+    _scheduleHistorySync(delayMs = 3000, options = {}) {
+        this.setTimeout(() => {
+            this._fetchAndImportHistory(false, 0, options).catch(e => {
+                const msg = e && e.message ? e.message : String(e);
+                if (this._isInverterAwake() || options.force) {
+                    this._log('WARN', `History-Sync: ${msg}`);
+                } else {
+                    this._log('DEBUG', `History-Sync: ${msg}`);
+                }
+            });
+        }, delayMs);
     }
 
     _getTodayHistoryMeta() {
@@ -787,7 +843,9 @@ class KostalPikoAdapter extends utils.Adapter {
         const livePower = parseFloat(this._lastData['ac.power']) || 0;
         const producing = livePower >= 50;
         const daylight = hour >= 5 && hour <= 22;
-        const todayStale = daylight && ageMin >= 20 && (producing || ageMin >= 35);
+        const awake = this._isInverterAwake();
+        // Nachts / Status „Aus“: kein Nachhol-Abruf (LogDaten.dat antwortet dann oft mit Timeout)
+        const todayStale = daylight && awake && ageMin >= 20 && (producing || ageMin >= 35);
         return {
             todayNewest: new Date(newestTs).toISOString(),
             todayStale,
@@ -800,6 +858,8 @@ class KostalPikoAdapter extends utils.Adapter {
     async _poll() {
         // 0. Netzwerk-Check (nur bei fritzwireguard-Modus)
         if (!(await this._checkNetwork())) {
+            this._lastPollOk = false;
+            this._inverterWasAwake = false;
             await this.setStateAsync('info.connection', { val: false, ack: true }).catch(() => {});
             return;
         }
@@ -823,37 +883,63 @@ class KostalPikoAdapter extends utils.Adapter {
             await this.setStateAsync('info.lastPoll', { val: new Date().toISOString(), ack: true });
             await this.setStateAsync('info.networkMode', { val: this._cfg.networkMode, ack: true });
             await this._writeModuleStates();
+            this._lastPollOk = true;
             if (this._cfg.verbose) {
                 this._log('DEBUG', 'Live-Poll OK');
             }
         } catch (err) {
-            this._log('ERROR', `Live-Poll: ${err.message}`);
+            this._lastPollOk = false;
+            this._inverterWasAwake = false;
+            const msg = err && err.message ? err.message : String(err);
+            const now = Date.now();
+            const repeat = msg === this._lastPollErrorMsg && now - this._lastPollErrorLog < 15 * 60 * 1000;
+            if (repeat) {
+                this._log('DEBUG', `Live-Poll: ${msg}`);
+            } else {
+                this._lastPollErrorLog = now;
+                this._lastPollErrorMsg = msg;
+                this._log('ERROR', `Live-Poll: ${msg}`);
+            }
             await this.setStateAsync('info.connection', { val: false, ack: true }).catch(() => {});
         }
 
         // 2. History-Sync (syncInterval) + Nachhol-Abruf wenn Tagesdaten hängen bleiben
         // 3–5s Verzögerung damit PIKO nach dem Live-Poll wieder frei ist
+        // Nachts (Status Aus): kein LogDaten-Abruf – vermeidet Timeout-Spam
         if (this._cfg.historyFetch && !this._historySyncActive) {
-            const now = Date.now();
-            const intervalMs = this._cfg.syncInterval * 60 * 1000;
-            const todayMeta = this._getTodayHistoryMeta();
-            const intervalDue = now - this._lastHistoryFetch >= intervalMs;
-            const staleDue =
-                todayMeta.todayStale && !this._historyLoading && now - this._lastStaleHistoryFetch >= 5 * 60 * 1000;
-            if (intervalDue || staleDue) {
-                if (intervalDue) {
-                    this._lastHistoryFetch = now;
+            const awake = this._isInverterAwake();
+            // Nur Aus→Ein (nicht der erste Poll nach Adapter-Start)
+            const wokeUp = awake && this._inverterWasAwake === false;
+            this._inverterWasAwake = awake;
+
+            if (!awake) {
+                if (this._lastPollOk) {
+                    this._logHistorySkip(`Wechselrichter ${this._lastData.status || 'Aus'}`);
                 }
-                if (staleDue) {
-                    this._lastStaleHistoryFetch = now;
-                    this._log('INFO', `Tages-Historie hängt (${todayMeta.ageMin} Min seit letztem Punkt) → PIKO-Abruf`);
+            } else {
+                const now = Date.now();
+                const intervalMs = this._cfg.syncInterval * 60 * 1000;
+                const todayMeta = this._getTodayHistoryMeta();
+                const intervalDue = now - this._lastHistoryFetch >= intervalMs;
+                const staleDue =
+                    todayMeta.todayStale &&
+                    !this._historyLoading &&
+                    now - this._lastStaleHistoryFetch >= 5 * 60 * 1000;
+                if (wokeUp || intervalDue || staleDue) {
+                    if (intervalDue || wokeUp) {
+                        this._lastHistoryFetch = now;
+                    }
+                    if (staleDue) {
+                        this._lastStaleHistoryFetch = now;
+                        this._log(
+                            'DEBUG',
+                            `Tages-Historie hängt (${todayMeta.ageMin} Min seit letztem Punkt) → PIKO-Abruf`,
+                        );
+                    } else if (wokeUp) {
+                        this._log('INFO', 'Wechselrichter wieder aktiv → History-Sync');
+                    }
+                    this._scheduleHistorySync(staleDue || wokeUp ? 5000 : 3000);
                 }
-                this.setTimeout(
-                    () => {
-                        this._fetchAndImportHistory(false).catch(e => this._log('WARN', `History-Sync: ${e.message}`));
-                    },
-                    staleDue ? 5000 : 3000,
-                );
             }
         }
 
@@ -1423,23 +1509,43 @@ class KostalPikoAdapter extends utils.Adapter {
         return /service.*busy|nicht.*verf.gbar|<html/i.test(head);
     }
 
-    _retryHistorySync(syncAll, retryCount, reason) {
-        this._log('WARN', `History-Sync: ${reason} → Retry in 30s (Versuch ${retryCount + 1}/3)`);
+    _retryHistorySync(syncAll, retryCount, reason, options = {}) {
+        const force = !!(options && options.force) || syncAll;
+        const awake = this._isInverterAwake();
+        if (!force && !awake) {
+            this._log('DEBUG', `History-Sync abgebrochen (${reason}) – Wechselrichter aus/offline`);
+            this._historySyncActive = false;
+            this._historyLoading = false;
+            return;
+        }
+        // Retries nur als DEBUG – erster Fehlschlag + endgültiges Scheitern als WARN
+        this._log(
+            retryCount === 0 ? 'WARN' : 'DEBUG',
+            `History-Sync: ${reason} → Retry in 30s (Versuch ${retryCount + 1}/3)`,
+        );
         this.setTimeout(
             () =>
-                this._fetchAndImportHistory(syncAll, retryCount + 1).catch(e => {
+                this._fetchAndImportHistory(syncAll, retryCount + 1, options).catch(e => {
                     this._historySyncActive = false;
                     this._historyLoading = false;
-                    this._log('WARN', `History-Sync Retry: ${e.message}`);
+                    this._log(
+                        force || this._isInverterAwake() ? 'WARN' : 'DEBUG',
+                        `History-Sync fehlgeschlagen: ${e.message}`,
+                    );
                 }),
             30000,
         );
     }
 
-    async _fetchAndImportHistory(syncAll = false, retryCount = 0) {
+    async _fetchAndImportHistory(syncAll = false, retryCount = 0, options = {}) {
+        const force = !!(options && options.force) || syncAll;
         if (retryCount === 0) {
             if (this._historySyncActive) {
                 this._log('DEBUG', 'History-Sync läuft bereits – übersprungen');
+                return;
+            }
+            if (!force && !this._isInverterAwake()) {
+                this._logHistorySkip(`Wechselrichter ${this._lastData.status || 'Aus/offline'}`);
                 return;
             }
             this._historySyncActive = true;
@@ -1450,7 +1556,7 @@ class KostalPikoAdapter extends utils.Adapter {
         try {
             if (retryCount === 0) {
                 this._log(
-                    'INFO',
+                    syncAll || this._cfg.verbose ? 'INFO' : 'DEBUG',
                     syncAll
                         ? 'Starte VOLLSYNC (alle Datenpunkte) → InfluxDB...'
                         : 'Starte History-Sync (nur neue Datenpunkte)...',
@@ -1465,7 +1571,7 @@ class KostalPikoAdapter extends utils.Adapter {
             } catch (e) {
                 if (retryCount < 3 && /timeout|truncated|ECONNRESET|socket hang up|EPIPE/i.test(e.message || '')) {
                     retainSyncLock = true;
-                    this._retryHistorySync(syncAll, retryCount, e.message);
+                    this._retryHistorySync(syncAll, retryCount, e.message, options);
                     return;
                 }
                 throw e;
@@ -1477,7 +1583,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 const preview = raw.substring(0, 300).replace(/\r/g, '').split('\n').slice(0, 5).join(' | ');
                 if (this._isHistoryBusyBody(raw) && retryCount < 3) {
                     retainSyncLock = true;
-                    this._retryHistorySync(syncAll, retryCount, 'PIKO meldet "service busy"');
+                    this._retryHistorySync(syncAll, retryCount, 'PIKO meldet "service busy"', options);
                     return;
                 }
                 throw new Error(`"akt. Zeit" nicht im Header gefunden. Header-Preview: ${preview}`);
@@ -1486,7 +1592,7 @@ class KostalPikoAdapter extends utils.Adapter {
 
             this._pikoEpoch = fetchUnixSec - aktZeit;
             this._log(
-                'INFO',
+                'DEBUG',
                 `PIKO Epoche: ${new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10)} ` +
                     `| akt. Zeit des Geräts: ${aktZeit} s`,
             );
@@ -1500,7 +1606,7 @@ class KostalPikoAdapter extends utils.Adapter {
             if (rows.length === 0) {
                 if (retryCount < 3) {
                     retainSyncLock = true;
-                    this._retryHistorySync(syncAll, retryCount, 'LogDaten.dat ohne Messzeilen');
+                    this._retryHistorySync(syncAll, retryCount, 'LogDaten.dat ohne Messzeilen', options);
                     return;
                 }
                 this._log(
@@ -1519,6 +1625,7 @@ class KostalPikoAdapter extends utils.Adapter {
                         syncAll,
                         retryCount,
                         `LogDaten.dat unvollständig (${rows.length} Punkte, zuvor ${prevRows.length})`,
+                        options,
                     );
                     return;
                 }
@@ -1541,10 +1648,10 @@ class KostalPikoAdapter extends utils.Adapter {
             this._lastHistoryRows = merged.map(r => this._compactHistoryRow(r));
             this._invalidateHistoryApiCache();
             if (removed > 0) {
-                this._log('INFO', `${removed} doppelte History-Punkte beim Merge entfernt`);
+                this._log('DEBUG', `${removed} doppelte History-Punkte beim Merge entfernt`);
             }
             if (added > 0) {
-                this._log('INFO', `${added} neue Punkte per Merge (gesamt ${merged.length})`);
+                this._log('DEBUG', `${added} neue Punkte per Merge (gesamt ${merged.length})`);
             }
 
             await this._saveHistoryCache().catch(e => this._log('WARN', `History-Cache speichern: ${e.message}`));
@@ -1552,7 +1659,7 @@ class KostalPikoAdapter extends utils.Adapter {
 
             const allRows = this._lastHistoryRows;
             this._log(
-                'INFO',
+                'DEBUG',
                 `${allRows.length} Datenpunkte gesamt | ` +
                     `${allRows[0].date.substring(0, 10)} – ${allRows[allRows.length - 1].date.substring(0, 10)}`,
             );
@@ -1563,7 +1670,7 @@ class KostalPikoAdapter extends utils.Adapter {
             }
 
             const newRows = syncAll ? allRows.filter(r => r.ts > 0) : allRows.filter(r => r.ts > this._lastImportedTs);
-            this._log('INFO', `${newRows.length} Datenpunkte ${syncAll ? '(alle)' : '(neu)'} → InfluxDB`);
+            this._log('DEBUG', `${newRows.length} Datenpunkte ${syncAll ? '(alle)' : '(neu)'} → InfluxDB`);
 
             if (newRows.length === 0) {
                 this._lastImportIso = new Date().toISOString();
@@ -1571,6 +1678,10 @@ class KostalPikoAdapter extends utils.Adapter {
                 await this.setStateAsync('history.recordCount', { val: allRows.length, ack: true });
                 await this._refreshAutoYields().catch(e =>
                     this._log('WARN', `Monatserträge aktualisieren: ${e.message}`),
+                );
+                this._log(
+                    this._cfg.verbose ? 'INFO' : 'DEBUG',
+                    `History-Sync: keine neuen Punkte (${allRows.length} gesamt)`,
                 );
                 return;
             }
@@ -1605,9 +1716,9 @@ class KostalPikoAdapter extends utils.Adapter {
 
             this._log(
                 'INFO',
-                `Sync ${syncAll ? '(Vollsync)' : ''} fertig: ${newRows.length} Punkte${
-                    this._cfg.influxEnable ? `, ${influxSent} → ${this._cfg.influxInstance}` : ''
-                }`,
+                `History-Sync${syncAll ? ' (Vollsync)' : ''}: ${newRows.length} Punkt(e)` +
+                    `${this._cfg.influxEnable ? `, ${influxSent} → ${this._cfg.influxInstance}` : ''}` +
+                    ` (${allRows.length} gesamt)`,
             );
         } finally {
             if (!retainSyncLock) {
@@ -1720,7 +1831,37 @@ class KostalPikoAdapter extends utils.Adapter {
             return this._dedupeHistoryRows(newRows);
         }
         if (!newRows.length) {
-            return this._dedupeHistoryRows(prevRows);
+            return prevRows;
+        }
+        // Typischer Inkrement-Sync: nur wenige neue Punkte → ohne [...prev, ...new] spitzen
+        if (newRows.length <= 32 && prevRows.length >= 100) {
+            const SLOT_MS = 15 * 60 * 1000;
+            const bySlot = new Map();
+            for (const r of prevRows) {
+                bySlot.set(Math.floor(r.ts / SLOT_MS), r);
+            }
+            let changed = false;
+            for (const r of newRows) {
+                if (!r?.ts) {
+                    continue;
+                }
+                const compact = this._compactHistoryRow(r);
+                const slot = Math.floor(compact.ts / SLOT_MS);
+                const prev = bySlot.get(slot);
+                if (
+                    !prev ||
+                    prev.ts !== compact.ts ||
+                    prev.acTotalPower !== compact.acTotalPower ||
+                    prev.totalEnergy !== compact.totalEnergy
+                ) {
+                    bySlot.set(slot, compact);
+                    changed = true;
+                }
+            }
+            if (!changed) {
+                return prevRows;
+            }
+            return [...bySlot.values()].sort((a, b) => a.ts - b.ts);
         }
         return this._dedupeHistoryRows([...prevRows, ...newRows]);
     }
@@ -1879,25 +2020,48 @@ class KostalPikoAdapter extends utils.Adapter {
     }
 
     _compactHistoryRow(row) {
+        const dc = (d) =>
+            d
+                ? {
+                      voltage: d.voltage || 0,
+                      current: d.current || 0,
+                      power: d.power || 0,
+                  }
+                : { voltage: 0, current: 0, power: 0 };
+        const ac = (a) =>
+            a
+                ? {
+                      voltage: a.voltage || 0,
+                      current: a.current || 0,
+                      power: a.power || 0,
+                  }
+                : { voltage: 0, current: 0, power: 0 };
         return {
             ts: row.ts,
-            date: row.date,
-            dc1: row.dc1,
-            dc2: row.dc2,
-            dc3: row.dc3,
-            ac1: row.ac1,
-            ac2: row.ac2,
-            ac3: row.ac3,
-            frequency: row.frequency,
-            acStatus: row.acStatus,
-            errorCode: row.errorCode,
-            acTotalPower: row.acTotalPower,
-            totalEnergy: row.totalEnergy,
+            date: row.date || (row.ts ? new Date(row.ts).toISOString() : null),
+            dc1: dc(row.dc1),
+            dc2: dc(row.dc2),
+            dc3: dc(row.dc3),
+            ac1: ac(row.ac1),
+            ac2: ac(row.ac2),
+            ac3: ac(row.ac3),
+            frequency: row.frequency || 0,
+            acStatus: row.acStatus || 0,
+            errorCode: row.errorCode || 0,
+            acTotalPower:
+                row.acTotalPower != null
+                    ? row.acTotalPower
+                    : (row.ac1?.power || 0) + (row.ac2?.power || 0) + (row.ac3?.power || 0),
+            totalEnergy: row.totalEnergy || 0,
         };
     }
 
     _invalidateHistoryApiCache() {
         this._historyApiCache = null;
+        if (this._historyApiCacheTimer) {
+            this.clearTimeout(this._historyApiCacheTimer);
+            this._historyApiCacheTimer = null;
+        }
     }
 
     _buildHistoryApiPayload() {
@@ -1905,10 +2069,15 @@ class KostalPikoAdapter extends utils.Adapter {
             ? this._lastHistoryRows[this._lastHistoryRows.length - 1].date
             : null;
         const todayMeta = this._getTodayHistoryMeta();
+        const n = this._lastHistoryRows.length;
+        const rowsNewestFirst = new Array(n);
+        for (let i = 0; i < n; i++) {
+            rowsNewestFirst[i] = this._lastHistoryRows[n - 1 - i];
+        }
         return {
-            rows: this._lastHistoryRows.slice().reverse(),
+            rows: rowsNewestFirst,
             pikoEpoch: this._pikoEpoch ? new Date(this._pikoEpoch * 1000).toISOString() : null,
-            recordCount: this._lastHistoryRows.length,
+            recordCount: n,
             lastImported: this._lastImportIso,
             newestRecord: newest,
             todayNewest: todayMeta.todayNewest,
@@ -1918,7 +2087,7 @@ class KostalPikoAdapter extends utils.Adapter {
             stringAnalysis: this._getStringAnalysisConfig(),
             temperatureAnalysis: this._getTemperatureAnalysis(),
             stringCount: this._getStringCount(),
-            fromCache: this._historyLoading && this._lastHistoryRows.length > 0,
+            fromCache: this._historyLoading && n > 0,
         };
     }
 
@@ -1926,6 +2095,14 @@ class KostalPikoAdapter extends utils.Adapter {
         if (!this._historyApiCache) {
             this._historyApiCache = JSON.stringify(this._buildHistoryApiPayload());
         }
+        // Cache nur kurz halten – verhindert Leak bei häufigen Requests, gibt ~3 MB frei wenn UI zu
+        if (this._historyApiCacheTimer) {
+            this.clearTimeout(this._historyApiCacheTimer);
+        }
+        this._historyApiCacheTimer = this.setTimeout(() => {
+            this._historyApiCache = null;
+            this._historyApiCacheTimer = null;
+        }, 120000);
         return this._historyApiCache;
     }
 
@@ -2133,7 +2310,32 @@ class KostalPikoAdapter extends utils.Adapter {
         this._monthlyYields.savedAt = new Date().toISOString();
         await fs.promises.writeFile(this._yieldsCachePath, JSON.stringify(this._monthlyYields, null, 2), 'utf-8');
         await this._persistYieldsSnapshotState();
-        this._syncYieldsToInflux().catch(e => this._log('WARN', `Ertrag → InfluxDB: ${e.message}`));
+        this._scheduleYieldsInfluxSync();
+    }
+
+    _yieldsInfluxFingerprint() {
+        const months = this._monthlyYields?.months || {};
+        return Object.keys(months)
+            .sort()
+            .map(k => {
+                const e = months[k];
+                const wh = e && typeof e === 'object' ? e.wh : e;
+                return `${k}:${wh}`;
+            })
+            .join('|');
+    }
+
+    _scheduleYieldsInfluxSync() {
+        if (!this._cfg.influxEnable) {
+            return;
+        }
+        if (this._influxYieldSyncTimer) {
+            this.clearTimeout(this._influxYieldSyncTimer);
+        }
+        this._influxYieldSyncTimer = this.setTimeout(() => {
+            this._influxYieldSyncTimer = null;
+            this._syncYieldsToInflux().catch(e => this._log('WARN', `Ertrag → InfluxDB: ${e.message}`));
+        }, 2000);
     }
 
     async _ensureYieldStates() {
@@ -2224,11 +2426,48 @@ class KostalPikoAdapter extends utils.Adapter {
         }
     }
 
+    async _getInfluxRetentionMs() {
+        if (this._influxRetentionMs !== undefined) {
+            return this._influxRetentionMs;
+        }
+        this._influxRetentionMs = 360 * 24 * 60 * 60 * 1000;
+        try {
+            const obj = await this.getForeignObjectAsync(`system.adapter.${this._cfg.influxInstance}`);
+            const native = obj?.native || {};
+            const sec = Number(native.retention);
+            const days = Number(native.customRetentionDuration);
+            if (Number.isFinite(sec) && sec > 0) {
+                this._influxRetentionMs = sec * 1000;
+            } else if (Number.isFinite(days) && days > 0) {
+                this._influxRetentionMs = days * 24 * 60 * 60 * 1000;
+            } else if (sec === 0 || days === 0) {
+                this._influxRetentionMs = 0;
+            }
+        } catch (e) {
+            this._log('DEBUG', `Influx-Retention: ${e.message}`);
+        }
+        return this._influxRetentionMs;
+    }
+
     async _syncYieldsToInflux() {
         if (!this._cfg.influxEnable || !this._monthlyYields?.months) {
             return;
         }
-        const points = [];
+        const fingerprint = this._yieldsInfluxFingerprint();
+        if (fingerprint && fingerprint === this._lastInfluxYieldFingerprint) {
+            return;
+        }
+
+        const now = Date.now();
+        const retentionMs = await this._getInfluxRetentionMs();
+        const maxAgeMs = retentionMs > 0 ? Math.max(0, retentionMs - 7 * 24 * 60 * 60 * 1000) : 0;
+        const points = [
+            {
+                id: `${this.namespace}.yields.snapshot`,
+                state: { val: JSON.stringify(this._monthlyYields), ts: now, ack: true, q: 0 },
+            },
+        ];
+        let skippedOld = 0;
         for (const [key, entry] of Object.entries(this._monthlyYields.months)) {
             const parsed = this._parseMonthKey(key);
             const wh = entry && typeof entry === 'object' ? entry.wh : entry;
@@ -2237,25 +2476,80 @@ class KostalPikoAdapter extends utils.Adapter {
                 continue;
             }
             const ts = new Date(parsed.year, parsed.month - 1, 1, 12, 0, 0).getTime();
+            if (retentionMs > 0 && now - ts > maxAgeMs) {
+                skippedOld++;
+                continue;
+            }
             points.push({
                 id: `${this.namespace}.yield.monthly`,
                 state: { val: Math.round((n / 1000) * 1000) / 1000, ts, ack: true, q: 0 },
             });
         }
-        if (!points.length) {
-            return;
-        }
         const result = await this._sendToAsync(this._cfg.influxInstance, 'storeState', points, 20000);
         if (result && result.error) {
             throw new Error(String(result.error));
         }
-        this._log('INFO', `${points.length} Monatserträge → ${this._cfg.influxInstance} (yield.monthly)`);
+        this._lastInfluxYieldFingerprint = fingerprint;
+        const monthlyN = points.length - 1;
+        this._log(
+            this._cfg.verbose || skippedOld ? 'INFO' : 'DEBUG',
+            `${monthlyN} Monatserträge → ${this._cfg.influxInstance}` +
+                `${skippedOld ? `, ${skippedOld} außerhalb Retention übersprungen` : ''}` +
+                ` (Snapshot gesichert)`,
+        );
     }
 
     async _loadYieldsFromInflux() {
         if (!this._cfg.influxEnable) {
             return null;
         }
+        const fromSnap = await this._loadYieldsSnapshotFromInflux();
+        if (fromSnap && Object.keys(fromSnap.months).length) {
+            return fromSnap;
+        }
+        return this._loadYieldsSeriesFromInflux();
+    }
+
+    async _loadYieldsSnapshotFromInflux() {
+        const result = await this._sendToAsync(
+            this._cfg.influxInstance,
+            'getHistory',
+            {
+                id: `${this.namespace}.yields.snapshot`,
+                options: {
+                    start: Date.now() - 400 * 24 * 60 * 60 * 1000,
+                    end: Date.now() + 60 * 1000,
+                    count: 20,
+                    aggregate: 'none',
+                },
+            },
+            20000,
+        );
+        const rows = result && (result.result || result.rows);
+        if (result?.error || !Array.isArray(rows) || !rows.length) {
+            return null;
+        }
+        const sorted = [...rows].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        for (const p of sorted) {
+            try {
+                const data = typeof p.val === 'string' ? JSON.parse(p.val) : p.val;
+                if (!data || typeof data !== 'object' || !data.months || typeof data.months !== 'object') {
+                    continue;
+                }
+                return {
+                    ...this._defaultMonthlyYields(),
+                    ...data,
+                    months: { ...data.months },
+                    extraYears: Array.isArray(data.extraYears) ? [...data.extraYears] : [],
+                };
+            } catch (_) {
+                /* next point */
+            }
+        }
+        return null;
+    }
+
+    async _loadYieldsSeriesFromInflux() {
         const result = await this._sendToAsync(
             this._cfg.influxInstance,
             'getHistory',
@@ -2445,7 +2739,10 @@ class KostalPikoAdapter extends utils.Adapter {
 
         if (updated > 0) {
             await this._saveMonthlyYields();
-            this._log('INFO', `Monatserträge: ${updated} Monat(e) aus Historie aktualisiert`);
+            this._log(
+                updated > 1 || this._cfg.verbose ? 'INFO' : 'DEBUG',
+                `Monatserträge: ${updated} Monat(e) aus Historie aktualisiert`,
+            );
         }
 
         const sorted = [...this._lastHistoryRows].sort((a, b) => a.ts - b.ts);
@@ -2721,7 +3018,7 @@ class KostalPikoAdapter extends utils.Adapter {
             }
             const data = await this._loadYieldsFromInflux();
             if (!data || !Object.keys(data.months).length) {
-                throw new Error('InfluxDB enthält noch keine Monatserträge (yield.monthly)');
+                throw new Error('InfluxDB enthält noch keine Monatserträge (Snapshot / yield.monthly)');
             }
             const mode = body.mode === 'replace' ? 'replace' : 'merge';
             if (mode === 'replace') {
@@ -3143,19 +3440,16 @@ class KostalPikoAdapter extends utils.Adapter {
                     voltage: int(COL.DC1_U),
                     current: int(COL.DC1_I) / 1000,
                     power: int(COL.DC1_P),
-                    status: int(COL.DC1_S),
                 },
                 dc2: {
                     voltage: int(COL.DC2_U),
                     current: int(COL.DC2_I) / 1000,
                     power: int(COL.DC2_P),
-                    status: int(COL.DC2_S),
                 },
                 dc3: {
                     voltage: int(COL.DC3_U),
                     current: int(COL.DC3_I) / 1000,
                     power: int(COL.DC3_P),
-                    status: int(COL.DC3_S),
                 },
                 ac1: { voltage: int(COL.AC1_U), current: int(COL.AC1_I) / 1000, power: int(COL.AC1_P) },
                 ac2: { voltage: int(COL.AC2_U), current: int(COL.AC2_I) / 1000, power: int(COL.AC2_P) },
@@ -3163,8 +3457,6 @@ class KostalPikoAdapter extends utils.Adapter {
                 frequency: flt(COL.AC_F),
                 acStatus: int(COL.AC_S),
                 errorCode: int(COL.ERR),
-                ensStatus: int(COL.ENS_S),
-                busStatus: int(COL.KB_S),
                 acTotalPower: int(COL.AC1_P) + int(COL.AC2_P) + int(COL.AC3_P),
                 totalEnergy: flt(COL.TOTAL_E),
             });
@@ -5235,12 +5527,16 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             }
             if (p === '/api/trigger-history') {
                 this._lastHistoryFetch = 0;
-                this._fetchAndImportHistory(false).catch(e => this._log('ERROR', `Sync: ${e.message}`));
+                this._fetchAndImportHistory(false, 0, { force: true }).catch(e =>
+                    this._log('ERROR', `Sync: ${e.message}`),
+                );
                 return this._json(res, { ok: true, message: 'Sync gestartet (nur neue Datenpunkte)' });
             }
             if (p === '/api/sync-all') {
                 // Vollsync: Cursor zurücksetzen → alle ~6 Monate an InfluxDB
-                this._fetchAndImportHistory(true).catch(e => this._log('ERROR', `Vollsync: ${e.message}`));
+                this._fetchAndImportHistory(true, 0, { force: true }).catch(e =>
+                    this._log('ERROR', `Vollsync: ${e.message}`),
+                );
                 return this._json(res, {
                     ok: true,
                     message: 'Vollsync gestartet – alle Datenpunkte werden übertragen',
@@ -5680,7 +5976,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <button class="btn" onclick="loadYields()" title="Tabelle neu laden">&#8635; Aktualisieren</button>
         <button class="btn" onclick="refreshYieldsAuto()" title="Monate aus dem lokalen History-Cache berechnen (nicht vom PIKO)">&#9889; Aus Cache</button>
         <button class="btn" onclick="restoreYieldsBackup()" title="monthly-yields.json.bak oder State-Snapshot wiederherstellen">&#9851; Backup</button>
-        <button class="btn" onclick="restoreYieldsInflux()" title="Monatswerte aus InfluxDB laden (Grafana-Serie yield.monthly)">&#128190; InfluxDB</button>
+        <button class="btn" onclick="restoreYieldsInflux()" title="Monatswerte aus InfluxDB laden (Snapshot, sonst yield.monthly)">&#128190; InfluxDB</button>
         <button class="btn" onclick="clearYieldsAuto()" title="Automatisch berechnete Monatswerte entfernen">&#128465; Auto l&ouml;schen</button>
         <button class="btn" onclick="addYieldYear()" title="Leere Jahres-Spalte hinzuf&uuml;gen">&#43; Jahr</button>
         <button class="btn" onclick="fillYieldYears()" title="Alle Jahre von Inbetriebnahme bis heute">&#128197; Jahre auff&uuml;llen</button>
@@ -5795,7 +6091,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div style="font-size:13px;line-height:1.75;color:var(--mut)">
       <p>Die Verbindung zum InfluxDB-Server <strong style="color:var(--txt)">(Host, Port, Datenbank, Token)</strong> wird <strong style="color:var(--txt)">nicht hier</strong> eingetragen, sondern im:</p>
       <p style="margin-top:6px;padding:8px 12px;background:var(--bg3);border-radius:var(--r);border:1px solid var(--bd);font-family:monospace;color:var(--blu)">ioBroker Admin &rarr; Adapter &rarr; InfluxDB &rarr; Instanz konfigurieren</p>
-      <p style="margin-top:8px">Dieser Adapter kennt nur den <strong style="color:var(--txt)">Namen der Instanz</strong> (z.&nbsp;B. <code>influxdb.0</code>) und schickt die Daten per internem <code>sendTo()</code>-Aufruf dorthin. Die Instanz leitet sie dann mit dem korrekten historischen Zeitstempel an InfluxDB weiter.</p>
+      <p style="margin-top:8px">Dieser Adapter kennt nur den <strong style="color:var(--txt)">Namen der Instanz</strong> (z.&nbsp;B. <code>influxdb.0</code>) und schickt die Daten per internem <code>sendTo()</code>-Aufruf dorthin. Die Instanz leitet sie dann mit dem korrekten historischen Zeitstempel an InfluxDB weiter. Monatserträge &auml;lter als die Influx-Retention (hier typisch 1&nbsp;Jahr) werden nicht geschrieben – die volle Tabelle liegt als JSON-Snapshot mit aktuellem Zeitstempel in <code>yields.snapshot</code>.</p>
     </div>
   </div>
 </div>
