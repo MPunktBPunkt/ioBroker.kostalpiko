@@ -16,19 +16,6 @@
         "uk": "Менше спаму в логах (історія лише при активному інверторі); памʼять: компактніша історія, TTL кешу API",
         "zh-cn": "减少日志刷屏（仅在逆变器工作时同步历史）；内存：更紧凑的历史数据与 API 缓存 TTL"
       },
-      "0.6.30": {
-        "de": "InfluxDB: keine Monatswerte außerhalb der Retention (Log-Flut); volle Tabelle als JSON-Snapshot",
-        "en": "InfluxDB: skip monthly points outside retention (log flood); full table as JSON snapshot",
-        "ru": "InfluxDB: не писать месячные значения вне retention (спам в логах); полная таблица как JSON-снимок",
-        "pt": "InfluxDB: não gravar meses fora da retenção (spam de log); tabela completa como snapshot JSON",
-        "nl": "InfluxDB: geen maandwaarden buiten retention (logspam); volledige tabel als JSON-snapshot",
-        "fr": "InfluxDB : pas de valeurs mensuelles hors rétention (spam logs) ; table complète en snapshot JSON",
-        "it": "InfluxDB: niente valori mensili fuori retention (spam log); tabella completa come snapshot JSON",
-        "es": "InfluxDB: no escribir meses fuera de retention (spam de log); tabla completa como snapshot JSON",
-        "pl": "InfluxDB: bez wartości miesięcy poza retention (spam logów); pełna tabela jako snapshot JSON",
-        "uk": "InfluxDB: не писати місячні значення поза retention (спам у логах); повна таблиця як JSON-знімок",
-        "zh-cn": "InfluxDB：不写入超出保留期的月度值（避免日志洪水）；完整表以 JSON 快照保存"
-      },
       "0.6.29": {
         "de": "kWh/kWp nutzt Modul-Vorlage (z. B. SW 225) und String-Anzahl, wenn das kWp-Feld leer ist",
         "en": "kWh/kWp uses module preset (e.g. SW 225) and string counts when the kWp field is empty",
@@ -41,58 +28,6 @@
         "pl": "kWh/kWp używa presetu modułów (np. SW 225) i liczby stringów, gdy pole kWp jest puste",
         "uk": "kWh/kWp використовує шаблон модулів (напр. SW 225) і кількість стрінгів, якщо поле kWp порожнє",
         "zh-cn": "当 kWp 字段为空时，kWh/kWp 使用模块预设（如 SW 225）和组串数量"
-      },
-      "0.6.28": {
-        "de": "Ertragstabelle überlebt Adapter-Updates (Speicher in iobroker-data); JSON-Snapshot als State; InfluxDB als Backup/Restore und Grafana-Serie",
-        "en": "Yield table survives adapter updates (store in iobroker-data); JSON snapshot state; InfluxDB backup/restore and Grafana series",
-        "ru": "Таблица урожая переживает обновления адаптера (iobroker-data); JSON-снимок в State; InfluxDB backup/restore и серия Grafana",
-        "pt": "Tabela de rendimento sobrevive a atualizações (iobroker-data); snapshot JSON no State; InfluxDB backup/restore e série Grafana",
-        "nl": "Opbrengsttabel overleeft adapter-updates (iobroker-data); JSON-snapshot als State; InfluxDB backup/restore en Grafana-serie",
-        "fr": "La table de rendement survit aux mises à jour (iobroker-data) ; snapshot JSON en State ; InfluxDB backup/restore et série Grafana",
-        "it": "La tabella rese sopravvive agli aggiornamenti (iobroker-data); snapshot JSON nello State; InfluxDB backup/restore e serie Grafana",
-        "es": "La tabla de rendimiento sobrevive a actualizaciones (iobroker-data); snapshot JSON en State; InfluxDB backup/restore y serie Grafana",
-        "pl": "Tabela plonów przetrwa aktualizacje adaptera (iobroker-data); snapshot JSON w State; InfluxDB backup/restore i seria Grafana",
-        "uk": "Таблиця врожаю переживає оновлення адаптера (iobroker-data); JSON-знімок у State; InfluxDB backup/restore і серія Grafana",
-        "zh-cn": "产量表在适配器更新后保留（iobroker-data）；JSON 快照状态；InfluxDB 备份/恢复与 Grafana 序列"
-      },
-      "0.6.27": {
-        "de": "Kein doppelter LogDaten-Download nach Neustart (Speicher-Spike); HTTP-Antwort als Buffer statt String-Concat",
-        "en": "No duplicate LogDaten download after restart (memory spike); HTTP body via buffers instead of string concat",
-        "ru": "Нет повторной загрузки LogDaten после перезапуска (скачок памяти); HTTP-ответ через Buffer вместо конкатенации строк",
-        "pt": "Sem download duplicado de LogDaten após reinício (pico de memória); resposta HTTP via Buffer em vez de concatenação",
-        "nl": "Geen dubbele LogDaten-download na herstart (geheugenpiek); HTTP-antwoord via Buffer i.p.v. string-concat",
-        "fr": "Pas de téléchargement LogDaten en double après redémarrage (pic mémoire) ; réponse HTTP via Buffer au lieu de concaténation",
-        "it": "Niente download LogDaten duplicato dopo riavvio (picco memoria); risposta HTTP via Buffer invece di concatenazione",
-        "es": "Sin descarga duplicada de LogDaten tras reinicio (pico de memoria); respuesta HTTP vía Buffer en lugar de concatenación",
-        "pl": "Bez ponownego pobierania LogDaten po restarcie (skok pamięci); odpowiedź HTTP przez Buffer zamiast konkatenacji",
-        "uk": "Без повторного завантаження LogDaten після перезапуску (стрибок памʼяті); HTTP-відповідь через Buffer замість конкатенації",
-        "zh-cn": "重启后不再重复下载 LogDaten（内存尖峰）；HTTP 响应用 Buffer 而非字符串拼接"
-      },
-      "0.6.26": {
-        "de": "LogDaten: kurze aktuelle Antworten (Solar-Log) ohne Warnung mergen, Busy/Timeout erneut versuchen; Web-UI-Log in Ortszeit, neueste oben halten, Löschen leert den Buffer; kein Live-Poll während History-Sync",
-        "en": "LogDaten: merge short current replies (Solar-Log) without warning, retry busy/timeout; web UI log in local time, keep newest on top, clear empties the buffer; skip live poll during history sync",
-        "ru": "LogDaten: короткие актуальные ответы (Solar-Log) без предупреждения; retry busy/timeout; лог UI по местному времени; без live-poll во время history-sync",
-        "pt": "LogDaten: respostas curtas atuais (Solar-Log) sem aviso; retry busy/timeout; log da UI em hora local; sem live-poll durante history-sync",
-        "nl": "LogDaten: korte actuele antwoorden (Solar-Log) zonder waarschuwing; retry busy/timeout; UI-log in lokale tijd; geen live-poll tijdens history-sync",
-        "fr": "LogDaten : réponses courtes actuelles (Solar-Log) sans avertissement ; retry busy/timeout ; log UI en heure locale ; pas de live-poll pendant history-sync",
-        "it": "LogDaten: risposte brevi attuali (Solar-Log) senza avviso; retry busy/timeout; log UI in ora locale; niente live-poll durante history-sync",
-        "es": "LogDaten: respuestas cortas actuales (Solar-Log) sin aviso; retry busy/timeout; log UI en hora local; sin live-poll durante history-sync",
-        "pl": "LogDaten: krótkie aktualne odpowiedzi (Solar-Log) bez ostrzeżenia; retry busy/timeout; log UI w czasie lokalnym; bez live-poll podczas history-sync",
-        "uk": "LogDaten: короткі актуальні відповіді (Solar-Log) без попередження; retry busy/timeout; лог UI за місцевим часом; без live-poll під час history-sync",
-        "zh-cn": "LogDaten：合并短而当前的回复（Solar-Log）且不告警；busy/timeout 重试；Web UI 日志用本地时间；历史同步期间跳过 live-poll"
-      },
-      "0.6.25": {
-        "de": "Fix Speicherleck: /api/history cached kompakt statt bei jedem Poll neu serialisiert",
-        "en": "Fix memory leak: /api/history uses compact cached JSON instead of re-serializing on every poll",
-        "ru": "Исправлена утечка памяти: /api/history кэширует компактный JSON вместо повторной сериализации на каждом опросе",
-        "pt": "Correção de vazamento de memória: /api/history usa JSON compacto em cache em vez de re-serializar a cada poll",
-        "nl": "Geheugenlek opgelost: /api/history gebruikt compacte gecachte JSON i.p.v. her-serialiseren bij elke poll",
-        "fr": "Fuite mémoire corrigée : /api/history utilise un JSON compact en cache au lieu de re-sérialiser à chaque poll",
-        "it": "Memory leak corretto: /api/history usa JSON compatto in cache invece di riserializzare a ogni poll",
-        "es": "Fuga de memoria corregida: /api/history usa JSON compacto en caché en lugar de re-serializar en cada poll",
-        "pl": "Naprawiono wyciek pamięci: /api/history używa kompaktowego JSON w cache zamiast ponownej serializacji przy każdym pollu",
-        "uk": "Виправлено витік памʼяті: /api/history кешує компактний JSON замість повторної серіалізації на кожному опитуванні",
-        "zh-cn": "修复内存泄漏：/api/history 使用紧凑缓存 JSON，而非每次轮询重新序列化"
       }
     },
     "titleLang": {
