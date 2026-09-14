@@ -72,36 +72,36 @@ const COL = {
 
 // History-States für InfluxDB (erhalten historische ts-Werte beim setState)
 const HISTORY_STATES = [
-    { id: 'history.dc1.voltage', col: COL.DC1_U, factor: 1, unit: 'V', name: 'String 1 Spannung (15-min)' },
-    { id: 'history.dc1.current', col: COL.DC1_I, factor: 0.001, unit: 'A', name: 'String 1 Strom (15-min)' },
-    { id: 'history.dc1.power', col: COL.DC1_P, factor: 1, unit: 'W', name: 'String 1 Leistung (15-min)' },
-    { id: 'history.dc2.voltage', col: COL.DC2_U, factor: 1, unit: 'V', name: 'String 2 Spannung (15-min)' },
-    { id: 'history.dc2.current', col: COL.DC2_I, factor: 0.001, unit: 'A', name: 'String 2 Strom (15-min)' },
-    { id: 'history.dc2.power', col: COL.DC2_P, factor: 1, unit: 'W', name: 'String 2 Leistung (15-min)' },
-    { id: 'history.dc3.voltage', col: COL.DC3_U, factor: 1, unit: 'V', name: 'String 3 Spannung (15-min)' },
-    { id: 'history.dc3.current', col: COL.DC3_I, factor: 0.001, unit: 'A', name: 'String 3 Strom (15-min)' },
-    { id: 'history.dc3.power', col: COL.DC3_P, factor: 1, unit: 'W', name: 'String 3 Leistung (15-min)' },
-    { id: 'history.ac1.voltage', col: COL.AC1_U, factor: 1, unit: 'V', name: 'L1 Spannung (15-min)' },
-    { id: 'history.ac1.current', col: COL.AC1_I, factor: 0.001, unit: 'A', name: 'L1 Strom (15-min)' },
-    { id: 'history.ac1.power', col: COL.AC1_P, factor: 1, unit: 'W', name: 'L1 Leistung (15-min)' },
-    { id: 'history.ac2.voltage', col: COL.AC2_U, factor: 1, unit: 'V', name: 'L2 Spannung (15-min)' },
-    { id: 'history.ac2.current', col: COL.AC2_I, factor: 0.001, unit: 'A', name: 'L2 Strom (15-min)' },
-    { id: 'history.ac2.power', col: COL.AC2_P, factor: 1, unit: 'W', name: 'L2 Leistung (15-min)' },
-    { id: 'history.ac3.voltage', col: COL.AC3_U, factor: 1, unit: 'V', name: 'L3 Spannung (15-min)' },
-    { id: 'history.ac3.current', col: COL.AC3_I, factor: 0.001, unit: 'A', name: 'L3 Strom (15-min)' },
-    { id: 'history.ac3.power', col: COL.AC3_P, factor: 1, unit: 'W', name: 'L3 Leistung (15-min)' },
-    { id: 'history.ac.totalPower', col: null, factor: 1, unit: 'W', name: 'AC Gesamtleistung (15-min)' },
-    { id: 'history.dc.totalPower', col: null, factor: 1, unit: 'W', name: 'DC Gesamtleistung (15-min)' },
-    { id: 'history.efficiency.ratio', col: null, factor: 1, unit: '%', name: 'Wirkungsgrad DC\u2192AC (15-min)' },
-    { id: 'history.ac.frequency', col: COL.AC_F, factor: 1, unit: 'Hz', name: 'Netzfrequenz (15-min)' },
-    { id: 'history.acStatus', col: COL.AC_S, factor: 1, unit: '', name: 'Betriebsstatus-Code (15-min)' },
-    { id: 'history.errorCode', col: COL.ERR, factor: 1, unit: '', name: 'Fehlercode (15-min)' },
+    { id: 'history.dc1.voltage', col: COL.DC1_U, factor: 1, unit: 'V', name: 'String 1 voltage (15-min)' },
+    { id: 'history.dc1.current', col: COL.DC1_I, factor: 0.001, unit: 'A', name: 'String 1 current (15-min)' },
+    { id: 'history.dc1.power', col: COL.DC1_P, factor: 1, unit: 'W', name: 'String 1 power (15-min)' },
+    { id: 'history.dc2.voltage', col: COL.DC2_U, factor: 1, unit: 'V', name: 'String 2 voltage (15-min)' },
+    { id: 'history.dc2.current', col: COL.DC2_I, factor: 0.001, unit: 'A', name: 'String 2 current (15-min)' },
+    { id: 'history.dc2.power', col: COL.DC2_P, factor: 1, unit: 'W', name: 'String 2 power (15-min)' },
+    { id: 'history.dc3.voltage', col: COL.DC3_U, factor: 1, unit: 'V', name: 'String 3 voltage (15-min)' },
+    { id: 'history.dc3.current', col: COL.DC3_I, factor: 0.001, unit: 'A', name: 'String 3 current (15-min)' },
+    { id: 'history.dc3.power', col: COL.DC3_P, factor: 1, unit: 'W', name: 'String 3 power (15-min)' },
+    { id: 'history.ac1.voltage', col: COL.AC1_U, factor: 1, unit: 'V', name: 'L1 voltage (15-min)' },
+    { id: 'history.ac1.current', col: COL.AC1_I, factor: 0.001, unit: 'A', name: 'L1 current (15-min)' },
+    { id: 'history.ac1.power', col: COL.AC1_P, factor: 1, unit: 'W', name: 'L1 power (15-min)' },
+    { id: 'history.ac2.voltage', col: COL.AC2_U, factor: 1, unit: 'V', name: 'L2 voltage (15-min)' },
+    { id: 'history.ac2.current', col: COL.AC2_I, factor: 0.001, unit: 'A', name: 'L2 current (15-min)' },
+    { id: 'history.ac2.power', col: COL.AC2_P, factor: 1, unit: 'W', name: 'L2 power (15-min)' },
+    { id: 'history.ac3.voltage', col: COL.AC3_U, factor: 1, unit: 'V', name: 'L3 voltage (15-min)' },
+    { id: 'history.ac3.current', col: COL.AC3_I, factor: 0.001, unit: 'A', name: 'L3 current (15-min)' },
+    { id: 'history.ac3.power', col: COL.AC3_P, factor: 1, unit: 'W', name: 'L3 power (15-min)' },
+    { id: 'history.ac.totalPower', col: null, factor: 1, unit: 'W', name: 'AC total power (15-min)' },
+    { id: 'history.dc.totalPower', col: null, factor: 1, unit: 'W', name: 'DC total power (15-min)' },
+    { id: 'history.efficiency.ratio', col: null, factor: 1, unit: '%', name: 'DC\u2192AC efficiency (15-min)' },
+    { id: 'history.ac.frequency', col: COL.AC_F, factor: 1, unit: 'Hz', name: 'Grid frequency (15-min)' },
+    { id: 'history.acStatus', col: COL.AC_S, factor: 1, unit: '', name: 'Operating status code (15-min)' },
+    { id: 'history.errorCode', col: COL.ERR, factor: 1, unit: '', name: 'Error code (15-min)' },
     {
         id: 'history.energy.total',
         col: COL.TOTAL_E,
         factor: 1,
         unit: 'kWh',
-        name: 'Gesamtenergie-Z\u00e4hler (15-min)',
+        name: 'Total energy counter (15-min)',
     },
 ];
 
@@ -221,7 +221,7 @@ function calcMppUtilization(vString, nMod, vmppStc) {
 
 function getTempAlert(tMod) {
     if (tMod === null || tMod === undefined) {
-        return 'UNBEKANNT';
+        return 'UNKNOWN';
     }
     if (tMod < 35) {
         return 'NORMAL';
@@ -230,15 +230,15 @@ function getTempAlert(tMod) {
         return 'WARM';
     }
     if (tMod < 60) {
-        return 'HEISS';
+        return 'HOT';
     }
     if (tMod < 70) {
-        return 'WARNUNG';
+        return 'WARNING';
     }
-    return 'KRITISCH';
+    return 'CRITICAL';
 }
 
-const TEMP_ALERT_RANK = { UNBEKANNT: -1, NORMAL: 0, WARM: 1, HEISS: 2, WARNUNG: 3, KRITISCH: 4 };
+const TEMP_ALERT_RANK = { UNKNOWN: -1, NORMAL: 0, WARM: 1, HOT: 2, WARNING: 3, CRITICAL: 4 };
 
 // Kostal PIKO Grenzwerte laut Datenblatt (PIKO 4.2–10.1)
 const PIKO_SPECS = {
@@ -374,7 +374,6 @@ class KostalPikoAdapter extends utils.Adapter {
         this._lastPollErrorMsg = '';
 
         this.on('ready', this._onReady.bind(this));
-        this.on('stateChange', this._onStateChange.bind(this));
         this.on('message', this._onMessage.bind(this));
         this.on('unload', this._onUnload.bind(this));
     }
@@ -382,7 +381,7 @@ class KostalPikoAdapter extends utils.Adapter {
     // ─── Lifecycle ──────────────────────────────────────────────────────────────
 
     async _onReady() {
-        this._log('SYSTEM', `Kostal PIKO Adapter v${ADAPTER_VERSION} gestartet`);
+        this._log('SYSTEM', `Kostal PIKO adapter v${ADAPTER_VERSION} started`);
 
         this._cfg = {
             ip: (this.config.ip || '192.168.178.30').trim(),
@@ -450,14 +449,14 @@ class KostalPikoAdapter extends utils.Adapter {
         const networkInfo =
             this._cfg.networkMode === 'fritzwireguard'
                 ? `Via ${this._cfg.fritzwgInstance} (WireGuard)`
-                : 'Lokal (direkter Zugriff)';
-        this._log('SYSTEM', `Auth: user=${this._cfg.user}, password=${this._cfg.password ? 'gesetzt' : 'LEER!'}`);
+                : 'Local (direct access)';
+        this._log('SYSTEM', `Auth: user=${this._cfg.user}, password=${this._cfg.password ? 'set' : 'EMPTY!'}`);
         this._log(
             'SYSTEM',
-            `Ziel: http://${this._cfg.ip}:${this._cfg.port} | ` +
-                `Netzwerk: ${networkInfo} | ` +
+            `Target: http://${this._cfg.ip}:${this._cfg.port} | ` +
+                `Network: ${networkInfo} | ` +
                 `Poll: ${this._cfg.pollInterval}s | ` +
-                `Sync: ${this._cfg.historyFetch ? `alle ${this._cfg.syncInterval} min${this._cfg.influxEnable ? ` → ${this._cfg.influxInstance}` : ' (nur Web-UI, kein InfluxDB)'}` : 'deaktiviert'}`,
+                `Sync: ${this._cfg.historyFetch ? `every ${this._cfg.syncInterval} min${this._cfg.influxEnable ? ` → ${this._cfg.influxInstance}` : ' (Web UI only, no InfluxDB)'}` : 'disabled'}`,
         );
 
         await this._ensureBaseStates();
@@ -493,7 +492,7 @@ class KostalPikoAdapter extends utils.Adapter {
         }
         await this._poll();
         this._pollTimer = this.setInterval(() => this._poll(), this._cfg.pollInterval * 1000);
-        this._refreshWeather().catch(e => this._log('DEBUG', `Wetter: ${e.message}`));
+        this._refreshWeather().catch(e => this._log('DEBUG', `Weather: ${e.message}`));
 
         if (this._cfg.historyFetch) {
             this.setTimeout(() => {
@@ -507,10 +506,7 @@ class KostalPikoAdapter extends utils.Adapter {
         // Benachrichtigungs-Timer
         if (this._cfg.notifyEnabled) {
             if (!this._cfg.historyFetch) {
-                this._log(
-                    'WARN',
-                    'Benachrichtigungen aktiv, aber Historiendaten laden ist deaktiviert – Berichte haben keine Daten',
-                );
+                this._log('WARN', 'Notifications enabled but history fetch is disabled – reports will have no data');
             }
             this._logNotifyConfig();
             this._startNotifyTimer();
@@ -522,41 +518,35 @@ class KostalPikoAdapter extends utils.Adapter {
         const dailyRcpt = this._getRecipientsForReport('daily');
         this._log(
             'SYSTEM',
-            `Berichte: E-Mail via ${inst || '(nicht gesetzt!)'} → ${dailyRcpt.join(', ') || '(kein Empfänger!)'}`,
+            `Reports: email via ${inst || '(not set!)'} → ${dailyRcpt.join(', ') || '(no recipient!)'}`,
         );
         if (this.config.notifyAdapter || (this.config.notifyInstance && this.config.notifyInstance !== inst)) {
             this._log(
                 'INFO',
-                'Legacy-Felder notifyAdapter/notifyInstance in der Instanz-Konfiguration werden ignoriert (nur notifyInstanceEmail)',
+                'Legacy fields notifyAdapter/notifyInstance in instance config are ignored (only notifyInstanceEmail)',
             );
         }
         if (!inst) {
-            this._log('WARN', 'E-Mail-Instanz fehlt – bitte „E-Mail-Instanz“ in Admin setzen (z. B. email.0)');
+            this._log('WARN', 'Email instance missing – set "Email instance" in admin (e.g. email.0)');
         }
         if (!dailyRcpt.length) {
-            this._log('WARN', 'Kein Empfänger für Tagesbericht – bitte „Empfänger (Hauptadresse)“ setzen');
+            this._log('WARN', 'No recipient for daily report – set "Recipient (primary address)"');
         }
         const parts = [];
         if (this._cfg.notifyDaily) {
-            parts.push(`Tagesbericht ${this._cfg.notifyDailyTime}`);
+            parts.push(`Daily report ${this._cfg.notifyDailyTime}`);
         }
         if (this._cfg.notifyWeekly) {
-            parts.push(`Wochenbericht Mo ${this._cfg.notifyWeeklyTime}`);
+            parts.push(`Weekly report Mon ${this._cfg.notifyWeeklyTime}`);
         }
         if (this._cfg.notifyMonthly) {
-            parts.push(`Monatsbericht 1. ${this._cfg.notifyMonthlyTime}`);
+            parts.push(`Monthly report 1st ${this._cfg.notifyMonthlyTime}`);
         }
         if (this._cfg.notifyAlert) {
             parts.push(`Alarm ${this._cfg.notifyAlertTime}`);
         }
         if (parts.length) {
-            this._log('SYSTEM', `Zeitplan: ${parts.join(' · ')}`);
-        }
-    }
-
-    _onStateChange(id, state) {
-        if (state && !state.ack && this._cfg.verbose) {
-            this._log('DEBUG', `State geändert: ${id} = ${state.val}`);
+            this._log('SYSTEM', `Schedule: ${parts.join(' · ')}`);
         }
     }
 
@@ -588,19 +578,19 @@ class KostalPikoAdapter extends utils.Adapter {
             };
             this._log(
                 'INFO',
-                `Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht angefordert`,
+                `Test ${kind === 'daily' ? 'daily' : kind === 'weekly' ? 'weekly' : 'monthly'} report requested`,
             );
             if (!this._cfg.notifyEnabled) {
-                reply(null, 'Benachrichtigungen sind deaktiviert – bitte zuerst aktivieren und speichern.');
+                reply(null, 'Notifications are disabled – please enable and save first.');
                 return;
             }
             if (!this._cfg.notifyInstance) {
-                reply(null, 'Kein Benachrichtigungs-Adapter konfiguriert.');
+                reply(null, 'No notification adapter configured.');
                 return;
             }
             const recipients = this._getRecipientsForReport(kind);
             if (!recipients.length) {
-                reply(null, 'Kein E-Mail-Empfänger eingetragen.');
+                reply(null, 'No e-mail recipient configured.');
                 return;
             }
             const sendFn =
@@ -612,7 +602,7 @@ class KostalPikoAdapter extends utils.Adapter {
             sendFn()
                 .then(() =>
                     reply(
-                        `✅ Test-${kind === 'daily' ? 'Tages' : kind === 'weekly' ? 'Wochen' : 'Monats'}bericht gesendet`,
+                        `✅ Test ${kind === 'daily' ? 'daily' : kind === 'weekly' ? 'weekly' : 'monthly'} report sent`,
                         null,
                     ),
                 )
@@ -624,7 +614,7 @@ class KostalPikoAdapter extends utils.Adapter {
             const presetId = (obj.message?.preset || this._cfg.modulePreset || '').trim();
             const preset = MODULE_PRESETS[presetId];
             if (!preset) {
-                this.sendTo(obj.from, cmd, { error: 'Keine Modul-Vorlage gewählt.' }, obj.callback);
+                this.sendTo(obj.from, cmd, { error: 'No module preset selected.' }, obj.callback);
                 return;
             }
             this._applyModulePresetToInstance(presetId, preset)
@@ -633,7 +623,7 @@ class KostalPikoAdapter extends utils.Adapter {
                         obj.from,
                         cmd,
                         {
-                            result: `✅ ${preset.name}: ${preset.wp} Wp, Voc ${preset.voc} V, Vmpp ${preset.vmpp} V übernommen`,
+                            result: `✅ ${preset.name}: ${preset.wp} Wp, Voc ${preset.voc} V, Vmpp ${preset.vmpp} V applied`,
                         },
                         obj.callback,
                     ),
@@ -693,9 +683,9 @@ class KostalPikoAdapter extends utils.Adapter {
                         obj.command,
                         {
                             result: ok
-                                ? `✅ Verbindung OK – PIKO gefunden (HTTP ${res.statusCode})`
-                                : `⚠️ HTTP ${res.statusCode} – PIKO nicht erkannt`,
-                            error: ok ? null : 'Gerät antwortet aber kein PIKO erkannt',
+                                ? `✅ Connection OK – PIKO found (HTTP ${res.statusCode})`
+                                : `⚠️ HTTP ${res.statusCode} – PIKO not recognized`,
+                            error: ok ? null : 'Device responds but PIKO not recognized',
                         },
                         obj.callback,
                     );
@@ -708,7 +698,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 obj.command,
                 {
                     result: null,
-                    error: `❌ Verbindung fehlgeschlagen: ${e.message}`,
+                    error: `❌ Connection failed: ${e.message}`,
                 },
                 obj.callback,
             );
@@ -720,7 +710,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 obj.command,
                 {
                     result: null,
-                    error: '❌ Timeout – Gerät nicht erreichbar (5s)',
+                    error: '❌ Timeout – device unreachable (5s)',
                 },
                 obj.callback,
             );
@@ -765,22 +755,19 @@ class KostalPikoAdapter extends utils.Adapter {
                     this._lastWgSkipLog = now;
                     this._log(
                         'WARN',
-                        `WireGuard-Tunnel nicht aktiv (${stateId} = ${st ? st.val : 'null'}) → Poll übersprungen`,
+                        `WireGuard tunnel not active (${stateId} = ${st ? st.val : 'null'}) → poll skipped`,
                     );
                 } else {
-                    this._log('DEBUG', `WireGuard-Tunnel nicht aktiv (${stateId}) → Poll übersprungen`);
+                    this._log('DEBUG', `WireGuard tunnel not active (${stateId}) → poll skipped`);
                 }
                 return false;
             }
             if (this._cfg.verbose) {
-                this._log('DEBUG', `WireGuard-Tunnel aktiv (${stateId} = true) → Poll via Tunnel`);
+                this._log('DEBUG', `WireGuard tunnel active (${stateId} = true) → poll via tunnel`);
             }
             return true;
         } catch (e) {
-            this._log(
-                'WARN',
-                `WireGuard-Status konnte nicht gelesen werden (${stateId}): ${e.message} → Poll übersprungen`,
-            );
+            this._log('WARN', `Could not read WireGuard status (${stateId}): ${e.message} → poll skipped`);
             return false;
         }
     }
@@ -795,7 +782,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const status = String(this._lastData.status || '')
             .trim()
             .toLowerCase();
-        return !!status && status !== 'aus' && status !== 'offline' && status !== 'unbekannt';
+        return !!status && status !== 'off' && status !== 'offline' && status !== 'unknown';
     }
 
     _logHistorySkip(reason) {
@@ -804,7 +791,7 @@ class KostalPikoAdapter extends utils.Adapter {
             return;
         }
         this._lastHistorySkipLog = now;
-        this._log('DEBUG', `History-Sync pausiert – ${reason}`);
+        this._log('DEBUG', `History sync paused – ${reason}`);
     }
 
     _scheduleHistorySync(delayMs = 3000, options = {}) {
@@ -812,9 +799,9 @@ class KostalPikoAdapter extends utils.Adapter {
             this._fetchAndImportHistory(false, 0, options).catch(e => {
                 const msg = e && e.message ? e.message : String(e);
                 if (this._isInverterAwake() || options.force) {
-                    this._log('WARN', `History-Sync: ${msg}`);
+                    this._log('WARN', `History sync: ${msg}`);
                 } else {
-                    this._log('DEBUG', `History-Sync: ${msg}`);
+                    this._log('DEBUG', `History sync: ${msg}`);
                 }
             });
         }, delayMs);
@@ -867,7 +854,7 @@ class KostalPikoAdapter extends utils.Adapter {
         // 1. Live-Daten – nicht parallel zum LogDaten-Download (PIKO bedient nur eine HTTP-Verbindung)
         if (this._historyLoading) {
             if (this._cfg.verbose) {
-                this._log('DEBUG', 'Live-Poll übersprungen – History-Download läuft');
+                this._log('DEBUG', 'Live poll skipped – history download in progress');
             }
             return;
         }
@@ -885,7 +872,7 @@ class KostalPikoAdapter extends utils.Adapter {
             await this._writeModuleStates();
             this._lastPollOk = true;
             if (this._cfg.verbose) {
-                this._log('DEBUG', 'Live-Poll OK');
+                this._log('DEBUG', 'Live poll OK');
             }
         } catch (err) {
             this._lastPollOk = false;
@@ -894,11 +881,11 @@ class KostalPikoAdapter extends utils.Adapter {
             const now = Date.now();
             const repeat = msg === this._lastPollErrorMsg && now - this._lastPollErrorLog < 15 * 60 * 1000;
             if (repeat) {
-                this._log('DEBUG', `Live-Poll: ${msg}`);
+                this._log('DEBUG', `Live poll: ${msg}`);
             } else {
                 this._lastPollErrorLog = now;
                 this._lastPollErrorMsg = msg;
-                this._log('ERROR', `Live-Poll: ${msg}`);
+                this._log('ERROR', `Live poll: ${msg}`);
             }
             await this.setStateAsync('info.connection', { val: false, ack: true }).catch(() => {});
         }
@@ -914,7 +901,7 @@ class KostalPikoAdapter extends utils.Adapter {
 
             if (!awake) {
                 if (this._lastPollOk) {
-                    this._logHistorySkip(`Wechselrichter ${this._lastData.status || 'Aus'}`);
+                    this._logHistorySkip(`Inverter ${this._lastData.status || 'Off'}`);
                 }
             } else {
                 const now = Date.now();
@@ -931,10 +918,10 @@ class KostalPikoAdapter extends utils.Adapter {
                         this._lastStaleHistoryFetch = now;
                         this._log(
                             'DEBUG',
-                            `Tages-Historie hängt (${todayMeta.ageMin} Min seit letztem Punkt) → PIKO-Abruf`,
+                            `Today's history stale (${todayMeta.ageMin} min since last point) → PIKO fetch`,
                         );
                     } else if (wokeUp) {
-                        this._log('INFO', 'Wechselrichter wieder aktiv → History-Sync');
+                        this._log('INFO', 'Inverter active again → history sync');
                     }
                     this._scheduleHistorySync(staleDue || wokeUp ? 5000 : 3000);
                 }
@@ -945,7 +932,7 @@ class KostalPikoAdapter extends utils.Adapter {
         if (this._cfg.yieldPlz && Date.now() - this._lastWeatherFetch >= 30 * 60 * 1000) {
             this._refreshWeather().catch(e => {
                 if (this._cfg.verbose) {
-                    this._log('DEBUG', `Wetter: ${e.message}`);
+                    this._log('DEBUG', `Weather: ${e.message}`);
                 }
             });
         }
@@ -1039,7 +1026,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const zip = await this._fetchHttpsJson(`https://api.zippopotam.us/de/${plz}`);
         const place = zip.places && zip.places[0];
         if (!place) {
-            throw new Error(`PLZ ${plz} nicht gefunden`);
+            throw new Error(`ZIP code ${plz} not found`);
         }
         const geo = {
             plz,
@@ -1236,7 +1223,7 @@ class KostalPikoAdapter extends utils.Adapter {
             this._cacheWeatherHistory(dateKey, w);
             return w;
         } catch (e) {
-            this._log('DEBUG', `Wetter-Archiv ${dateKey}: ${e.message}`);
+            this._log('DEBUG', `Weather archive ${dateKey}: ${e.message}`);
             return null;
         }
     }
@@ -1344,7 +1331,7 @@ class KostalPikoAdapter extends utils.Adapter {
         if (this._cfg.verbose) {
             this._log(
                 'DEBUG',
-                `Wetter ${plz} ${geo.place}: ${this._lastWeather.sunshineH}h Sonne, ${this._lastWeather.weather}`,
+                `Weather ${plz} ${geo.place}: ${this._lastWeather.sunshineH}h sunshine, ${this._lastWeather.weather}`,
             );
         }
         await this._writeWeatherStates();
@@ -1382,7 +1369,7 @@ class KostalPikoAdapter extends utils.Adapter {
         let totalLossW = 0;
         let hottestId = '';
         let hottestTemp = -Infinity;
-        let worstAlert = 'UNBEKANNT';
+        let worstAlert = 'UNKNOWN';
 
         for (const s of [
             { id: 1, count: this._cfg.string1Modules },
@@ -1410,10 +1397,9 @@ class KostalPikoAdapter extends utils.Adapter {
                 tempC !== null && tempC > 25 && betaPmax > 0 && pMeasured > 0
                     ? Math.round(pMeasured / (1 - betaPmax * (tempC - 25)))
                     : Math.round(pMeasured);
-            const alert = quality !== 'invalid' ? getTempAlert(tempC) : 'UNBEKANNT';
+            const alert = quality !== 'invalid' ? getTempAlert(tempC) : 'UNKNOWN';
             const vmppMod = v && s.count ? Math.round((v / s.count) * 10) / 10 : 0;
-            const qualityLabel =
-                quality === 'absolute' ? 'ABSOLUT' : quality === 'limited' ? 'EINGESCHRAENKT' : 'UNGUELTIG';
+            const qualityLabel = quality === 'absolute' ? 'ABSOLUTE' : quality === 'limited' ? 'LIMITED' : 'INVALID';
 
             results[`${prefix}.vmppPerModule`] = vmppMod;
             results[`${prefix}.tempEquivalentC`] = tempC !== null ? tempC : 0;
@@ -1443,7 +1429,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const s2p = (parseFloat(data['pv.string2.voltage']) || 0) * (parseFloat(data['pv.string2.current']) || 0);
         let deltaStrings = 0;
         let deltaValid = false;
-        if (s1q && s1q !== 'UNGUELTIG' && s2q && s2q !== 'UNGUELTIG' && s1p >= 50 && s2p >= 50) {
+        if (s1q && s1q !== 'INVALID' && s2q && s2q !== 'INVALID' && s1p >= 50 && s2p >= 50) {
             deltaStrings =
                 Math.round(
                     ((results['string1.tempEquivalentC'] || 0) - (results['string2.tempEquivalentC'] || 0)) * 10,
@@ -1511,7 +1497,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const force = !!(options && options.force) || syncAll;
         const awake = this._isInverterAwake();
         if (!force && !awake) {
-            this._log('DEBUG', `History-Sync abgebrochen (${reason}) – Wechselrichter aus/offline`);
+            this._log('DEBUG', `History sync aborted (${reason}) – inverter off/offline`);
             this._historySyncActive = false;
             this._historyLoading = false;
             return;
@@ -1519,17 +1505,14 @@ class KostalPikoAdapter extends utils.Adapter {
         // Retries nur als DEBUG – erster Fehlschlag + endgültiges Scheitern als WARN
         this._log(
             retryCount === 0 ? 'WARN' : 'DEBUG',
-            `History-Sync: ${reason} → Retry in 30s (Versuch ${retryCount + 1}/3)`,
+            `History sync: ${reason} → retry in 30s (attempt ${retryCount + 1}/3)`,
         );
         this.setTimeout(
             () =>
                 this._fetchAndImportHistory(syncAll, retryCount + 1, options).catch(e => {
                     this._historySyncActive = false;
                     this._historyLoading = false;
-                    this._log(
-                        force || this._isInverterAwake() ? 'WARN' : 'DEBUG',
-                        `History-Sync fehlgeschlagen: ${e.message}`,
-                    );
+                    this._log(force || this._isInverterAwake() ? 'WARN' : 'DEBUG', `History sync failed: ${e.message}`);
                 }),
             30000,
         );
@@ -1539,11 +1522,11 @@ class KostalPikoAdapter extends utils.Adapter {
         const force = !!(options && options.force) || syncAll;
         if (retryCount === 0) {
             if (this._historySyncActive) {
-                this._log('DEBUG', 'History-Sync läuft bereits – übersprungen');
+                this._log('DEBUG', 'History sync already running – skipped');
                 return;
             }
             if (!force && !this._isInverterAwake()) {
-                this._logHistorySkip(`Wechselrichter ${this._lastData.status || 'Aus/offline'}`);
+                this._logHistorySkip(`Inverter ${this._lastData.status || 'Off/offline'}`);
                 return;
             }
             this._historySyncActive = true;
@@ -1556,8 +1539,8 @@ class KostalPikoAdapter extends utils.Adapter {
                 this._log(
                     syncAll || this._cfg.verbose ? 'INFO' : 'DEBUG',
                     syncAll
-                        ? 'Starte VOLLSYNC (alle Datenpunkte) → InfluxDB...'
-                        : 'Starte History-Sync (nur neue Datenpunkte)...',
+                        ? 'Starting FULL SYNC (all data points) → InfluxDB...'
+                        : 'Starting history sync (new data points only)...',
                 );
             }
 
@@ -1584,15 +1567,15 @@ class KostalPikoAdapter extends utils.Adapter {
                     this._retryHistorySync(syncAll, retryCount, 'PIKO meldet "service busy"', options);
                     return;
                 }
-                throw new Error(`"akt. Zeit" nicht im Header gefunden. Header-Preview: ${preview}`);
+                throw new Error(`"akt. Zeit" not found in header. Header preview: ${preview}`);
             }
             const aktZeit = parseInt(m[1]);
 
             this._pikoEpoch = fetchUnixSec - aktZeit;
             this._log(
                 'DEBUG',
-                `PIKO Epoche: ${new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10)} ` +
-                    `| akt. Zeit des Geräts: ${aktZeit} s`,
+                `PIKO epoch: ${new Date(this._pikoEpoch * 1000).toISOString().substring(0, 10)} ` +
+                    `| device current time: ${aktZeit} s`,
             );
             await this.setStateAsync('history.pikoEpoch', {
                 val: new Date(this._pikoEpoch * 1000).toISOString(),
@@ -1607,10 +1590,7 @@ class KostalPikoAdapter extends utils.Adapter {
                     this._retryHistorySync(syncAll, retryCount, 'LogDaten.dat ohne Messzeilen', options);
                     return;
                 }
-                this._log(
-                    'WARN',
-                    'LogDaten.dat: keine verwertbaren Zeilen gefunden – bestehende Historie bleibt erhalten',
-                );
+                this._log('WARN', 'LogDaten.dat: no usable rows found – existing history preserved');
                 return;
             }
 
@@ -1629,14 +1609,14 @@ class KostalPikoAdapter extends utils.Adapter {
                 }
                 this._log(
                     'WARN',
-                    `LogDaten.dat wirkt unvollständig (${rows.length} Punkte, zuvor ${prevRows.length}, ` +
+                    `LogDaten.dat appears incomplete (${rows.length} points, previously ${prevRows.length}, ` +
                         `${rows[0].date.substring(0, 10)} – ${rows[rows.length - 1].date.substring(0, 10)}) – ` +
-                        `Cache wird per Merge aktualisiert, ältere Punkte bleiben erhalten`,
+                        `cache updated via merge, older points preserved`,
                 );
             } else if (this._cfg.verbose && prevRows.length && rows.length < prevRows.length * 0.1) {
                 this._log(
                     'DEBUG',
-                    `LogDaten.dat kurz (${rows.length} von ${prevRows.length} Punkten), aber aktuell – Merge ohne Warnung`,
+                    `LogDaten.dat short (${rows.length} of ${prevRows.length} points) but current – merge without warning`,
                 );
             }
 
@@ -1646,40 +1626,38 @@ class KostalPikoAdapter extends utils.Adapter {
             this._lastHistoryRows = merged.map(r => this._compactHistoryRow(r));
             this._invalidateHistoryApiCache();
             if (removed > 0) {
-                this._log('DEBUG', `${removed} doppelte History-Punkte beim Merge entfernt`);
+                this._log('DEBUG', `${removed} duplicate history points removed during merge`);
             }
             if (added > 0) {
-                this._log('DEBUG', `${added} neue Punkte per Merge (gesamt ${merged.length})`);
+                this._log('DEBUG', `${added} new points via merge (total ${merged.length})`);
             }
 
-            await this._saveHistoryCache().catch(e => this._log('WARN', `History-Cache speichern: ${e.message}`));
-            await this._refreshAutoYields().catch(e => this._log('WARN', `Monatserträge aktualisieren: ${e.message}`));
+            await this._saveHistoryCache().catch(e => this._log('WARN', `Saving history cache: ${e.message}`));
+            await this._refreshAutoYields().catch(e => this._log('WARN', `Updating monthly yields: ${e.message}`));
 
             const allRows = this._lastHistoryRows;
             this._log(
                 'DEBUG',
-                `${allRows.length} Datenpunkte gesamt | ` +
+                `${allRows.length} data points total | ` +
                     `${allRows[0].date.substring(0, 10)} – ${allRows[allRows.length - 1].date.substring(0, 10)}`,
             );
 
             if (syncAll) {
-                this._log('INFO', 'Sync-All: Cursor zurückgesetzt, übertrage alle Datenpunkte');
+                this._log('INFO', 'Sync-all: cursor reset, transferring all data points');
                 this._lastImportedTs = 0;
             }
 
             const newRows = syncAll ? allRows.filter(r => r.ts > 0) : allRows.filter(r => r.ts > this._lastImportedTs);
-            this._log('DEBUG', `${newRows.length} Datenpunkte ${syncAll ? '(alle)' : '(neu)'} → InfluxDB`);
+            this._log('DEBUG', `${newRows.length} data points ${syncAll ? '(all)' : '(new)'} → InfluxDB`);
 
             if (newRows.length === 0) {
                 this._lastImportIso = new Date().toISOString();
                 await this.setStateAsync('history.lastImport', { val: this._lastImportIso, ack: true });
                 await this.setStateAsync('history.recordCount', { val: allRows.length, ack: true });
-                await this._refreshAutoYields().catch(e =>
-                    this._log('WARN', `Monatserträge aktualisieren: ${e.message}`),
-                );
+                await this._refreshAutoYields().catch(e => this._log('WARN', `Updating monthly yields: ${e.message}`));
                 this._log(
                     this._cfg.verbose ? 'INFO' : 'DEBUG',
-                    `History-Sync: keine neuen Punkte (${allRows.length} gesamt)`,
+                    `History sync: no new points (${allRows.length} total)`,
                 );
                 return;
             }
@@ -1714,9 +1692,9 @@ class KostalPikoAdapter extends utils.Adapter {
 
             this._log(
                 'INFO',
-                `History-Sync${syncAll ? ' (Vollsync)' : ''}: ${newRows.length} Punkt(e)` +
+                `History sync${syncAll ? ' (full sync)' : ''}: ${newRows.length} point(s)` +
                     `${this._cfg.influxEnable ? `, ${influxSent} → ${this._cfg.influxInstance}` : ''}` +
-                    ` (${allRows.length} gesamt)`,
+                    ` (${allRows.length} total)`,
             );
         } finally {
             if (!retainSyncLock) {
@@ -1804,7 +1782,7 @@ class KostalPikoAdapter extends utils.Adapter {
         await new Promise(resolve => {
             this.sendTo(this._cfg.influxInstance, 'storeState', points, result => {
                 if (result && result.error && this._cfg.verbose) {
-                    this._log('WARN', `InfluxDB Live-Sync: ${result.error}`);
+                    this._log('WARN', `InfluxDB live sync: ${result.error}`);
                 }
                 resolve();
             });
@@ -2011,7 +1989,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 }
                 if (overwrite) {
                     await fs.promises.copyFile(src, dest);
-                    this._log('INFO', `Daten nach Update-sicheren Ordner kopiert: ${name}`);
+                    this._log('INFO', `Data copied to update-safe folder: ${name}`);
                 }
             }
         }
@@ -2151,21 +2129,21 @@ class KostalPikoAdapter extends utils.Adapter {
                 const removed = data.rows.length - this._lastHistoryRows.length;
                 this._log(
                     'INFO',
-                    `History-Cache geladen: ${this._lastHistoryRows.length} Punkte${
-                        removed > 0 ? ` (${removed} Duplikate entfernt)` : ''
+                    `History cache loaded: ${this._lastHistoryRows.length} points${
+                        removed > 0 ? ` (${removed} duplicates removed)` : ''
                     }${
-                        data.savedAt ? ` (Stand ${data.savedAt.substring(0, 19).replace('T', ' ')})` : ''
+                        data.savedAt ? ` (as of ${data.savedAt.substring(0, 19).replace('T', ' ')})` : ''
                     }${file.endsWith('.bak') ? ' [Backup]' : ''}`,
                 );
                 if (removed > 0) {
                     await this._saveHistoryCache().catch(e =>
-                        this._log('WARN', `History-Cache bereinigen: ${e.message}`),
+                        this._log('WARN', `Cleaning history cache: ${e.message}`),
                     );
                 }
                 return;
             } catch (e) {
                 if (e.code !== 'ENOENT' && this._cfg.verbose) {
-                    this._log('DEBUG', `History-Cache ${file}: ${e.message}`);
+                    this._log('DEBUG', `History cache ${file}: ${e.message}`);
                 }
             }
         }
@@ -2223,7 +2201,7 @@ class KostalPikoAdapter extends utils.Adapter {
         candidates.sort((a, b) => b.n - a.n);
         if (candidates.length && candidates[0].n > 0) {
             this._monthlyYields = candidates[0].data;
-            this._log('INFO', `Monatserträge geladen: ${candidates[0].n} Monate (${candidates[0].src})`);
+            this._log('INFO', `Monthly yields loaded: ${candidates[0].n} months (${candidates[0].src})`);
             if (this._yieldsCachePath && candidates[0].src !== this._yieldsCachePath) {
                 await this._saveMonthlyYields();
             }
@@ -2233,10 +2211,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const fromInflux = await this._loadYieldsFromInflux();
         if (fromInflux && Object.keys(fromInflux.months).length) {
             this._monthlyYields = fromInflux;
-            this._log(
-                'INFO',
-                `Monatserträge aus InfluxDB wiederhergestellt: ${Object.keys(fromInflux.months).length} Monate`,
-            );
+            this._log('INFO', `Monthly yields restored from InfluxDB: ${Object.keys(fromInflux.months).length} months`);
             await this._saveMonthlyYields();
             return;
         }
@@ -2255,11 +2230,11 @@ class KostalPikoAdapter extends utils.Adapter {
                         this._monthlyYields = data;
                         this._log(
                             'INFO',
-                            `Monatserträge nachträglich aus InfluxDB: ${Object.keys(data.months).length} Monate`,
+                            `Monthly yields loaded from InfluxDB later: ${Object.keys(data.months).length} months`,
                         );
                         await this._saveMonthlyYields();
                     })
-                    .catch(e => this._log('DEBUG', `Influx-Ertrag später: ${e.message}`));
+                    .catch(e => this._log('DEBUG', `Influx yield later: ${e.message}`));
             }, 12000);
         }
     }
@@ -2279,7 +2254,7 @@ class KostalPikoAdapter extends utils.Adapter {
             };
         } catch (e) {
             if (e.code !== 'ENOENT' && this._cfg?.verbose) {
-                this._log('DEBUG', `Monatserträge ${filePath}: ${e.message}`);
+                this._log('DEBUG', `Monthly yields ${filePath}: ${e.message}`);
             }
             return null;
         }
@@ -2295,7 +2270,7 @@ class KostalPikoAdapter extends utils.Adapter {
         if (!options.force && existingN >= 12 && n < existingN * 0.5) {
             this._log(
                 'WARN',
-                `Monatserträge nicht überschrieben (${n} Monate in Speicher, Datei hat ${existingN}) – Import/Backup nutzen`,
+                `Monthly yields not overwritten (${n} months in memory, file has ${existingN}) – use import/backup`,
             );
             return;
         }
@@ -2332,7 +2307,7 @@ class KostalPikoAdapter extends utils.Adapter {
         }
         this._influxYieldSyncTimer = this.setTimeout(() => {
             this._influxYieldSyncTimer = null;
-            this._syncYieldsToInflux().catch(e => this._log('WARN', `Ertrag → InfluxDB: ${e.message}`));
+            this._syncYieldsToInflux().catch(e => this._log('WARN', `Yield → InfluxDB: ${e.message}`));
         }, 2000);
     }
 
@@ -2342,7 +2317,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 id: 'yield.monthly',
                 type: 'number',
                 role: 'value.energy',
-                name: 'Monatsertrag (Influx/Grafana)',
+                name: 'Monthly yield (Influx/Grafana)',
                 unit: 'kWh',
                 def: 0,
             },
@@ -2350,7 +2325,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 id: 'yields.snapshot',
                 type: 'string',
                 role: 'json',
-                name: 'Ertragstabelle JSON-Backup',
+                name: 'Yield table JSON backup',
                 def: '',
             },
         ];
@@ -2399,7 +2374,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 ack: true,
             });
         } catch (e) {
-            this._log('WARN', `Ertrag-Snapshot State: ${e.message}`);
+            this._log('WARN', `Yield snapshot state: ${e.message}`);
         }
     }
 
@@ -2442,7 +2417,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 this._influxRetentionMs = 0;
             }
         } catch (e) {
-            this._log('DEBUG', `Influx-Retention: ${e.message}`);
+            this._log('DEBUG', `Influx retention: ${e.message}`);
         }
         return this._influxRetentionMs;
     }
@@ -2491,9 +2466,9 @@ class KostalPikoAdapter extends utils.Adapter {
         const monthlyN = points.length - 1;
         this._log(
             this._cfg.verbose || skippedOld ? 'INFO' : 'DEBUG',
-            `${monthlyN} Monatserträge → ${this._cfg.influxInstance}` +
-                `${skippedOld ? `, ${skippedOld} außerhalb Retention übersprungen` : ''}` +
-                ` (Snapshot gesichert)`,
+            `${monthlyN} monthly yields → ${this._cfg.influxInstance}` +
+                `${skippedOld ? `, ${skippedOld} outside retention skipped` : ''}` +
+                ` (snapshot saved)`,
         );
     }
 
@@ -2715,8 +2690,8 @@ class KostalPikoAdapter extends utils.Adapter {
             if (wh > maxWh) {
                 this._log(
                     'WARN',
-                    `Monatsertrag ${key}: ${wh} Wh unrealistisch (>${maxWh} Wh) – ` +
-                        `bitte „Auto-Werte löschen“ und erneut aus Historie berechnen`,
+                    `Monthly yield ${key}: ${wh} Wh unrealistic (>${maxWh} Wh) – ` +
+                        `please clear auto values and recalculate from history`,
                 );
                 return;
             }
@@ -2739,7 +2714,7 @@ class KostalPikoAdapter extends utils.Adapter {
             await this._saveMonthlyYields();
             this._log(
                 updated > 1 || this._cfg.verbose ? 'INFO' : 'DEBUG',
-                `Monatserträge: ${updated} Monat(e) aus Historie aktualisiert`,
+                `Monthly yields: ${updated} month(s) updated from history`,
             );
         }
 
@@ -2874,7 +2849,7 @@ class KostalPikoAdapter extends utils.Adapter {
             const year = parseInt(body.year);
             const month = parseInt(body.month);
             if (!year || month < 1 || month > 12) {
-                throw new Error('Ungültiges Jahr/Monat');
+                throw new Error('Invalid year/month');
             }
             const key = this._monthKey(year, month);
             const wh =
@@ -2884,7 +2859,7 @@ class KostalPikoAdapter extends utils.Adapter {
             if (wh === null || isNaN(wh)) {
                 delete this._monthlyYields.months[key];
             } else if (wh < 0) {
-                throw new Error('Ertrag darf nicht negativ sein');
+                throw new Error('Yield must not be negative');
             } else {
                 this._monthlyYields.months[key] = {
                     wh,
@@ -2924,7 +2899,7 @@ class KostalPikoAdapter extends utils.Adapter {
                     this._cfg.yieldPlz = p;
                     this._weatherGeoCache = null;
                     this._lastWeatherFetch = 0;
-                    this._refreshWeather().catch(e => this._log('DEBUG', `Wetter: ${e.message}`));
+                    this._refreshWeather().catch(e => this._log('DEBUG', `Weather: ${e.message}`));
                 }
             }
             if (body.regionalKwpRef !== undefined) {
@@ -3000,7 +2975,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 }
             }
             if (!data || !Object.keys(data.months).length) {
-                throw new Error(`Kein Backup gefunden (${tried.join(', ') || 'keine Pfade'})`);
+                throw new Error(`No backup found (${tried.join(', ') || 'no paths'})`);
             }
             this._monthlyYields = data;
             await this._saveMonthlyYields({ force: true });
@@ -3012,11 +2987,11 @@ class KostalPikoAdapter extends utils.Adapter {
 
         if (action === 'restoreFromInflux') {
             if (!this._cfg.influxEnable) {
-                throw new Error('InfluxDB-Sync ist nicht aktiv – in den Adapter-Einstellungen einschalten');
+                throw new Error('InfluxDB sync is not active – enable in adapter settings');
             }
             const data = await this._loadYieldsFromInflux();
             if (!data || !Object.keys(data.months).length) {
-                throw new Error('InfluxDB enthält noch keine Monatserträge (Snapshot / yield.monthly)');
+                throw new Error('InfluxDB has no monthly yields yet (snapshot / yield.monthly)');
             }
             const mode = body.mode === 'replace' ? 'replace' : 'merge';
             if (mode === 'replace') {
@@ -3055,7 +3030,7 @@ class KostalPikoAdapter extends utils.Adapter {
         if (action === 'addYear') {
             const year = parseInt(body.year);
             if (!year || year < 1990 || year > 2100) {
-                throw new Error('Ungültiges Jahr (1990–2100)');
+                throw new Error('Invalid year (1990–2100)');
             }
             if (!this._monthlyYields.extraYears) {
                 this._monthlyYields.extraYears = [];
@@ -3076,7 +3051,7 @@ class KostalPikoAdapter extends utils.Adapter {
                   : 2010;
             const to = body.toYear ? parseInt(body.toYear) : new Date().getFullYear();
             if (!from || from < 1990 || to > 2100 || from > to) {
-                throw new Error('Ungültiger Jahresbereich');
+                throw new Error('Invalid year range');
             }
             if (!this._monthlyYields.extraYears) {
                 this._monthlyYields.extraYears = [];
@@ -3096,7 +3071,7 @@ class KostalPikoAdapter extends utils.Adapter {
         if (action === 'removeYear') {
             const year = parseInt(body.year);
             if (!year) {
-                throw new Error('Jahr fehlt');
+                throw new Error('Year missing');
             }
             if (this._monthlyYields.extraYears) {
                 this._monthlyYields.extraYears = this._monthlyYields.extraYears.filter(y => y !== year);
@@ -3168,14 +3143,14 @@ class KostalPikoAdapter extends utils.Adapter {
             } else if (body.csv && typeof body.csv === 'string') {
                 imported = this._importYieldsCsv(body.csv, mode);
             } else {
-                throw new Error('Keine Import-Daten (data oder csv)');
+                throw new Error('No import data (data or csv)');
             }
 
             await this._saveMonthlyYields({ force: true });
             return { ok: true, message: `${imported} Monatswerte importiert (${mode})` };
         }
 
-        throw new Error('Unbekannte Aktion');
+        throw new Error('Unknown action');
     }
 
     _importYieldsCsv(csv, mode) {
@@ -3226,7 +3201,7 @@ class KostalPikoAdapter extends utils.Adapter {
             }
         });
         if (!yearCols.length) {
-            throw new Error('CSV: keine Jahres-Spalten gefunden');
+            throw new Error('CSV: no year columns found');
         }
 
         if (mode === 'replace') {
@@ -3548,6 +3523,23 @@ class KostalPikoAdapter extends utils.Adapter {
     //   PIKO 8.3 (2 Strings): [11]=L3U, [12]=L3P
     //   PIKO 5.5 (3 Strings): [11]=S3U, [12]=L3U, [13]=S3I, [14]=L3P
 
+    _normalizeInverterStatus(status) {
+        if (!status) {
+            return 'Unknown';
+        }
+        const s = String(status).trim().toLowerCase();
+        const map = {
+            aus: 'Off',
+            ein: 'On',
+            unbekannt: 'Unknown',
+            offline: 'Offline',
+            online: 'Online',
+            betrieb: 'Operating',
+            wartung: 'Maintenance',
+        };
+        return map[s] || String(status).trim();
+    }
+
     _parseMainPage(html) {
         // Alle bgcolor="#FFFFFF" Zellen in DOM-Reihenfolge sammeln (inkl. leere)
         const cells = [];
@@ -3559,11 +3551,11 @@ class KostalPikoAdapter extends utils.Adapter {
 
         // Status lesen
         const statusMatch = html.match(/Status<\/td>\s*<td[^>]*>\s*([^<]+?)\s*<\/td>/i);
-        const status = statusMatch ? statusMatch[1].trim() : null;
+        const rawStatus = statusMatch ? statusMatch[1].trim() : null;
 
-        // Offline: "x x x" in Messwert-Zellen (beide Modelle)
+        // Offline: "x x x" in measurement cells (both models)
         const isXxx = s => /^x\s+x\s+x$/i.test(s || '');
-        const isOff = !status || status.toLowerCase() === 'aus' || cells.some(c => isXxx(c));
+        const isOff = !rawStatus || rawStatus.toLowerCase() === 'aus' || cells.some(c => isXxx(c));
         const isOn = !isOff;
 
         // Modell-Name: aus Config-Override oder HTML lesen
@@ -3609,7 +3601,7 @@ class KostalPikoAdapter extends utils.Adapter {
         };
 
         const result = {
-            status: status || 'Aus',
+            status: this._normalizeInverterStatus(rawStatus) || 'Off',
             online: isOn ? 1 : 0,
             'device.strings': has3Strings ? 3 : 2,
             'device.model': modelName,
@@ -3739,7 +3731,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const instId = `system.adapter.${this.namespace}`;
         const obj = await this.getObjectAsync(instId);
         if (!obj?.native) {
-            throw new Error('Instanz-Konfiguration nicht lesbar');
+            throw new Error('Instance configuration not readable');
         }
         const native = {
             ...obj.native,
@@ -3774,9 +3766,9 @@ class KostalPikoAdapter extends utils.Adapter {
         }
         try {
             await this._applyModulePresetToInstance(this._cfg.modulePreset, preset);
-            this._log('INFO', `Modul-Vorlage "${preset.name}" in Instanz-Konfiguration übernommen`);
+            this._log('INFO', `Module preset "${preset.name}" applied to instance config`);
         } catch (e) {
-            this._log('WARN', `Modul-Vorlage konnte nicht synchronisiert werden: ${e.message}`);
+            this._log('WARN', `Module preset could not be synced: ${e.message}`);
         }
     }
 
@@ -3839,8 +3831,8 @@ class KostalPikoAdapter extends utils.Adapter {
             const validRel = !!this._lastData[`${prefix}.tempValidRelative`];
             const validAbs = !!this._lastData[`${prefix}.tempValidAbsolute`];
             const tempRaw = this._lastData[`${prefix}.tempEquivalentC`];
-            const quality = this._lastData[`${prefix}.tempQuality`] || 'UNGUELTIG';
-            const usable = quality !== 'UNGUELTIG' && tempRaw;
+            const quality = this._lastData[`${prefix}.tempQuality`] || 'INVALID';
+            const usable = quality !== 'INVALID' && tempRaw;
             return {
                 id: scfg.id,
                 modules: scfg.modules,
@@ -3854,7 +3846,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 tempLossW: this._lastData[`${prefix}.tempLossW`] ?? 0,
                 powerAt25C: this._lastData[`${prefix}.powerAt25C`] ?? 0,
                 mppUtilization: this._lastData[`${prefix}.mppUtilization`] ?? 0,
-                alert: this._lastData[`${prefix}.tempAlert`] || 'UNBEKANNT',
+                alert: this._lastData[`${prefix}.tempAlert`] || 'UNKNOWN',
             };
         });
         return {
@@ -3866,7 +3858,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 totalLossW: this._lastData['temperature.totalLossW'] ?? 0,
                 totalLossKwhDay: this._lastData['temperature.totalLossKwhDay'] ?? 0,
                 hottest: this._lastData['temperature.hottest'] || '',
-                systemAlert: this._lastData['temperature.systemAlert'] || 'UNBEKANNT',
+                systemAlert: this._lastData['temperature.systemAlert'] || 'UNKNOWN',
             },
         };
     }
@@ -3906,7 +3898,7 @@ class KostalPikoAdapter extends utils.Adapter {
         }
         // Jede Minute prüfen ob ein Bericht fällig ist
         this._notifyTimer = this.setInterval(() => this._checkNotify(), 60 * 1000);
-        this._log('SYSTEM', 'Benachrichtigungs-Timer gestartet');
+        this._log('SYSTEM', 'Notification timer started');
     }
 
     _checkNotify() {
@@ -3923,7 +3915,7 @@ class KostalPikoAdapter extends utils.Adapter {
             const key = `daily-${now.toDateString()}`;
             if (this._lastNotifySent.daily !== key) {
                 this._lastNotifySent.daily = key;
-                this._sendDailyReport().catch(e => this._log('WARN', `Tagesbericht: ${e.message}`));
+                this._sendDailyReport().catch(e => this._log('WARN', `Daily report: ${e.message}`));
             }
         }
         // Wochenbericht (Montag)
@@ -3931,7 +3923,7 @@ class KostalPikoAdapter extends utils.Adapter {
             const key = `weekly-${now.toDateString()}`;
             if (this._lastNotifySent.weekly !== key) {
                 this._lastNotifySent.weekly = key;
-                this._sendWeeklyReport().catch(e => this._log('WARN', `Wochenbericht: ${e.message}`));
+                this._sendWeeklyReport().catch(e => this._log('WARN', `Weekly report: ${e.message}`));
             }
         }
         // Monatsbericht (1. des Monats)
@@ -3939,7 +3931,7 @@ class KostalPikoAdapter extends utils.Adapter {
             const key = `monthly-${now.toDateString()}`;
             if (this._lastNotifySent.monthly !== key) {
                 this._lastNotifySent.monthly = key;
-                this._sendMonthlyReport().catch(e => this._log('WARN', `Monatsbericht: ${e.message}`));
+                this._sendMonthlyReport().catch(e => this._log('WARN', `Monthly report: ${e.message}`));
             }
         }
         // Alarm
@@ -3947,7 +3939,7 @@ class KostalPikoAdapter extends utils.Adapter {
             const key = `alert-${now.toDateString()}`;
             if (this._lastNotifySent.alert !== key) {
                 this._lastNotifySent.alert = key;
-                this._checkDayAlert().catch(e => this._log('WARN', `Alarm-Check: ${e.message}`));
+                this._checkDayAlert().catch(e => this._log('WARN', `Alert check: ${e.message}`));
             }
         }
     }
@@ -4699,15 +4691,15 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 resolve(result);
             };
             const timer = this.setTimeout(() => {
-                this._log('WARN', `Benachrichtigung: Timeout (30s) via ${inst}`);
+                this._log('WARN', `Notification: timeout (30s) via ${inst}`);
                 finish({ error: 'Timeout beim E-Mail-Versand (email-Adapter antwortet nicht)' });
             }, 30000);
             this.sendTo(inst, 'send', payload, result => {
                 if (result && result.error) {
-                    this._log('WARN', `Benachrichtigung fehlgeschlagen (${inst}): ${result.error}`);
+                    this._log('WARN', `Notification failed (${inst}): ${result.error}`);
                     return finish({ error: result.error });
                 }
-                this._log('INFO', `Benachrichtigung gesendet via ${inst} → ${recipients.join(', ')}`);
+                this._log('INFO', `Notification sent via ${inst} → ${recipients.join(', ')}`);
                 finish({ ok: true });
             });
         });
@@ -4726,7 +4718,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
         }
         const stats = this._calcDayStats(this._getRowsForDate(yesterday));
         if (stats) {
-            this._log('INFO', `Tagesbericht gesendet: ${stats.kwh.toFixed(2)} kWh`);
+            this._log('INFO', `Daily report sent: ${stats.kwh.toFixed(2)} kWh`);
         }
     }
 
@@ -4740,7 +4732,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             throw new Error(result.error);
         }
         const { weekNum } = this._getPreviousCalendarWeek();
-        this._log('INFO', `Wochenbericht gesendet (KW ${weekNum})`);
+        this._log('INFO', `Weekly report sent (week ${weekNum})`);
     }
 
     async _sendMonthlyReport(opts = {}) {
@@ -4755,7 +4747,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
         const today = new Date();
         const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const monthName = lastMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-        this._log('INFO', `Monatsbericht gesendet (${monthName})`);
+        this._log('INFO', `Monthly report sent (${monthName})`);
     }
 
     async _checkDayAlert() {
@@ -4795,7 +4787,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 );
             }
             await this._sendNotify(lines.join('\n'), subject);
-            this._log('WARN', `Alarm gesendet: ${alerts.join(', ')}`);
+            this._log('WARN', `Alert sent: ${alerts.join(', ')}`);
         }
     }
 
@@ -4826,38 +4818,38 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
 
     async _ensureBaseStates() {
         const defs = [
-            { id: 'info.connection', type: 'boolean', role: 'indicator.connected', name: 'Verbunden', def: false },
+            { id: 'info.connection', type: 'boolean', role: 'indicator.connected', name: 'Connected', def: false },
             {
                 id: 'info.networkMode',
                 type: 'string',
                 role: 'text',
-                name: 'Netzwerk-Modus (local/fritzwireguard)',
+                name: 'Network mode (local/fritzwireguard)',
                 def: 'local',
             },
-            { id: 'info.lastPoll', type: 'string', role: 'date', name: 'Letzter Poll', def: '' },
-            { id: 'status', type: 'string', role: 'text', name: 'Betriebsstatus', def: 'Unbekannt' },
-            { id: 'online', type: 'number', role: 'value', name: 'Online (1=ja, 0=nein)', def: 0 },
+            { id: 'info.lastPoll', type: 'string', role: 'date', name: 'Last poll', def: '' },
+            { id: 'status', type: 'string', role: 'text', name: 'Operating status', def: 'Unknown' },
+            { id: 'online', type: 'number', role: 'value', name: 'Online (1=yes, 0=no)', def: 0 },
             {
                 id: 'ac.power',
                 type: 'number',
                 role: 'value.power.active',
-                name: 'AC-Leistung aktuell',
+                name: 'AC power current',
                 def: 0,
                 unit: 'W',
             },
-            { id: 'ac.l1.voltage', type: 'number', role: 'value.voltage', name: 'L1 Spannung', def: 0, unit: 'V' },
-            { id: 'ac.l1.power', type: 'number', role: 'value.power.active', name: 'L1 Leistung', def: 0, unit: 'W' },
-            { id: 'ac.l2.voltage', type: 'number', role: 'value.voltage', name: 'L2 Spannung', def: 0, unit: 'V' },
-            { id: 'ac.l2.power', type: 'number', role: 'value.power.active', name: 'L2 Leistung', def: 0, unit: 'W' },
-            { id: 'ac.l3.voltage', type: 'number', role: 'value.voltage', name: 'L3 Spannung', def: 0, unit: 'V' },
-            { id: 'ac.l3.power', type: 'number', role: 'value.power.active', name: 'L3 Leistung', def: 0, unit: 'W' },
-            { id: 'energy.total', type: 'number', role: 'value.energy', name: 'Gesamtenergie', def: 0, unit: 'kWh' },
-            { id: 'energy.today', type: 'number', role: 'value.energy', name: 'Tagesenergie', def: 0, unit: 'kWh' },
+            { id: 'ac.l1.voltage', type: 'number', role: 'value.voltage', name: 'L1 voltage', def: 0, unit: 'V' },
+            { id: 'ac.l1.power', type: 'number', role: 'value.power.active', name: 'L1 power', def: 0, unit: 'W' },
+            { id: 'ac.l2.voltage', type: 'number', role: 'value.voltage', name: 'L2 voltage', def: 0, unit: 'V' },
+            { id: 'ac.l2.power', type: 'number', role: 'value.power.active', name: 'L2 power', def: 0, unit: 'W' },
+            { id: 'ac.l3.voltage', type: 'number', role: 'value.voltage', name: 'L3 voltage', def: 0, unit: 'V' },
+            { id: 'ac.l3.power', type: 'number', role: 'value.power.active', name: 'L3 power', def: 0, unit: 'W' },
+            { id: 'energy.total', type: 'number', role: 'value.energy', name: 'Total energy', def: 0, unit: 'kWh' },
+            { id: 'energy.today', type: 'number', role: 'value.energy', name: 'Daily energy', def: 0, unit: 'kWh' },
             {
                 id: 'pv.string1.voltage',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 1 Spannung',
+                name: 'String 1 voltage',
                 def: 0,
                 unit: 'V',
             },
@@ -4865,7 +4857,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'pv.string1.current',
                 type: 'number',
                 role: 'value.current',
-                name: 'String 1 Strom',
+                name: 'String 1 current',
                 def: 0,
                 unit: 'A',
             },
@@ -4873,7 +4865,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'pv.string2.voltage',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 2 Spannung',
+                name: 'String 2 voltage',
                 def: 0,
                 unit: 'V',
             },
@@ -4881,7 +4873,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'pv.string2.current',
                 type: 'number',
                 role: 'value.current',
-                name: 'String 2 Strom',
+                name: 'String 2 current',
                 def: 0,
                 unit: 'A',
             },
@@ -4889,7 +4881,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'pv.string3.voltage',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 3 Spannung',
+                name: 'String 3 voltage',
                 def: 0,
                 unit: 'V',
             },
@@ -4897,17 +4889,17 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'pv.string3.current',
                 type: 'number',
                 role: 'value.current',
-                name: 'String 3 Strom',
+                name: 'String 3 current',
                 def: 0,
                 unit: 'A',
             },
-            { id: 'device.strings', type: 'number', role: 'value', name: 'Anzahl PV-Strings (2 oder 3)', def: 2 },
-            { id: 'device.model', type: 'string', role: 'text', name: 'Modell (PIKO 8.3 / PIKO 5.5)', def: '' },
+            { id: 'device.strings', type: 'number', role: 'value', name: 'Number of PV strings (2 or 3)', def: 2 },
+            { id: 'device.model', type: 'string', role: 'text', name: 'Model (PIKO 8.3 / PIKO 5.5)', def: '' },
             {
                 id: 'info.analog1',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'Analoger Eingang 1',
+                name: 'Analog input 1',
                 def: 0,
                 unit: 'V',
             },
@@ -4915,7 +4907,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'info.analog2',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'Analoger Eingang 2',
+                name: 'Analog input 2',
                 def: 0,
                 unit: 'V',
             },
@@ -4923,7 +4915,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'info.analog3',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'Analoger Eingang 3',
+                name: 'Analog input 3',
                 def: 0,
                 unit: 'V',
             },
@@ -4931,26 +4923,26 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'info.analog4',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'Analoger Eingang 4',
+                name: 'Analog input 4',
                 def: 0,
                 unit: 'V',
             },
-            { id: 'info.modemStatus', type: 'string', role: 'text', name: 'Modemstatus', def: '' },
+            { id: 'info.modemStatus', type: 'string', role: 'text', name: 'Modem status', def: '' },
             {
                 id: 'info.lastPortalConnection',
                 type: 'string',
                 role: 'text',
-                name: 'Letzte Portal-Verbindung',
+                name: 'Last portal connection',
                 def: '',
             },
-            { id: 'info.s0Pulses', type: 'number', role: 'value', name: 'S0-Energiepulse', def: 0 },
-            { id: 'rs485.busAddress', type: 'number', role: 'value', name: 'RS485 Bus-Adresse', def: 255 },
+            { id: 'info.s0Pulses', type: 'number', role: 'value', name: 'S0 energy pulses', def: 0 },
+            { id: 'rs485.busAddress', type: 'number', role: 'value', name: 'RS485 bus address', def: 255 },
             // Berechnete Soll-Werte (aus Modul-Konfiguration)
             {
                 id: 'string1.expectedVoltage',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 1 Soll-Mpp-Spannung',
+                name: 'String 1 target MPP voltage',
                 def: 0,
                 unit: 'V',
             },
@@ -4958,7 +4950,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.expectedVoc',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 1 Soll-Voc',
+                name: 'String 1 target Voc',
                 def: 0,
                 unit: 'V',
             },
@@ -4966,7 +4958,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.expectedVoltage',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 2 Soll-Mpp-Spannung',
+                name: 'String 2 target MPP voltage',
                 def: 0,
                 unit: 'V',
             },
@@ -4974,7 +4966,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.expectedVoc',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 2 Soll-Voc',
+                name: 'String 2 target Voc',
                 def: 0,
                 unit: 'V',
             },
@@ -4982,7 +4974,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.expectedVoltage',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 3 Soll-Mpp-Spannung',
+                name: 'String 3 target MPP voltage',
                 def: 0,
                 unit: 'V',
             },
@@ -4990,7 +4982,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.expectedVoc',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 3 Soll-Voc',
+                name: 'String 3 target Voc',
                 def: 0,
                 unit: 'V',
             },
@@ -4998,7 +4990,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.expectedPower',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 1 Soll-Leistung',
+                name: 'String 1 target power',
                 def: 0,
                 unit: 'Wp',
             },
@@ -5006,7 +4998,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.expectedPower',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 2 Soll-Leistung',
+                name: 'String 2 target power',
                 def: 0,
                 unit: 'Wp',
             },
@@ -5014,7 +5006,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.expectedPower',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 3 Soll-Leistung',
+                name: 'String 3 target power',
                 def: 0,
                 unit: 'Wp',
             },
@@ -5023,7 +5015,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.vmppPerModule',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 1 Vmpp/Modul (gemessen)',
+                name: 'String 1 Vmpp/module (measured)',
                 def: 0,
                 unit: 'V',
             },
@@ -5031,7 +5023,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.tempEquivalentC',
                 type: 'number',
                 role: 'value.temperature',
-                name: 'String 1 \u00e4quiv. Temperatur',
+                name: 'String 1 equiv. temperature',
                 def: 0,
                 unit: '\u00b0C',
             },
@@ -5039,28 +5031,28 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.tempQuality',
                 type: 'string',
                 role: 'text',
-                name: 'String 1 Temp.-Qualit\u00e4t',
-                def: 'UNGUELTIG',
+                name: 'String 1 temp. quality',
+                def: 'INVALID',
             },
             {
                 id: 'string1.tempValidRelative',
                 type: 'boolean',
                 role: 'indicator',
-                name: 'String 1 Temp. relativ valide',
+                name: 'String 1 temp. relatively valid',
                 def: false,
             },
             {
                 id: 'string1.tempValidAbsolute',
                 type: 'boolean',
                 role: 'indicator',
-                name: 'String 1 Temp. absolut valide',
+                name: 'String 1 temp. absolutely valid',
                 def: false,
             },
             {
                 id: 'string1.tempUncertaintyK',
                 type: 'number',
                 role: 'value',
-                name: 'String 1 Temp.-Unsicherheit',
+                name: 'String 1 temp. uncertainty',
                 def: 0,
                 unit: 'K',
             },
@@ -5068,7 +5060,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.tempDeltaK',
                 type: 'number',
                 role: 'value',
-                name: 'String 1 \u0394T \u00fcber STC',
+                name: 'String 1 \u0394T above STC',
                 def: 0,
                 unit: 'K',
             },
@@ -5076,7 +5068,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.tempLossW',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 1 Temperaturverlust',
+                name: 'String 1 temperature loss',
                 def: 0,
                 unit: 'W',
             },
@@ -5084,7 +5076,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.powerAt25C',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 1 \u00e4quiv. STC-Leistung',
+                name: 'String 1 equiv. STC power',
                 def: 0,
                 unit: 'W',
             },
@@ -5092,7 +5084,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.mppUtilization',
                 type: 'number',
                 role: 'value',
-                name: 'String 1 MPP-Ausnutzung',
+                name: 'String 1 MPP utilization',
                 def: 0,
                 unit: '%',
             },
@@ -5100,14 +5092,14 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string1.tempAlert',
                 type: 'string',
                 role: 'text',
-                name: 'String 1 Temperatur-Status',
-                def: 'UNBEKANNT',
+                name: 'String 1 temperature status',
+                def: 'UNKNOWN',
             },
             {
                 id: 'string2.vmppPerModule',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 2 Vmpp/Modul (gemessen)',
+                name: 'String 2 Vmpp/module (measured)',
                 def: 0,
                 unit: 'V',
             },
@@ -5115,7 +5107,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.tempEquivalentC',
                 type: 'number',
                 role: 'value.temperature',
-                name: 'String 2 \u00e4quiv. Temperatur',
+                name: 'String 2 equiv. temperature',
                 def: 0,
                 unit: '\u00b0C',
             },
@@ -5123,28 +5115,28 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.tempQuality',
                 type: 'string',
                 role: 'text',
-                name: 'String 2 Temp.-Qualit\u00e4t',
-                def: 'UNGUELTIG',
+                name: 'String 2 temp. quality',
+                def: 'INVALID',
             },
             {
                 id: 'string2.tempValidRelative',
                 type: 'boolean',
                 role: 'indicator',
-                name: 'String 2 Temp. relativ valide',
+                name: 'String 2 temp. relatively valid',
                 def: false,
             },
             {
                 id: 'string2.tempValidAbsolute',
                 type: 'boolean',
                 role: 'indicator',
-                name: 'String 2 Temp. absolut valide',
+                name: 'String 2 temp. absolutely valid',
                 def: false,
             },
             {
                 id: 'string2.tempUncertaintyK',
                 type: 'number',
                 role: 'value',
-                name: 'String 2 Temp.-Unsicherheit',
+                name: 'String 2 temp. uncertainty',
                 def: 0,
                 unit: 'K',
             },
@@ -5152,7 +5144,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.tempDeltaK',
                 type: 'number',
                 role: 'value',
-                name: 'String 2 \u0394T \u00fcber STC',
+                name: 'String 2 \u0394T above STC',
                 def: 0,
                 unit: 'K',
             },
@@ -5160,7 +5152,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.tempLossW',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 2 Temperaturverlust',
+                name: 'String 2 temperature loss',
                 def: 0,
                 unit: 'W',
             },
@@ -5168,7 +5160,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.powerAt25C',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 2 \u00e4quiv. STC-Leistung',
+                name: 'String 2 equiv. STC power',
                 def: 0,
                 unit: 'W',
             },
@@ -5176,7 +5168,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.mppUtilization',
                 type: 'number',
                 role: 'value',
-                name: 'String 2 MPP-Ausnutzung',
+                name: 'String 2 MPP utilization',
                 def: 0,
                 unit: '%',
             },
@@ -5184,14 +5176,14 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string2.tempAlert',
                 type: 'string',
                 role: 'text',
-                name: 'String 2 Temperatur-Status',
-                def: 'UNBEKANNT',
+                name: 'String 2 temperature status',
+                def: 'UNKNOWN',
             },
             {
                 id: 'string3.vmppPerModule',
                 type: 'number',
                 role: 'value.voltage',
-                name: 'String 3 Vmpp/Modul (gemessen)',
+                name: 'String 3 Vmpp/module (measured)',
                 def: 0,
                 unit: 'V',
             },
@@ -5199,7 +5191,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.tempEquivalentC',
                 type: 'number',
                 role: 'value.temperature',
-                name: 'String 3 \u00e4quiv. Temperatur',
+                name: 'String 3 equiv. temperature',
                 def: 0,
                 unit: '\u00b0C',
             },
@@ -5207,28 +5199,28 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.tempQuality',
                 type: 'string',
                 role: 'text',
-                name: 'String 3 Temp.-Qualit\u00e4t',
-                def: 'UNGUELTIG',
+                name: 'String 3 temp. quality',
+                def: 'INVALID',
             },
             {
                 id: 'string3.tempValidRelative',
                 type: 'boolean',
                 role: 'indicator',
-                name: 'String 3 Temp. relativ valide',
+                name: 'String 3 temp. relatively valid',
                 def: false,
             },
             {
                 id: 'string3.tempValidAbsolute',
                 type: 'boolean',
                 role: 'indicator',
-                name: 'String 3 Temp. absolut valide',
+                name: 'String 3 temp. absolutely valid',
                 def: false,
             },
             {
                 id: 'string3.tempUncertaintyK',
                 type: 'number',
                 role: 'value',
-                name: 'String 3 Temp.-Unsicherheit',
+                name: 'String 3 temp. uncertainty',
                 def: 0,
                 unit: 'K',
             },
@@ -5236,7 +5228,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.tempDeltaK',
                 type: 'number',
                 role: 'value',
-                name: 'String 3 \u0394T \u00fcber STC',
+                name: 'String 3 \u0394T above STC',
                 def: 0,
                 unit: 'K',
             },
@@ -5244,7 +5236,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.tempLossW',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 3 Temperaturverlust',
+                name: 'String 3 temperature loss',
                 def: 0,
                 unit: 'W',
             },
@@ -5252,7 +5244,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.powerAt25C',
                 type: 'number',
                 role: 'value.power',
-                name: 'String 3 \u00e4quiv. STC-Leistung',
+                name: 'String 3 equiv. STC power',
                 def: 0,
                 unit: 'W',
             },
@@ -5260,7 +5252,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.mppUtilization',
                 type: 'number',
                 role: 'value',
-                name: 'String 3 MPP-Ausnutzung',
+                name: 'String 3 MPP utilization',
                 def: 0,
                 unit: '%',
             },
@@ -5268,14 +5260,14 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'string3.tempAlert',
                 type: 'string',
                 role: 'text',
-                name: 'String 3 Temperatur-Status',
-                def: 'UNBEKANNT',
+                name: 'String 3 temperature status',
+                def: 'UNKNOWN',
             },
             {
                 id: 'temperature.deltaStrings',
                 type: 'number',
                 role: 'value',
-                name: '\u0394T String 1 \u2194 2',
+                name: '\u0394T string 1 \u2194 2',
                 def: 0,
                 unit: 'K',
             },
@@ -5283,14 +5275,14 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'temperature.deltaValid',
                 type: 'boolean',
                 role: 'indicator',
-                name: '\u0394T String 1\u21942 valide',
+                name: '\u0394T string 1\u21942 valid',
                 def: false,
             },
             {
                 id: 'temperature.totalLossW',
                 type: 'number',
                 role: 'value.power',
-                name: 'Temperaturverlust gesamt',
+                name: 'Total temperature loss',
                 def: 0,
                 unit: 'W',
             },
@@ -5298,23 +5290,23 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'temperature.totalLossKwhDay',
                 type: 'number',
                 role: 'value.energy',
-                name: 'Temperaturverlust heute',
+                name: 'Temperature loss today',
                 def: 0,
                 unit: 'kWh',
             },
-            { id: 'temperature.hottest', type: 'string', role: 'text', name: 'Hei\u00dfester String', def: '' },
+            { id: 'temperature.hottest', type: 'string', role: 'text', name: 'Hottest string', def: '' },
             {
                 id: 'temperature.systemAlert',
                 type: 'string',
                 role: 'text',
-                name: 'System-Temperatur-Status',
-                def: 'UNBEKANNT',
+                name: 'System temperature status',
+                def: 'UNKNOWN',
             },
             {
                 id: 'dc.totalPower',
                 type: 'number',
                 role: 'value.power.active',
-                name: 'DC-Gesamtleistung (berechnet)',
+                name: 'DC total power (calculated)',
                 def: 0,
                 unit: 'W',
             },
@@ -5322,7 +5314,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'efficiency.ratio',
                 type: 'number',
                 role: 'value',
-                name: 'Wirkungsgrad DC\u2192AC',
+                name: 'DC\u2192AC efficiency',
                 def: 0,
                 unit: '%',
             },
@@ -5330,7 +5322,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'efficiency.expected',
                 type: 'number',
                 role: 'value',
-                name: 'Soll-Wirkungsgrad (temp.-korr.)',
+                name: 'Target efficiency (temp.-corrected)',
                 def: 97,
                 unit: '%',
             },
@@ -5338,7 +5330,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'weather.sunshineHours',
                 type: 'number',
                 role: 'value',
-                name: 'Sonnenstunden heute (Prognose)',
+                name: 'Sunshine hours today (forecast)',
                 def: 0,
                 unit: 'h',
             },
@@ -5346,7 +5338,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'weather.tempMax',
                 type: 'number',
                 role: 'value.temperature',
-                name: 'Max.-Temperatur heute',
+                name: 'Max. temperature today',
                 def: 0,
                 unit: '\u00b0C',
             },
@@ -5354,7 +5346,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'weather.cloudCover',
                 type: 'number',
                 role: 'value',
-                name: 'Bew\u00f6lkung heute (7\u201319h)',
+                name: 'Cloud cover today (7\u201319h)',
                 def: 0,
                 unit: '%',
             },
@@ -5362,7 +5354,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'weather.precipitation',
                 type: 'number',
                 role: 'value',
-                name: 'Niederschlag heute',
+                name: 'Precipitation today',
                 def: 0,
                 unit: 'mm',
             },
@@ -5370,12 +5362,12 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 id: 'weather.description',
                 type: 'string',
                 role: 'weather.state.forecast.0',
-                name: 'Wetter heute (Text)',
+                name: 'Weather today (text)',
                 def: '',
             },
-            { id: 'weather.plz', type: 'string', role: 'text', name: 'Wetter-PLZ', def: '' },
-            { id: 'weather.place', type: 'string', role: 'text', name: 'Wetter-Ort', def: '' },
-            { id: 'weather.updatedAt', type: 'string', role: 'date', name: 'Wetter letzte Aktualisierung', def: '' },
+            { id: 'weather.plz', type: 'string', role: 'text', name: 'Weather ZIP code', def: '' },
+            { id: 'weather.place', type: 'string', role: 'text', name: 'Weather location', def: '' },
+            { id: 'weather.updatedAt', type: 'string', role: 'date', name: 'Weather last update', def: '' },
         ];
         for (const d of defs) {
             await this._ensureChannelPath(d.id);
@@ -5470,7 +5462,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
         this._lastData = { ...this._lastData, ...merged, _ts: new Date().toISOString() };
         this._syncLiveToInflux(merged).catch(e => {
             if (this._cfg.verbose) {
-                this._log('WARN', `Live Influx-Sync: ${e.message}`);
+                this._log('WARN', `Live Influx sync: ${e.message}`);
             }
         });
     }
@@ -5528,16 +5520,16 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 this._fetchAndImportHistory(false, 0, { force: true }).catch(e =>
                     this._log('ERROR', `Sync: ${e.message}`),
                 );
-                return this._json(res, { ok: true, message: 'Sync gestartet (nur neue Datenpunkte)' });
+                return this._json(res, { ok: true, message: 'Sync started (new data points only)' });
             }
             if (p === '/api/sync-all') {
                 // Vollsync: Cursor zurücksetzen → alle ~6 Monate an InfluxDB
                 this._fetchAndImportHistory(true, 0, { force: true }).catch(e =>
-                    this._log('ERROR', `Vollsync: ${e.message}`),
+                    this._log('ERROR', `Full sync: ${e.message}`),
                 );
                 return this._json(res, {
                     ok: true,
-                    message: 'Vollsync gestartet – alle Datenpunkte werden übertragen',
+                    message: 'Full sync started – transferring all data points',
                 });
             }
             if (p === '/api/yields' && req.method === 'GET') {
@@ -5592,8 +5584,8 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
             res.end(WEB_UI_HTML.replace(/__VERSION__/g, ADAPTER_VERSION));
         });
 
-        this._webServer.listen(port, () => this._log('SYSTEM', `Web-UI: http://0.0.0.0:${port}/`));
-        this._webServer.on('error', e => this._log('ERROR', `Web-Server: ${e.message}`));
+        this._webServer.listen(port, () => this._log('SYSTEM', `Web UI: http://0.0.0.0:${port}/`));
+        this._webServer.on('error', e => this._log('ERROR', `Web server: ${e.message}`));
     }
 
     _json(res, obj) {

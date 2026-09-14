@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "kostalpiko",
-    "version": "0.6.31",
+    "version": "0.6.32",
     "news": {
+      "0.6.32": {
+        "de": "ioBroker-Review: englische Logs/State-Namen, i18n, Node 26, INSTALLATION.md entfernt",
+        "en": "ioBroker review: English logs/state names, i18n, Node 26, removed INSTALLATION.md",
+        "ru": "Обзор ioBroker: английские логи/имена состояний, i18n, Node 26, удалён INSTALLATION.md",
+        "pt": "Revisão ioBroker: logs/nomes em inglês, i18n, Node 26, INSTALLATION.md removido",
+        "nl": "ioBroker-review: Engelse logs/stat-namen, i18n, Node 26, INSTALLATION.md verwijderd",
+        "fr": "Revue ioBroker : logs/noms en anglais, i18n, Node 26, INSTALLATION.md supprimé",
+        "it": "Revisione ioBroker: log/nomi in inglese, i18n, Node 26, rimosso INSTALLATION.md",
+        "es": "Revisión ioBroker: logs/nombres en inglés, i18n, Node 26, eliminado INSTALLATION.md",
+        "pl": "Przegląd ioBroker: angielskie logi/nazwy stanów, i18n, Node 26, usunięto INSTALLATION.md",
+        "uk": "Огляд ioBroker: англійські логи/назви станів, i18n, Node 26, видалено INSTALLATION.md",
+        "zh-cn": "ioBroker 审查：英文日志/状态名、i18n、Node 26、移除 INSTALLATION.md"
+      },
       "0.6.31": {
         "de": "Weniger Log-Spam (History nur bei aktivem WR); Memory: kompaktere Historie, API-Cache-TTL",
         "en": "Less log spam (history only when inverter awake); memory: tighter history, API cache TTL",
@@ -85,18 +98,18 @@
     "desc": {
       "de": "Liest Echtzeit- und Historiendaten vom Kostal PIKO Wechselrichter via HTTP-Scraping.",
       "en": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "ru": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "pt": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "nl": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "fr": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "it": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "es": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "pl": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "uk": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping.",
-      "zh-cn": "Reads real-time and history data from Kostal PIKO inverters via HTTP scraping."
+      "ru": "Читает данные в реальном времени и историю инверторов Kostal PIKO через HTTP-scraping.",
+      "pt": "Lê dados em tempo real e histórico dos inversores Kostal PIKO via HTTP scraping.",
+      "nl": "Leest realtime- en historische gegevens van Kostal PIKO-omvormers via HTTP-scraping.",
+      "fr": "Lit les données en temps réel et l'historique des onduleurs Kostal PIKO via HTTP scraping.",
+      "it": "Legge dati in tempo reale e storici dagli inverter Kostal PIKO via HTTP scraping.",
+      "es": "Lee datos en tiempo real e históricos de inversores Kostal PIKO mediante HTTP scraping.",
+      "pl": "Odczytuje dane na żywo i historyczne z falowników Kostal PIKO przez HTTP scraping.",
+      "uk": "Зчитує дані в реальному часі та історію інверторів Kostal PIKO через HTTP-scraping.",
+      "zh-cn": "通过 HTTP 抓取从 Kostal PIKO 逆变器读取实时和历史数据。"
     },
     "authors": [
-      "MPunktBPunkt"
+      "MPunktBPunkt <martin@bchmnn.de>"
     ],
     "keywords": [
       "kostal",
@@ -353,7 +366,7 @@
       "_id": "info.connection",
       "type": "state",
       "common": {
-        "name": "Verbunden",
+        "name": "Connected",
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
@@ -366,7 +379,7 @@
       "_id": "info.lastPoll",
       "type": "state",
       "common": {
-        "name": "Letzter Poll",
+        "name": "Last poll",
         "type": "string",
         "role": "date",
         "read": true,

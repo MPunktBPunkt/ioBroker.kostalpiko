@@ -13,35 +13,35 @@
       "options": [
         {
           "value": "auto",
-          "label": "Auto-Erkennung (aus HTML)"
+          "label": "pikoModel_opt_auto"
         },
         {
           "value": "piko3.0",
-          "label": "PIKO 3.0 (1 String)"
+          "label": "pikoModel_opt_piko3.0"
         },
         {
           "value": "piko3.6",
-          "label": "PIKO 3.6 (2 Strings)"
+          "label": "pikoModel_opt_piko3.6"
         },
         {
           "value": "piko4.2",
-          "label": "PIKO 4.2 (2 Strings)"
+          "label": "pikoModel_opt_piko4.2"
         },
         {
           "value": "piko5.5",
-          "label": "PIKO 5.5 (3 Strings)"
+          "label": "pikoModel_opt_piko5.5"
         },
         {
           "value": "piko7.0",
-          "label": "PIKO 7.0 (2 Strings)"
+          "label": "pikoModel_opt_piko7.0"
         },
         {
           "value": "piko8.3",
-          "label": "PIKO 8.3 (2 Strings)"
+          "label": "pikoModel_opt_piko8.3"
         },
         {
           "value": "piko10.1",
-          "label": "PIKO 10.1 (3 Strings)"
+          "label": "pikoModel_opt_piko10.1"
         }
       ],
       "default": "auto",
@@ -63,11 +63,11 @@
       "options": [
         {
           "value": "local",
-          "label": "Lokal (direkter Zugriff)"
+          "label": "networkMode_opt_local"
         },
         {
           "value": "fritzwireguard",
-          "label": "Via iobroker.fritzwireguard (WireGuard-Tunnel)"
+          "label": "networkMode_opt_fritzwireguard"
         }
       ],
       "default": "local",
@@ -288,15 +288,15 @@
       "help": "modulePreset_help",
       "options": [
         {
-          "label": "Manuell / unbekannt",
+          "label": "modulePreset_opt_manual",
           "value": ""
         },
         {
-          "label": "Solarworld Sunmodule SW 225 poly (~2010)",
+          "label": "modulePreset_opt_sw225poly",
           "value": "sw225poly"
         },
         {
-          "label": "Solarworld SW 225 mono",
+          "label": "modulePreset_opt_sw225mono",
           "value": "sw225mono"
         }
       ],
