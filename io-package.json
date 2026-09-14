@@ -353,7 +353,7 @@
       "_id": "info.connection",
       "type": "state",
       "common": {
-        "name": "Verbunden",
+        "name": "Connected",
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
@@ -366,7 +366,7 @@
       "_id": "info.lastPoll",
       "type": "state",
       "common": {
-        "name": "Letzter Poll",
+        "name": "Last poll",
         "type": "string",
         "role": "date",
         "read": true,
