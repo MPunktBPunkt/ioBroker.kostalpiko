@@ -1,14 +1,14 @@
 # ioBroker Kostal PIKO Adapter
 
-[![Version](https://img.shields.io/badge/version-0.6.31-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
+[![Version](https://img.shields.io/badge/version-0.6.32-blue.svg)](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](./LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg?logo=paypal)](https://www.paypal.com/donate/?business=martin%40bchmnn.de&currency_code=EUR)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
 
 **Live monitoring, 15-minute history and long-term yield** for Kostal PIKO inverters – directly via the built-in HTTP web server, no cloud required.  
 Values are exposed as ioBroker states, optional **InfluxDB** sync for Grafana, and a built-in **engineer dashboard** in the browser.
 
-German documentation: [docs/README.de.md](docs/README.de.md) · Installation: [INSTALLATION.md](INSTALLATION.md)
+German documentation: [docs/README.de.md](docs/README.de.md)
 
 ```
 http://IOBROKER-IP:8092/     ← kostalpiko.0
@@ -76,7 +76,7 @@ iobroker update kostalpiko
 iobroker restart kostalpiko
 ```
 
-Details: [INSTALLATION.md](./INSTALLATION.md) · API overview: [Schnittstellen.md](./Schnittstellen.md) · [Release notes](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
+API overview: [Schnittstellen.md](./Schnittstellen.md) · [Release notes](https://github.com/MPunktBPunkt/ioBroker.kostalpiko/releases)
 
 ---
 

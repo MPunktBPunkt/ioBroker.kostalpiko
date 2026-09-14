@@ -506,10 +506,7 @@ class KostalPikoAdapter extends utils.Adapter {
         // Benachrichtigungs-Timer
         if (this._cfg.notifyEnabled) {
             if (!this._cfg.historyFetch) {
-                this._log(
-                    'WARN',
-                    'Notifications enabled but history fetch is disabled – reports will have no data',
-                );
+                this._log('WARN', 'Notifications enabled but history fetch is disabled – reports will have no data');
             }
             this._logNotifyConfig();
             this._startNotifyTimer();
@@ -553,7 +550,6 @@ class KostalPikoAdapter extends utils.Adapter {
         }
     }
 
-
     // ─── Admin-Nachrichten (Verbindungstest) ────────────────────────────────────
 
     _resolveMessageCommand(obj) {
@@ -585,16 +581,16 @@ class KostalPikoAdapter extends utils.Adapter {
                 `Test ${kind === 'daily' ? 'daily' : kind === 'weekly' ? 'weekly' : 'monthly'} report requested`,
             );
             if (!this._cfg.notifyEnabled) {
-                reply(null, 'Benachrichtigungen sind deaktiviert – bitte zuerst aktivieren und speichern.');
+                reply(null, 'Notifications are disabled – please enable and save first.');
                 return;
             }
             if (!this._cfg.notifyInstance) {
-                reply(null, 'Kein Benachrichtigungs-Adapter konfiguriert.');
+                reply(null, 'No notification adapter configured.');
                 return;
             }
             const recipients = this._getRecipientsForReport(kind);
             if (!recipients.length) {
-                reply(null, 'Kein E-Mail-Empfänger eingetragen.');
+                reply(null, 'No e-mail recipient configured.');
                 return;
             }
             const sendFn =
@@ -618,7 +614,7 @@ class KostalPikoAdapter extends utils.Adapter {
             const presetId = (obj.message?.preset || this._cfg.modulePreset || '').trim();
             const preset = MODULE_PRESETS[presetId];
             if (!preset) {
-                this.sendTo(obj.from, cmd, { error: 'Keine Modul-Vorlage gewählt.' }, obj.callback);
+                this.sendTo(obj.from, cmd, { error: 'No module preset selected.' }, obj.callback);
                 return;
             }
             this._applyModulePresetToInstance(presetId, preset)
@@ -627,7 +623,7 @@ class KostalPikoAdapter extends utils.Adapter {
                         obj.from,
                         cmd,
                         {
-                            result: `✅ ${preset.name}: ${preset.wp} Wp, Voc ${preset.voc} V, Vmpp ${preset.vmpp} V übernommen`,
+                            result: `✅ ${preset.name}: ${preset.wp} Wp, Voc ${preset.voc} V, Vmpp ${preset.vmpp} V applied`,
                         },
                         obj.callback,
                     ),
@@ -771,10 +767,7 @@ class KostalPikoAdapter extends utils.Adapter {
             }
             return true;
         } catch (e) {
-            this._log(
-                'WARN',
-                `Could not read WireGuard status (${stateId}): ${e.message} → poll skipped`,
-            );
+            this._log('WARN', `Could not read WireGuard status (${stateId}): ${e.message} → poll skipped`);
             return false;
         }
     }
@@ -1406,8 +1399,7 @@ class KostalPikoAdapter extends utils.Adapter {
                     : Math.round(pMeasured);
             const alert = quality !== 'invalid' ? getTempAlert(tempC) : 'UNKNOWN';
             const vmppMod = v && s.count ? Math.round((v / s.count) * 10) / 10 : 0;
-            const qualityLabel =
-                quality === 'absolute' ? 'ABSOLUTE' : quality === 'limited' ? 'LIMITED' : 'INVALID';
+            const qualityLabel = quality === 'absolute' ? 'ABSOLUTE' : quality === 'limited' ? 'LIMITED' : 'INVALID';
 
             results[`${prefix}.vmppPerModule`] = vmppMod;
             results[`${prefix}.tempEquivalentC`] = tempC !== null ? tempC : 0;
@@ -1520,10 +1512,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 this._fetchAndImportHistory(syncAll, retryCount + 1, options).catch(e => {
                     this._historySyncActive = false;
                     this._historyLoading = false;
-                    this._log(
-                        force || this._isInverterAwake() ? 'WARN' : 'DEBUG',
-                        `History sync failed: ${e.message}`,
-                    );
+                    this._log(force || this._isInverterAwake() ? 'WARN' : 'DEBUG', `History sync failed: ${e.message}`);
                 }),
             30000,
         );
@@ -1601,10 +1590,7 @@ class KostalPikoAdapter extends utils.Adapter {
                     this._retryHistorySync(syncAll, retryCount, 'LogDaten.dat ohne Messzeilen', options);
                     return;
                 }
-                this._log(
-                    'WARN',
-                    'LogDaten.dat: no usable rows found – existing history preserved',
-                );
+                this._log('WARN', 'LogDaten.dat: no usable rows found – existing history preserved');
                 return;
             }
 
@@ -1668,9 +1654,7 @@ class KostalPikoAdapter extends utils.Adapter {
                 this._lastImportIso = new Date().toISOString();
                 await this.setStateAsync('history.lastImport', { val: this._lastImportIso, ack: true });
                 await this.setStateAsync('history.recordCount', { val: allRows.length, ack: true });
-                await this._refreshAutoYields().catch(e =>
-                    this._log('WARN', `Updating monthly yields: ${e.message}`),
-                );
+                await this._refreshAutoYields().catch(e => this._log('WARN', `Updating monthly yields: ${e.message}`));
                 this._log(
                     this._cfg.verbose ? 'INFO' : 'DEBUG',
                     `History sync: no new points (${allRows.length} total)`,
@@ -2227,10 +2211,7 @@ class KostalPikoAdapter extends utils.Adapter {
         const fromInflux = await this._loadYieldsFromInflux();
         if (fromInflux && Object.keys(fromInflux.months).length) {
             this._monthlyYields = fromInflux;
-            this._log(
-                'INFO',
-                `Monthly yields restored from InfluxDB: ${Object.keys(fromInflux.months).length} months`,
-            );
+            this._log('INFO', `Monthly yields restored from InfluxDB: ${Object.keys(fromInflux.months).length} months`);
             await this._saveMonthlyYields();
             return;
         }
@@ -5539,7 +5520,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 this._fetchAndImportHistory(false, 0, { force: true }).catch(e =>
                     this._log('ERROR', `Sync: ${e.message}`),
                 );
-                return this._json(res, { ok: true, message: 'Sync gestartet (nur neue Datenpunkte)' });
+                return this._json(res, { ok: true, message: 'Sync started (new data points only)' });
             }
             if (p === '/api/sync-all') {
                 // Vollsync: Cursor zurücksetzen → alle ~6 Monate an InfluxDB
@@ -5548,7 +5529,7 @@ ${this._tdCell(`${daysWithData}/${daysInMonth} Tage`)}
                 );
                 return this._json(res, {
                     ok: true,
-                    message: 'Vollsync gestartet – alle Datenpunkte werden übertragen',
+                    message: 'Full sync started – transferring all data points',
                 });
             }
             if (p === '/api/yields' && req.method === 'GET') {

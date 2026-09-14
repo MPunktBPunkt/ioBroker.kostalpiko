@@ -134,8 +134,9 @@ Firmware: ver 3.62 · Modell in den Einstellungen wählbar oder Auto-Erkennung.
 
 ## Installation & Update
 
+Installation und Update über die ioBroker Admin-Oberfläche (Register Adapter) oder:
+
 ```bash
-iobroker url https://github.com/MPunktBPunkt/iobroker.kostalpiko
 iobroker add kostalpiko          # nur bei Erstinstallation
 iobroker update kostalpiko
 iobroker restart kostalpiko
@@ -143,7 +144,7 @@ iobroker restart kostalpiko
 
 **Releases:** [github.com/MPunktBPunkt/iobroker.kostalpiko/releases](https://github.com/MPunktBPunkt/iobroker.kostalpiko/releases)
 
-Details: [INSTALLATION.md](./INSTALLATION.md) · [Schnittstellen.md](./Schnittstellen.md)
+Details: [Schnittstellen.md](./Schnittstellen.md)
 
 ---
 
