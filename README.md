@@ -161,4 +161,4 @@ node /opt/iobroker/node_modules/iobroker.kostalpiko/scripts/combine-yields.js \
 
 **GNU General Public License v3.0** – see [LICENSE](./LICENSE)
 
-Copyright (c) 2026 MPunktBPunkt
+Copyright (c) 2026 MPunktBPunkt <martin@bchmnn.de>
