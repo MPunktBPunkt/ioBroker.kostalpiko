@@ -127,6 +127,11 @@ node /opt/iobroker/node_modules/iobroker.kostalpiko/scripts/combine-yields.js \
 
 ## Changelog
 
+### 0.6.32
+- ioBroker latest review: English logs and state names, admin i18n updates, Node.js 26 CI
+- Removed `INSTALLATION.md` / GitHub-only install instructions; README uses standard Admin install
+- Author email in README copyright line (S4050)
+
 ### 0.6.31
 - Less log spam: history sync only while inverter is awake (status not „Aus“); quieter retries
 - Memory: tighter history objects, incremental merge, short-lived history API JSON cache
